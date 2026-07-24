@@ -51,9 +51,10 @@ import Slide from 'stack-site-builder/components/Slide.astro';
 2. 전주기 조망
 3. 엔지니어링 사다리
 4. 라이브 빌드 — 주문 에이전트
-5. 프로젝트 트랙 소개
-6. 개인 repo 개설 실습
-7. 마무리
+5. 코드 구조 분석 — v0.1과 v0.2
+6. 프로젝트 트랙 소개
+7. 개인 repo 개설 실습
+8. 마무리
 
 </Slide>
 
@@ -623,7 +624,63 @@ flowchart LR
 
 <Slide class="center">
 
-## Part 5 — 프로젝트 트랙
+## Part 5 — 코드 구조 분석
+
+v0.1(시작점)과 v0.2(참고 구현) — 두 태그의 diff가 곧 오늘 만든 것
+
+</Slide>
+
+<Slide>
+
+## v0.1 읽기 — 거짓말하는 API
+
+- `app/main.py` — FastAPI 하나가 전부: `/order` 고정 응답, `/settings` ⚙️ 설정
+- `web/index.html` — 채팅형 화면, 입력 한 건마다 `{"message"}` 하나를 POST
+  **서버에는 세션·대화 이력이 없습니다**
+- `data/` — 메뉴 22개 + 재고, 도구가 읽을 재료
+- `pyproject.toml` — litellm·fastapi 미리 선언, 설치 대기 없음
+- **없는 것** — agent/ · llm/ · tools/, 라이브에서 생성될 자리
+
+</Slide>
+
+<Slide>
+
+## v0.2 읽기 — 에이전트가 붙은 구조
+::sub[요구사항이 코드 구조로 어떻게 번역됐는가]
+
+- `llm/client.py` — `complete()` 하나 · MODEL은 **호출 시점에** 읽음 (재시작 없이 교체)
+- `tools/` — 도구마다 **스키마 + 순수 구현** 쌍 · 실패는 예외 대신 `{"error"}` 반환
+  → 에러를 모델에게 보여 주고 스스로 고치게
+- `tools/order.py` — **단가·합계는 코드가 계산** · LLM은 항목만 고름
+- `agent/loop.py` — 시스템 프롬프트(지어내기 금지) + `MAX_TURNS = 8` 상한
+
+루프 · 상한 · 역할 분리 — 하네스의 씨앗
+
+</Slide>
+
+<Slide>
+
+## v0.2의 한계 — 대화가 이어지지 않습니다
+
+```python
+def run_agent(user_message: str) -> dict:
+    messages = [
+        {"role": "system", "content": SYSTEM_PROMPT},
+        {"role": "user", "content": user_message},  # 매 요청 새 대화
+    ]
+```
+
+- 루프 안의 대화 이력은 **한 요청 안의 도구 왕복용**일 뿐
+- "참치김밥 두 줄" → "치즈도 추가해 주세요" — 무엇에 추가하는지 모릅니다
+- 주문은 **한 문장에** 다 담아야 합니다
+- 결함이 아니라 의도된 범위 — 대화 메모리는 **컨텍스트 엔지니어링(사다리 2단)**,
+  이후 주차의 주제
+
+</Slide>
+
+<Slide class="center">
+
+## Part 6 — 프로젝트 트랙
 
 같은 구조에서 무엇을 갈아끼우는가
 
@@ -669,7 +726,7 @@ flowchart TB
 
 <Slide class="center">
 
-## Part 6 — 개인 repo 개설
+## Part 7 — 개인 repo 개설
 
 오늘 유일하게 직접 손을 움직이는 시간
 
