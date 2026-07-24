@@ -21,13 +21,28 @@ order: "01"
 - **시연 저장소** — [week01-order-agent](https://github.com/2026-ai-service-engineering-a/week01-order-agent)
 - **운영 방식** — 멘토 시연 → 코드·프롬프트 공개 → 영상 아카이브 (코드 따라 쓰기 없음)
 
+> **이 자료를 내 컴퓨터에서 보기** — 강의 사이트 저장소를 클론해
+> [[docker|Docker]]로 띄우면 이 문서와 슬라이드를 로컬에서 볼 수 있고,
+> 새 자료가 올라오면 `git pull`로 받아봅니다.
+>
+> ```bash
+> git clone https://github.com/2026-ai-service-engineering-a/ai_service_engineering-track_a
+> cd ai_service_engineering-track_a
+> docker compose up --build      # http://localhost:4321 접속
+> # 새 자료 받기: git pull 한 뒤 다시 docker compose up --build
+> ```
+>
+> 자세한 방법은 [로컬에서 강의 자료 보기](/article/viewing-locally/),
+> Docker가 처음이라면 [Docker와 Docker Compose, 처음이라면](/article/docker-basics/)을
+> 참고하세요.
+
 ## 1. 세션 목표
 
 세션이 끝나면 다음을 얻게 됩니다.
 
 - AI 서비스가 5개 레이어(Agents / AI Platform / Models / Data / AI Infrastructure) 위에서 어떻게 실행되는지에 대한 지도
 - 엔지니어링 사다리(프롬프트 → 컨텍스트 → 하네스)가 14주 커리큘럼의 순서인 이유
-- "이 시대에 에이전트를 만드는 방식" — AI 코딩 도구에 요구사항을 지시하고, 생성물을 검증·수정하는 사이클을 직접 목격
+- "이 시대에 [[agent|에이전트]]를 만드는 방식" — AI 코딩 도구에 요구사항을 지시하고, 생성물을 검증·수정하는 사이클을 직접 목격
 - 5개 프로젝트 트랙이 "같은 구조에서 무엇을 갈아끼우는가"의 차이라는 감각
 - 개인 GitHub repo (학습 목표 작성 완료)
 
@@ -237,7 +252,7 @@ flowchart TB
 레이어별 부연:
 
 - **Agents가 본체입니다** — 이 과정의 차별점은 이 층을 직접 설계·구현한다는 것입니다. 나머지 층은 오픈소스 부품을 고르고 조립합니다
-- **LiteLLM이 Platform 역할** — Vertex 같은 매니지드 플랫폼이 해주는 "여러 모델을 한 인터페이스로"를 오픈소스 라이브러리 하나로 얻습니다
+- **[[litellm|LiteLLM]]이 Platform 역할** — Vertex 같은 매니지드 플랫폼이 해주는 "여러 모델을 한 인터페이스로"를 오픈소스 라이브러리 하나로 얻습니다
 - **Models는 갈아끼우는 소모품** — 특정 모델에 종속되지 않는 것이 설계 원칙입니다 (프로바이더 독립)
 - **GPU 없음의 의미** — 추론은 API로, [[embedding|임베딩]]은 CPU로. Infrastructure 층에서 "빌리는 것"과 "직접 드는 것"을 구분하는 판단 자체가 엔지니어링입니다
 
@@ -707,9 +722,9 @@ flowchart TB
 
 ### 6-3. v1.0 분석 — 메모리와 가드레일이 붙은 구조
 
-v0.2의 한계가 하나씩 기능이 됩니다. 사다리로 말하면 — 세션 메모리는
-**컨텍스트 엔지니어링**(2단)의 첫걸음, 가드레일은
-**하네스 엔지니어링**(3단)의 첫걸음입니다.
+v0.2의 한계가 하나씩 기능이 됩니다. 사다리로 말하면 — 세션 메모리는 2단
+[[context-engineering|컨텍스트 엔지니어링]]의 첫걸음, [[guardrail|가드레일]]은
+3단 [[harness-engineering|하네스 엔지니어링]]의 첫걸음입니다.
 
 ```mermaid
 flowchart TB
@@ -740,8 +755,9 @@ flowchart TB
   `stock.state.json`에 기록합니다 — 시연을 반복해도 저장소가 더러워지지
   않고, 상태 파일을 지우면 초기화됩니다. 읽기-수정-쓰기는 Lock으로 보호합니다
 
-**보안 관점 — 인젝션은 어디까지 막히나.** "다른 질문을 하면 점원이 거절한다"가
-지금 왜 되는지, 그리고 어디까지 믿을 수 있는지 구분해 둡니다.
+**보안 관점 — [[prompt-injection|인젝션]]은 어디까지 막히나.** "다른 질문을
+하면 점원이 거절한다"가 지금 왜 되는지, 그리고 어디까지 믿을 수 있는지 구분해
+둡니다.
 
 ```mermaid
 flowchart TB

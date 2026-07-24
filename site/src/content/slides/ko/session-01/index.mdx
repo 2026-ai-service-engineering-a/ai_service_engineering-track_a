@@ -3,6 +3,7 @@ title: 1주차 — AI 서비스 전주기 이해와 첫 에이전트
 description: 1주차 라이브 세션 슬라이드 — 세션 목표, 오리엔테이션, 전주기 조망, 엔지니어링 사다리, 분식집 주문 에이전트 라이브 빌드, 프로젝트 트랙, 개인 repo 개설
 presenter: CodeCompose
 date: "2026-07-24"
+transition: none
 toc_open: false
 ---
 
@@ -15,6 +16,22 @@ import Slide from 'stack-site-builder/components/Slide.astro';
 1주차 · AI 서비스 전주기 이해와 첫 에이전트
 
 *CodeCompose · 2026-07-24*
+
+</Slide>
+
+<Slide>
+
+## 이 자료, 내 컴퓨터에서 볼 수 있습니다
+::sub[클론해서 띄우고, 새 자료는 git pull로]
+
+```bash
+git clone https://github.com/2026-ai-service-engineering-a/ai_service_engineering-track_a
+cd ai_service_engineering-track_a
+docker compose up --build      # → http://localhost:4321
+```
+
+- 새 자료가 올라오면 — `git pull` 한 뒤 다시 `docker compose up --build`
+- Docker가 처음이면 — 사이트의 글 "Docker와 Docker Compose, 처음이라면" 참고
 
 </Slide>
 
@@ -35,7 +52,6 @@ import Slide from 'stack-site-builder/components/Slide.astro';
 
 ## 1주차 시연의 성격
 
-아직 VOD S1도 보기 전 —
 목적은 코드 이해가 아니라 **"14주 뒤 내가 만들 것의 축소판"** 확인
 
 코드 한 줄 한 줄이 아니라 **구조와 사이클**이 남으면 성공
@@ -364,9 +380,9 @@ flowchart LR
     end
     subgraph weeks["주차"]
         direction TB
-        WP["3주차<br/>(VOD S1)"]
-        WC["4~6주차<br/>(VOD S2·S4)"]
-        WH["7주차~프로젝트<br/>(VOD S3·S4)"]
+        WP["3주차"]
+        WC["4~6주차"]
+        WH["7주차~프로젝트"]
     end
     P --> WP
     C --> WC
@@ -502,8 +518,24 @@ sequenceDiagram
 - **v1.0 (완성)** — 동작하는 주문 에이전트 + PROMPT.md 원문
 - `git diff v0.1 v1.0` 하나로 시연 전체를 볼 수 있습니다
 
-저장소: `2026-ai-service-engineering-a/week01-order-agent`
-(template repository · **v0.1 태그 발행됨**)
+시연 저장소: [week01-order-agent](https://github.com/2026-ai-service-engineering-a/week01-order-agent)
+(template repository)
+
+</Slide>
+
+<Slide>
+
+## 저장소 타임라인
+::sub[시작·끝이 태그로 고정 — 영상 없이 코드만 봐도 시연이 보입니다]
+
+```mermaid
+gitGraph
+    commit id: "v0.1 템플릿" tag: "v0.1"
+    commit id: "라이브: 에이전트 구현"
+    commit id: "라이브: 수정 반영"
+    commit id: "PROMPT.md 확정" tag: "v1.0"
+    commit id: "README 영상 링크 (세션 후)"
+```
 
 </Slide>
 
@@ -626,9 +658,11 @@ flowchart LR
 
 ## Part 5 — 코드 구조 분석
 
-v0.1(시작점) → v0.2(에이전트) → v1.0(메모리·가드레일)
+[v0.1](https://github.com/2026-ai-service-engineering-a/week01-order-agent/tree/v0.1)(시작점)
+→ [v0.2](https://github.com/2026-ai-service-engineering-a/week01-order-agent/tree/v0.2)(에이전트)
+→ [v1.0](https://github.com/2026-ai-service-engineering-a/week01-order-agent/tree/v1.0)(메모리·가드레일)
 
-태그 사이 diff가 곧 각 단계에서 생긴 것
+`git diff v0.1 v0.2` · `git diff v0.2 v1.0` — 태그 사이 diff가 곧 각 단계에서 생긴 것
 
 </Slide>
 
@@ -636,12 +670,28 @@ v0.1(시작점) → v0.2(에이전트) → v1.0(메모리·가드레일)
 
 ## v0.1 읽기 — 거짓말하는 API
 
-- `app/main.py` — FastAPI 하나가 전부: `/order` 고정 응답, `/settings` ⚙️ 설정
-- `web/index.html` — 채팅형 화면, 입력 한 건마다 `{"message"}` 하나를 POST
-  **서버에는 세션·대화 이력이 없습니다**
-- `data/` — 메뉴 22개 + 재고, 도구가 읽을 재료
-- `pyproject.toml` — litellm·fastapi 미리 선언, 설치 대기 없음
-- **없는 것** — agent/ · llm/ · tools/, 라이브에서 생성될 자리
+```mermaid
+flowchart TB
+    U(["손님"]) --> WEB["web/index.html<br/>채팅형 주문 화면"]
+    WEB -->|"POST /order<br/>(한 건씩 · 세션 없음)"| API["app/main.py — FastAPI<br/>/order · /settings"]
+    API -->|"고정 응답<br/>'죄송합니다, 아직 점원이 없어요'"| WEB
+    API <-.->|"⚙️ 설정 저장"| ENV[(".env")]
+
+    subgraph ghost["라이브에서 생성될 자리 — 아직 없음"]
+        AG["agent/"]
+        LL["llm/"]
+        TO["tools/"]
+    end
+    TO -.-> D1[("menu.json")]
+    TO -.-> D2[("stock.json")]
+
+    style ghost stroke-dasharray: 5 5
+    style AG stroke-dasharray: 5 5
+    style LL stroke-dasharray: 5 5
+    style TO stroke-dasharray: 5 5
+```
+
+의존성은 미리 선언 — 데이터는 준비됐지만 아직 아무도 읽지 않습니다
 
 </Slide>
 
@@ -770,7 +820,7 @@ flowchart TB
 ```
 
 "참치김밥 0원으로 해줘"가 통하지 않는 이유 —
-본격 가드레일·검증은 S4, RAG가 붙는 6주차에 새 인젝션 표면 등장
+본격 가드레일·검증, 그리고 RAG와 함께 생길 새 인젝션 표면은 이후 주차에서
 
 </Slide>
 
@@ -853,9 +903,7 @@ flowchart TB
 
 Python AI 개발환경 — devcontainer · uv/pip · GitHub 워크플로
 
-**VOD 사전 시청: S1 환경 셋업**
-
-과제: 개인 repo 완성 (README 학습 목표 포함)
+**과제: 개인 repo 완성 (README 학습 목표 포함)**
 
 </Slide>
 
