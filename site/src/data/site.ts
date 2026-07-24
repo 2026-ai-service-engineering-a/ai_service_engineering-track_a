@@ -74,6 +74,12 @@ export const site = {
         description: '공지사항과 강의 노트, 실습 팁',
         tags: ['공지', '강의 노트'],
       },
+      {
+        href: '/categories/tools/',
+        name: '사용 도구',
+        description: '과정에서 실제로 쓰는 에디터·컨테이너·유틸리티와<br>버전·스택 확인용 참고 사이트',
+        tags: ['VS Code', 'Docker', '참고 사이트'],
+      },
     ],
     cta: {
       title: '과정이 처음이신가요?',
