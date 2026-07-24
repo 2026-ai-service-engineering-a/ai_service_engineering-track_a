@@ -421,9 +421,11 @@ flowchart LR
 
 ```mermaid
 flowchart TB
-    U(["손님 (HTTP 요청)"]) -->|"POST /order<br/>'참치김밥 두 줄이랑 라면 하나'"| API
+    U(["손님"]) --> WEB
 
     subgraph app["week01-order-agent"]
+        WEB["web/<br/>웹 주문 화면 (채팅형 UI)"]
+        WEB -->|"POST /order<br/>'참치김밥 두 줄이랑 라면 하나'"| API
         API["FastAPI<br/>/order 엔드포인트"]
         AG["agent/<br/>에이전트 루프<br/>(도구 호출 여부를 모델이 결정)"]
         LLM["llm/<br/>LiteLLM 래퍼<br/>(MODEL 환경변수로 교체)"]
@@ -444,7 +446,7 @@ flowchart TB
     end
 
     LLM <-->|"litellm.completion()"| G["Gemini API<br/>(Google AI Studio)"]
-    API -->|"주문서 json"| U
+    API -->|"주문서 json"| WEB
 ```
 
 </Slide>
@@ -493,20 +495,21 @@ sequenceDiagram
 
 ## v0.1에서 v1.0으로
 
-- **v0.1 (시작점)** — FastAPI 목 + 메뉴·재고 데이터
+- **v0.1 (시작점)** — FastAPI 목 + 웹 주문 화면 + 메뉴·재고 데이터
   `{"message": "죄송합니다, 아직 점원이 없어요"}` — 거짓말하는 API
 - **라이브** — Claude Code가 agent/ · llm/ · tools/ 구현 → 리뷰·실행·수정
 - **v1.0 (완성)** — 동작하는 주문 에이전트 + PROMPT.md 원문
 - `git diff v0.1 v1.0` 하나로 시연 전체를 볼 수 있습니다
 
-저장소: `2026-ai-service-engineering-a/week01-order-agent` (template repository)
+저장소: `2026-ai-service-engineering-a/week01-order-agent`
+(template repository · **v0.1 태그 발행됨**)
 
 </Slide>
 
 <Slide>
 
 ## 저장소 구조 (v1.0)
-::sub[v0.1은 app/ + data/ + 설정뿐 — 화살표 부분이 라이브에서 생성됩니다]
+::sub[화살표 부분이 라이브에서 생성됩니다 — 나머지는 v0.1 그대로]
 
 ```plaintext
 week01-order-agent
@@ -515,9 +518,12 @@ week01-order-agent
 ├── agent/               # 에이전트 루프          ← Claude Code 구현
 ├── llm/                 # LiteLLM 래퍼           ← Claude Code 구현
 ├── tools/               # 도구 3종               ← Claude Code 구현
+├── web/
+│   └── index.html       # 웹 주문 화면 (채팅형 UI)
 ├── data/
-│   ├── menu.json        # 메뉴 (이름·가격·옵션)
+│   ├── menu.json        # 메뉴 22개 (이름·가격·옵션)
 │   └── stock.json       # 재고 수량
+├── Dockerfile · compose.yml · compose.dev.yml
 ├── PROMPT.md            # 시연에서 사용한 지시 프롬프트 원문
 └── README.md            # 실행 방법 + 영상 링크
 ```
@@ -575,7 +581,9 @@ week01-order-agent
 
 ## 시연 진행
 
-1. **v0.1 투어** — "지금 이 API는 거짓말을 합니다"
+0. **환경 띄우기** — `docker compose -f compose.dev.yml up --build`
+   소스가 마운트되어 있어 생성되는 파일이 즉시 서버에 반영됩니다
+1. **v0.1 투어** — 웹 화면(localhost:8000)에서 주문 → "지금 이 API는 거짓말을 합니다"
 2. **지시 프롬프트 작성** — 줄마다 의도를 설명하며 타이핑
 3. **Claude Code 실행 + 생성 관찰** — while 루프(하네스층), litellm.completion(Platform층) 내레이션
 4. **리뷰 + 실행 + 수정** — 정상 주문은 합계 암산으로, "돈까스 되나요?"는 거절·대안으로 검증
