@@ -5,10 +5,11 @@ AI 서비스 엔지니어링 Track A — 14회차 실습 트랙의 강의 자료
 
 ## 저장소 구조
 
-- `site/` — 강의 사이트 (stack-site-builder 기반 Astro). 강의·슬라이드·개념·용어집·글.
+- `site/` — stack-site-builder 기반 Astro 강의 사이트. 강의·슬라이드·개념·용어집·글.
   콘텐츠 작성 위치와 규칙은 `site/README.md` 참고.
-- `docs/`, `src/`, `tests/`, `pyproject.toml` — 회차별 강의 문서·Python 예제 코드 (추가 예정).
-  `src/`는 Python 예제 코드 자리다 — 사이트 소스는 `site/src/`에 있다.
+- `docs/` — 콘텐츠 작성 규칙(`writing-rules.md`)과 회차별 강의 문서·실습 가이드 자리.
+- `src/`, `tests/`, `pyproject.toml` — 회차별 Python 예제 코드 자리 (추가 예정)
+  — 사이트 소스는 `site/src/`에 있다.
 
 ## Git 워크플로 — git flow
 
@@ -39,11 +40,13 @@ docker compose -f docker-compose.dev.yml up  # site/ 바인드 마운트 + 핫�
 pnpm dev / pnpm build / pnpm check
 ```
 
-## 콘텐츠 작성 시 주의 (site/)
+## 콘텐츠 작성 규칙
 
-- **표 안의 wikilink**는 파이프를 이스케이프해야 한다: `[[llm\|LLM]]`
-  (안 하면 `|`가 표의 셀 구분자로 파싱된다).
-- **물결표(~)가 한 문단에 두 개**면 GFM 취소선으로 파싱된다. 회차 범위 등은
-  `1\~9회차`처럼 이스케이프한다 (코드 블록·mermaid 안은 무관).
-- `[[용어]]` 위키링크는 `site/src/data/glossary.mjs`에 등록된 용어만 쓸 수 있다 —
-  미등록 용어는 빌드가 실패한다.
+문장 스타일·마크다운 이스케이프·슬라이드 줄바꿈 등 작성 규칙은
+**`docs/writing-rules.md`**를 따른다. 핵심 요약:
+
+- 표 안의 파이프는 `\|`로 이스케이프한다 (위키링크 포함: `[[llm\|LLM]]`)
+- 물결표 범위 표기는 `1\~9회차`처럼 이스케이프한다 (한 문단에 `~` 두 개면 취소선)
+- 닫는 괄호로 끝나는 문장에는 마침표를 겹치지 않는다 — `).` 금지
+- `[[용어]]` 위키링크는 `site/src/data/glossary.mjs` 등록 용어만 (미등록은 빌드 실패)
+- 슬라이드는 작성·수정 후 브라우저에서 줄바꿈이 어색하지 않은지 확인한다

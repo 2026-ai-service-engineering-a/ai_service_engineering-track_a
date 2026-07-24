@@ -38,6 +38,9 @@ docker compose -f docker-compose.dev.yml up  # site/ 바인드 마운트 + 핫�
 각 컬렉션에 시드 문서가 하나씩 들어 있으니(1회차 강의·슬라이드, RAG 개념,
 공지 글, 소개) 새 문서는 그것을 복사해 시작하면 된다.
 
+문장 스타일·마크다운 이스케이프·슬라이드 줄바꿈 등 작성 규칙은
+[../docs/writing-rules.md](../docs/writing-rules.md)를 따른다.
+
 ## 사이트 데이터
 
 - `src/data/site.ts` — 사이트 이름, 로케일, 섹션 토글, cards 홈(히어로/카드/CTA), UI 문자열
