@@ -660,6 +660,30 @@ v0.1(시작점)과 v0.2(참고 구현) — 두 태그의 diff가 곧 오늘 만�
 
 <Slide>
 
+## v0.2 모듈 구조
+
+```mermaid
+flowchart TB
+    WEB["web/<br/>주문 화면"] -->|"POST /order"| API["app/main.py"]
+    API --> RUN["agent/loop.py — run_agent<br/>MAX_TURNS = 8"]
+    RUN -->|"complete(messages, tools)"| LLM["llm/client.py<br/>LiteLLM 래퍼"]
+    LLM <--> G["Gemini API"]
+    RUN -->|"execute(name, args)"| REG["tools/<br/>스키마 + 구현 레지스트리"]
+    REG --> M["search_menu"]
+    REG --> S["check_stock"]
+    REG --> O["create_order<br/>단가·합계는 코드가 계산"]
+    M --> D1[("menu.json")]
+    S --> D2[("stock.json")]
+    O --> D1
+    O --> D2
+    RUN -->|"주문서 json"| API
+    API --> WEB
+```
+
+</Slide>
+
+<Slide>
+
 ## v0.2의 한계 — 대화가 이어지지 않습니다
 
 ```python
@@ -675,6 +699,26 @@ def run_agent(user_message: str) -> dict:
 - 주문은 **한 문장에** 다 담아야 합니다
 - 결함이 아니라 의도된 범위 — 대화 메모리는 **컨텍스트 엔지니어링(사다리 2단)**,
   이후 주차의 주제
+
+</Slide>
+
+<Slide>
+
+## 요청마다 새 대화
+::sub[주문을 한 문장에 담아야 하는 이유]
+
+```mermaid
+flowchart TB
+    subgraph req1["요청 1 — 새 대화"]
+        direction LR
+        U1["'참치김밥 두 줄 주세요'"] --> A1["에이전트 루프"] --> O1["주문서 ✓"]
+    end
+    subgraph req2["요청 2 — 또 새 대화 (요청 1을 모름)"]
+        direction LR
+        U2["'치즈도 추가해 주세요'"] --> A2["에이전트 루프"] --> O2["무엇에 추가…?"]
+    end
+    req1 ~~~ req2
+```
 
 </Slide>
 
