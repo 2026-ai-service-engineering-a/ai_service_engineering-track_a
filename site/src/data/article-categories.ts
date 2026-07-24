@@ -15,7 +15,7 @@ export const articleCategories: Category[] = [
     id: 'lecture-note',
     label: { ko: '강의 노트' },
     description: {
-      ko: '회차 진행 후 정리하는 보충 노트와 실습 팁',
+      ko: '주차 진행 후 정리하는 보충 노트와 실습 팁',
     },
   },
   {
