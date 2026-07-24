@@ -99,6 +99,19 @@ ai_service_engineering-track_a/
 
 > 회차별 예제 코드·강의 문서·개발 환경 설정은 커리큘럼 진행에 맞춰 추가됩니다.
 
+## 강의 사이트 실행
+
+강의 자료·슬라이드 사이트(`site/`)는 Docker만 있으면 저장소 루트에서 바로 띄울 수 있습니다.
+
+```sh
+docker compose up      # 사이트 가동 — http://localhost:4321
+docker compose down    # 중지·정리
+```
+
+콘텐츠를 수정하면서 보려면 `docker compose -f docker-compose.dev.yml up`을
+사용하세요 (`site/` 바인드 마운트 + 핫리로드). 로컬 pnpm 개발 등 자세한 내용은
+[site/README.md](site/README.md)를 참고하세요.
+
 ## License
 
 강의 자료의 라이선스는 추후 명시 예정입니다.
