@@ -51,7 +51,7 @@ import Slide from 'stack-site-builder/components/Slide.astro';
 2. 전주기 조망
 3. 엔지니어링 사다리
 4. 라이브 빌드 — 주문 에이전트
-5. 코드 구조 분석 — v0.1과 v0.2
+5. 코드 구조 분석 — v0.1 · v0.2 · v1.0
 6. 프로젝트 트랙 소개
 7. 개인 repo 개설 실습
 8. 마무리
@@ -626,7 +626,9 @@ flowchart LR
 
 ## Part 5 — 코드 구조 분석
 
-v0.1(시작점)과 v0.2(참고 구현) — 두 태그의 diff가 곧 오늘 만든 것
+v0.1(시작점) → v0.2(에이전트) → v1.0(메모리·가드레일)
+
+태그 사이 diff가 곧 각 단계에서 생긴 것
 
 </Slide>
 
@@ -719,6 +721,56 @@ flowchart TB
     end
     req1 ~~~ req2
 ```
+
+</Slide>
+
+<Slide>
+
+## v1.0 읽기 — 한계가 기능이 됩니다
+::sub[세션 메모리 = 컨텍스트(2단)의 첫걸음 · 가드레일 = 하네스(3단)의 첫걸음]
+
+- `agent/session.py` — **대화가 이어집니다** · session_id 왕복
+  TTL 30분 · 이력 상한 30개 · Lock — "그냥 dict"가 아니라 관리해야 할 상태
+- **가드레일 2종** — 결정적으로 처리할 수 있는 UX를 확률에 맡기지 않음
+  메뉴판 요청이면 모델이 도구를 건너뛰어도 메뉴판 표가 뜸 · 빈 응답이면 재지시
+- `tools/stock.py` — 주문 확정 시 **재고 차감**
+  시드(stock.json, 커밋)와 런타임 상태(stock.state.json, gitignore) 분리
+
+</Slide>
+
+<Slide>
+
+## v1.0 모듈 구조
+
+```mermaid
+flowchart TB
+    WEB["web/ 주문 화면<br/>session_id 왕복 · 메뉴판 표"] -->|"POST /order<br/>(message + session_id)"| API["app/main.py"]
+    API <--> SES["agent/session.py — 세션 메모리<br/>TTL 30분 · 이력 30개 · Lock"]
+    API --> RUN["agent/loop.py — run_agent(message, history)<br/>MAX_TURNS = 8 · 가드레일 2종"]
+    RUN <--> LLM["llm/client.py"]
+    LLM <--> G["Gemini API"]
+    RUN --> REG["tools/"]
+    REG --> ST["check_stock · create_order<br/>주문 확정 시 재고 차감"]
+    ST --> SEED[("stock.json<br/>시드 · 읽기 전용")]
+    ST --> STATE[("stock.state.json<br/>런타임 · gitignore")]
+```
+
+</Slide>
+
+<Slide>
+
+## 인젝션은 어디까지 막히나
+::sub[말은 뚫릴 수 있어도, 피해가 나는 경로는 전부 결정적 코드 뒤]
+
+```mermaid
+flowchart TB
+    IN["손님 메시지<br/>(유일한 입력 채널)"] --> L1["1차 — 역할 고정 프롬프트<br/>확률적 방어 · 뚫릴 수 있음"]
+    L1 --> L2["2차 — 좁은 행동 반경<br/>도구 3개뿐 · 파일·네트워크·코드 실행 없음"]
+    L2 --> L3["3차 — 결정적 코드 경계<br/>가격·합계·재고는 서버가 계산"]
+```
+
+"참치김밥 0원으로 해줘"가 통하지 않는 이유 —
+본격 가드레일·검증은 S4, RAG가 붙는 6주차에 새 인젝션 표면 등장
 
 </Slide>
 
