@@ -82,7 +82,7 @@ flowchart LR
 ```plaintext
 ai_service_engineering-track_a/
 ├── site/                    # 강의 사이트 (stack-site-builder 기반 Astro) — 강의·슬라이드·개념·용어집
-├── docs/                    # 작성 규칙(writing-rules.md) + 회차별 강의 문서·실습 가이드 (추가 예정)
+├── docs/                    # 규칙 문서(작성·문서화·git) + 회차별 강의 문서·실습 가이드 (추가 예정)
 ├── src/                     # 회차별 예제 코드 (추가 예정)
 ├── tests/                   # 단위 테스트 (추가 예정)
 ├── pyproject.toml           # uv 기반 의존성 (추가 예정)
