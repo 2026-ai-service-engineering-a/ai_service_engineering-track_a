@@ -46,32 +46,32 @@ export const site = {
     hero: {
       title: 'AI 서비스 엔지니어링 — Track A',
       subtitle:
-        '공통 기술 스택 실습(1~9주차)으로 기초를 정렬하고,<br>개인별 배포 가능한 오픈소스 기반 AI 데모 서비스(10~14주차)를 완성하는 14주 실습 트랙.',
+        '공통 기술 스택 실습(1~9주차)으로 기초를 정렬하고,<br>개인별 배포 가능한 오픈소스 기반<br>AI 데모 서비스(10~14주차)를 완성하는 14주 실습 트랙',
     },
     cardsTitle: '바로가기',
     cards: [
       {
         href: '/course/',
         name: '강의',
-        description: '주차별 강의 자료와 실습 가이드 —<br>환경 구축부터 RAG, FastAPI, 배포까지.',
+        description: '주차별 강의 자료와 실습 가이드 —<br>환경 구축부터 RAG, FastAPI, 배포까지',
         tags: ['1~9주차 공통 역량', '10~14주차 개인 프로젝트'],
       },
       {
         href: '/slides/',
         name: '슬라이드',
-        description: '주차별 강의 슬라이드 —<br>브라우저에서 바로 보는 프레젠테이션.',
+        description: '주차별 강의 슬라이드 —<br>브라우저에서 바로 보는 프레젠테이션',
         tags: ['프레젠테이션'],
       },
       {
         href: '/concept/',
         name: '개념',
-        description: 'LLM·프롬프트, 임베딩·벡터DB, RAG, 서비스화 등<br>과정을 관통하는 핵심 개념 정리.',
+        description: 'LLM·프롬프트, 임베딩·벡터DB, RAG, 서비스화 등<br>과정을 관통하는 핵심 개념 정리',
         tags: ['LLM', 'RAG', '서빙'],
       },
       {
         href: '/article/',
         name: '글',
-        description: '공지사항과 강의 노트, 실습 팁.',
+        description: '공지사항과 강의 노트, 실습 팁',
         tags: ['공지', '강의 노트'],
       },
     ],
@@ -85,7 +85,7 @@ export const site = {
   ui: {
     ko: {
       'site.tagline':
-        'AI 서비스 엔지니어링 Track A — 14주 실습 트랙의 강의 자료, 슬라이드, 개념 정리, 용어집.',
+        'AI 서비스 엔지니어링 Track A — 14주 실습 트랙의 강의 자료, 슬라이드, 개념 정리, 용어집',
     },
   } as Record<string, Record<string, string>>,
 };
