@@ -51,4 +51,4 @@ docker compose -f docker-compose.dev.yml up  # site/ 바인드 마운트 + 핫�
 
 아무 문서나 프론트매터에 `private: true`(+`teaser`)를 붙이면 본문이 암호화되어
 로그인 후에만 보인다. 사용자/키는 `.env`의 `AAS_PRIVATE_*` 환경 변수로 관리 —
-테마 저장소의 `playground/.env.sample`과 `docs/private-content-design.md` 참고.
+테마 저장소의 `playground/.env.sample`과 `docs/private-content-design.md` 참고
