@@ -1,0 +1,62 @@
+---
+title: "로컬에서 강의 자료 보기 — 클론, 실행, 업데이트"
+description: "강의 사이트 저장소를 클론해 Docker로 내 컴퓨터에서 띄우고, 새 자료가 올라오면 git pull로 받아보는 방법"
+date: 2026-07-25
+category: notice
+tags: ["안내", "Docker", "git"]
+---
+
+이 사이트의 모든 강의 자료·슬라이드는 저장소 하나에 들어 있습니다. 클론해서
+[[docker|Docker]]로 띄우면 인터넷 없이도, 각자의 속도로 자료를 볼 수 있습니다.
+
+## 준비물
+
+- **git** — 설치 여부는 터미널에서 `git --version`으로 확인
+- **Docker Desktop** — `docker --version`으로 확인. Docker가 처음이라면
+  [Docker와 Docker Compose, 처음이라면](/article/docker-basics/)을 먼저 읽어 보세요
+
+Node.js나 pnpm은 필요 없습니다 — 빌드는 전부 컨테이너 안에서 일어납니다.
+
+## 1. 클론
+
+```bash
+git clone https://github.com/2026-ai-service-engineering-a/ai_service_engineering-track_a
+cd ai_service_engineering-track_a
+```
+
+## 2. 실행
+
+```bash
+docker compose up --build
+```
+
+첫 실행은 이미지를 만드느라 몇 분 걸립니다. 로그가 멈추면 브라우저에서
+`http://localhost:4321`에 접속하세요 — 지금 보고 있는 이 사이트가 그대로
+뜹니다.
+
+끝낼 때는 터미널에서 `Ctrl+C`를 누르거나, 다른 터미널에서 아래를 실행합니다.
+
+```bash
+docker compose down
+```
+
+## 3. 새 자료 받기
+
+강의 자료는 주차 진행에 맞춰 계속 올라옵니다. 최신 자료를 받으려면:
+
+```bash
+git pull
+docker compose up --build
+```
+
+`--build`를 빼먹지 마세요 — 기본 실행 모드는 소스를 이미지에 굽기 때문에,
+`git pull`로 파일을 받아도 다시 빌드해야 화면에 반영됩니다.
+
+## 자주 막히는 것
+
+- **포트가 이미 사용 중이라는 에러** — 이전에 띄운 컨테이너가 남아 있는
+  경우입니다. `docker compose down`으로 정리한 뒤 다시 띄우세요
+- **`docker: command not found`** — Docker Desktop이 설치되어 있고 실행 중인지
+  확인하세요
+- **git pull이 충돌을 일으킴** — 클론한 저장소는 읽기 전용으로 쓰는 것을
+  권장합니다. 파일을 수정했다면 `git stash`로 치워 두고 pull 하세요
