@@ -14,6 +14,6 @@
 
 ## 주차별 강의 문서
 
-주차별 교안은 강의 사이트의 course 문서가 단일 원본이다
-(`site/src/content/courses/ko/` — 예: 1주차 `session-01.mdx`).
+주차별 교안은 강의 사이트의 course 문서가 단일 원본이다 —
+`site/src/content/courses/ko/` (예: 1주차 `session-01.mdx`)에 있다.
 슬라이드도 이 문서를 토대로 만든다. 운영용 보조 문서가 생기면 여기에 둔다.

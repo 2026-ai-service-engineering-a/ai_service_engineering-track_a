@@ -51,9 +51,10 @@ import Slide from 'stack-site-builder/components/Slide.astro';
 2. 전주기 조망
 3. 엔지니어링 사다리
 4. 라이브 빌드 — 주문 에이전트
-5. 프로젝트 트랙 소개
-6. 개인 repo 개설 실습
-7. 마무리
+5. 코드 구조 분석 — v0.1과 v0.2
+6. 프로젝트 트랙 소개
+7. 개인 repo 개설 실습
+8. 마무리
 
 </Slide>
 
@@ -421,9 +422,11 @@ flowchart LR
 
 ```mermaid
 flowchart TB
-    U(["손님 (HTTP 요청)"]) -->|"POST /order<br/>'참치김밥 두 줄이랑 라면 하나'"| API
+    U(["손님"]) --> WEB
 
     subgraph app["week01-order-agent"]
+        WEB["web/<br/>웹 주문 화면 (채팅형 UI)"]
+        WEB -->|"POST /order<br/>'참치김밥 두 줄이랑 라면 하나'"| API
         API["FastAPI<br/>/order 엔드포인트"]
         AG["agent/<br/>에이전트 루프<br/>(도구 호출 여부를 모델이 결정)"]
         LLM["llm/<br/>LiteLLM 래퍼<br/>(MODEL 환경변수로 교체)"]
@@ -444,7 +447,7 @@ flowchart TB
     end
 
     LLM <-->|"litellm.completion()"| G["Gemini API<br/>(Google AI Studio)"]
-    API -->|"주문서 json"| U
+    API -->|"주문서 json"| WEB
 ```
 
 </Slide>
@@ -493,20 +496,21 @@ sequenceDiagram
 
 ## v0.1에서 v1.0으로
 
-- **v0.1 (시작점)** — FastAPI 목 + 메뉴·재고 데이터
+- **v0.1 (시작점)** — FastAPI 목 + 웹 주문 화면 + 메뉴·재고 데이터
   `{"message": "죄송합니다, 아직 점원이 없어요"}` — 거짓말하는 API
 - **라이브** — Claude Code가 agent/ · llm/ · tools/ 구현 → 리뷰·실행·수정
 - **v1.0 (완성)** — 동작하는 주문 에이전트 + PROMPT.md 원문
 - `git diff v0.1 v1.0` 하나로 시연 전체를 볼 수 있습니다
 
-저장소: `2026-ai-service-engineering-a/week01-order-agent` (template repository)
+저장소: `2026-ai-service-engineering-a/week01-order-agent`
+(template repository · **v0.1 태그 발행됨**)
 
 </Slide>
 
 <Slide>
 
 ## 저장소 구조 (v1.0)
-::sub[v0.1은 app/ + data/ + 설정뿐 — 화살표 부분이 라이브에서 생성됩니다]
+::sub[화살표 부분이 라이브에서 생성됩니다 — 나머지는 v0.1 그대로]
 
 ```plaintext
 week01-order-agent
@@ -515,9 +519,12 @@ week01-order-agent
 ├── agent/               # 에이전트 루프          ← Claude Code 구현
 ├── llm/                 # LiteLLM 래퍼           ← Claude Code 구현
 ├── tools/               # 도구 3종               ← Claude Code 구현
+├── web/
+│   └── index.html       # 웹 주문 화면 (채팅형 UI)
 ├── data/
-│   ├── menu.json        # 메뉴 (이름·가격·옵션)
+│   ├── menu.json        # 메뉴 22개 (이름·가격·옵션)
 │   └── stock.json       # 재고 수량
+├── Dockerfile · compose.yml · compose.dev.yml
 ├── PROMPT.md            # 시연에서 사용한 지시 프롬프트 원문
 └── README.md            # 실행 방법 + 영상 링크
 ```
@@ -575,7 +582,9 @@ week01-order-agent
 
 ## 시연 진행
 
-1. **v0.1 투어** — "지금 이 API는 거짓말을 합니다"
+0. **환경 띄우기** — `docker compose -f compose.dev.yml up --build`
+   소스가 마운트되어 있어 생성되는 파일이 즉시 서버에 반영됩니다
+1. **v0.1 투어** — 웹 화면(localhost:8000)에서 주문 → "지금 이 API는 거짓말을 합니다"
 2. **지시 프롬프트 작성** — 줄마다 의도를 설명하며 타이핑
 3. **Claude Code 실행 + 생성 관찰** — while 루프(하네스층), litellm.completion(Platform층) 내레이션
 4. **리뷰 + 실행 + 수정** — 정상 주문은 합계 암산으로, "돈까스 되나요?"는 거절·대안으로 검증
@@ -615,7 +624,107 @@ flowchart LR
 
 <Slide class="center">
 
-## Part 5 — 프로젝트 트랙
+## Part 5 — 코드 구조 분석
+
+v0.1(시작점)과 v0.2(참고 구현) — 두 태그의 diff가 곧 오늘 만든 것
+
+</Slide>
+
+<Slide>
+
+## v0.1 읽기 — 거짓말하는 API
+
+- `app/main.py` — FastAPI 하나가 전부: `/order` 고정 응답, `/settings` ⚙️ 설정
+- `web/index.html` — 채팅형 화면, 입력 한 건마다 `{"message"}` 하나를 POST
+  **서버에는 세션·대화 이력이 없습니다**
+- `data/` — 메뉴 22개 + 재고, 도구가 읽을 재료
+- `pyproject.toml` — litellm·fastapi 미리 선언, 설치 대기 없음
+- **없는 것** — agent/ · llm/ · tools/, 라이브에서 생성될 자리
+
+</Slide>
+
+<Slide>
+
+## v0.2 읽기 — 에이전트가 붙은 구조
+::sub[요구사항이 코드 구조로 어떻게 번역됐는가]
+
+- `llm/client.py` — `complete()` 하나 · MODEL은 **호출 시점에** 읽음 (재시작 없이 교체)
+- `tools/` — 도구마다 **스키마 + 순수 구현** 쌍 · 실패는 예외 대신 `{"error"}` 반환
+  → 에러를 모델에게 보여 주고 스스로 고치게
+- `tools/order.py` — **단가·합계는 코드가 계산** · LLM은 항목만 고름
+- `agent/loop.py` — 시스템 프롬프트(지어내기 금지) + `MAX_TURNS = 8` 상한
+
+루프 · 상한 · 역할 분리 — 하네스의 씨앗
+
+</Slide>
+
+<Slide>
+
+## v0.2 모듈 구조
+
+```mermaid
+flowchart TB
+    WEB["web/<br/>주문 화면"] -->|"POST /order"| API["app/main.py"]
+    API --> RUN["agent/loop.py — run_agent<br/>MAX_TURNS = 8"]
+    RUN -->|"complete(messages, tools)"| LLM["llm/client.py<br/>LiteLLM 래퍼"]
+    LLM <--> G["Gemini API"]
+    RUN -->|"execute(name, args)"| REG["tools/<br/>스키마 + 구현 레지스트리"]
+    REG --> M["search_menu"]
+    REG --> S["check_stock"]
+    REG --> O["create_order<br/>단가·합계는 코드가 계산"]
+    M --> D1[("menu.json")]
+    S --> D2[("stock.json")]
+    O --> D1
+    O --> D2
+    RUN -->|"주문서 json"| API
+    API --> WEB
+```
+
+</Slide>
+
+<Slide>
+
+## v0.2의 한계 — 대화가 이어지지 않습니다
+
+```python
+def run_agent(user_message: str) -> dict:
+    messages = [
+        {"role": "system", "content": SYSTEM_PROMPT},
+        {"role": "user", "content": user_message},  # 매 요청 새 대화
+    ]
+```
+
+- 루프 안의 대화 이력은 **한 요청 안의 도구 왕복용**일 뿐
+- "참치김밥 두 줄" → "치즈도 추가해 주세요" — 무엇에 추가하는지 모릅니다
+- 주문은 **한 문장에** 다 담아야 합니다
+- 결함이 아니라 의도된 범위 — 대화 메모리는 **컨텍스트 엔지니어링(사다리 2단)**,
+  이후 주차의 주제
+
+</Slide>
+
+<Slide>
+
+## 요청마다 새 대화
+::sub[주문을 한 문장에 담아야 하는 이유]
+
+```mermaid
+flowchart TB
+    subgraph req1["요청 1 — 새 대화"]
+        direction LR
+        U1["'참치김밥 두 줄 주세요'"] --> A1["에이전트 루프"] --> O1["주문서 ✓"]
+    end
+    subgraph req2["요청 2 — 또 새 대화 (요청 1을 모름)"]
+        direction LR
+        U2["'치즈도 추가해 주세요'"] --> A2["에이전트 루프"] --> O2["무엇에 추가…?"]
+    end
+    req1 ~~~ req2
+```
+
+</Slide>
+
+<Slide class="center">
+
+## Part 6 — 프로젝트 트랙
 
 같은 구조에서 무엇을 갈아끼우는가
 
@@ -661,7 +770,7 @@ flowchart TB
 
 <Slide class="center">
 
-## Part 6 — 개인 repo 개설
+## Part 7 — 개인 repo 개설
 
 오늘 유일하게 직접 손을 움직이는 시간
 

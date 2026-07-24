@@ -91,6 +91,7 @@ flowchart LR
 ai_service_engineering-track_a/
 ├── site/                    # 강의 사이트 (stack-site-builder 기반 Astro) — 강의·슬라이드·개념·용어집
 ├── docs/                    # 규칙 문서(작성·문서화·git) + 회차별 강의 문서·실습 가이드 (추가 예정)
+├── scripts/                 # 저장소 스크립트 (문서 스타일 검사 등)
 ├── src/                     # 회차별 예제 코드 (추가 예정)
 ├── tests/                   # 단위 테스트 (추가 예정)
 ├── pyproject.toml           # uv 기반 의존성 (추가 예정)
@@ -109,8 +110,8 @@ docker compose down    # 중지·정리
 ```
 
 콘텐츠를 수정하면서 보려면 `docker compose -f docker-compose.dev.yml up`을
-사용하세요 (`site/` 바인드 마운트 + 핫리로드). 로컬 pnpm 개발 등 자세한 내용은
-[site/README.md](site/README.md)를 참고하세요.
+사용하세요 — `site/`를 바인드 마운트해 핫리로드로 반영됩니다. 로컬 pnpm 개발 등
+자세한 내용은 [site/README.md](site/README.md)를 참고하세요.
 
 ## License
 

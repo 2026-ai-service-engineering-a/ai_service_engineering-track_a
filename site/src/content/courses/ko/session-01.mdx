@@ -338,9 +338,11 @@ flowchart LR
 
 ```mermaid
 flowchart TB
-    U(["손님 (HTTP 요청)"]) -->|"POST /order<br/>'참치김밥 두 줄이랑 라면 하나'"| API
+    U(["손님"]) --> WEB
 
     subgraph app["week01-order-agent"]
+        WEB["web/<br/>웹 주문 화면 (채팅형 UI)"]
+        WEB -->|"POST /order<br/>'참치김밥 두 줄이랑 라면 하나'"| API
         API["FastAPI<br/>/order 엔드포인트"]
         AG["agent/<br/>에이전트 루프<br/>(도구 호출 여부를 모델이 결정)"]
         LLM["llm/<br/>LiteLLM 래퍼<br/>(MODEL 환경변수로 교체)"]
@@ -361,7 +363,7 @@ flowchart TB
     end
 
     LLM <-->|"litellm.completion()"| G["Gemini API<br/>(Google AI Studio)"]
-    API -->|"주문서 json"| U
+    API -->|"주문서 json"| WEB
 ```
 
 이 그림을 전주기 조망과 연결하면:
@@ -377,7 +379,7 @@ flowchart TB
 
 ### 5-4. 에이전트 루프의 동작
 
-리뷰 단계에서 이 흐름을 코드와 대조하며 설명합니다 (사다리 3단 = 하네스의 씨앗).
+리뷰 단계에서 이 흐름을 코드와 대조하며 설명합니다 — 사다리 3단, 하네스의 씨앗입니다.
 
 ```mermaid
 sequenceDiagram
@@ -406,10 +408,12 @@ sequenceDiagram
 ### 5-5. 저장소 설계 — v0.1에서 v1.0으로
 
 **저장소**: [week01-order-agent](https://github.com/2026-ai-service-engineering-a/week01-order-agent)
-(조직 소유, template repository로 지정)
+— 조직 소유, template repository로 지정되어 있습니다. 시연 시작점은
+[v0.1 태그](https://github.com/2026-ai-service-engineering-a/week01-order-agent/tree/v0.1)로
+발행되어 있습니다.
 
-매주 시연은 `2026-ai-service-engineering-a` 조직 아래 독립 레포로 만듭니다
-(조직 프로필 README에 주차별 레포 인덱스 표 유지).
+매주 시연은 `2026-ai-service-engineering-a` 조직 아래 독립 레포로 만들고,
+조직 프로필 README에 주차별 레포 인덱스 표를 유지합니다.
 
 ```mermaid
 gitGraph
@@ -426,17 +430,24 @@ gitGraph
 week01-order-agent (v0.1)
 ├── app/
 │   └── main.py          # FastAPI 목 — /order가 고정 문자열 반환
+├── web/
+│   └── index.html       # 웹 주문 화면 (채팅형 UI, /order 호출)
 ├── data/
-│   ├── menu.json        # 메뉴 20개 내외 (이름·가격·옵션)
+│   ├── menu.json        # 메뉴 22개 (이름·가격·옵션)
 │   └── stock.json       # 재고 수량
 ├── .env.example         # GEMINI_API_KEY, MODEL
-├── pyproject.toml       # litellm, fastapi 등 의존성 선언 완료
+├── pyproject.toml       # litellm, fastapi 등 의존성 선언 완료 (uv)
+├── Dockerfile
+├── compose.yml          # 기본 실행
+├── compose.dev.yml      # 개발 모드 — 소스 마운트 + 자동 리로드
 ├── PROMPT.md            # 자리만 (빈 파일)
 └── README.md            # 프로젝트 목표, 실행 방법
 ```
 
 - 목 응답 예: `{"message": "죄송합니다, 아직 점원이 없어요"}` — 실행은 되지만 "거짓말하는 API"
 - 의존성이 미리 선언되어 있으므로 시연 중 설치 대기 시간이 없습니다
+- 웹 주문 화면에는 예시 버튼 3종(정상 주문 · 메뉴에 없는 항목 · 재고 초과)이
+  준비되어 있어, 리뷰 단계의 검증 케이스를 바로 누를 수 있습니다
 
 **v1.0 — 시연 종료점**
 
@@ -447,10 +458,13 @@ week01-order-agent (v1.0)
 ├── agent/               # 에이전트 루프          ← Claude Code 구현
 ├── llm/                 # LiteLLM 래퍼           ← Claude Code 구현
 ├── tools/               # 도구 3종               ← Claude Code 구현
+├── web/                 # (v0.1 그대로)
 ├── data/                # (v0.1 그대로)
 ├── PROMPT.md            # 시연에서 사용한 지시 프롬프트 원문
 └── README.md            # 실행 방법 갱신 + 영상 링크 (세션 후)
 ```
+
+Dockerfile·compose 파일은 v0.1 그대로 유지됩니다.
 
 **수강생 여정**
 
@@ -509,9 +523,30 @@ flowchart LR
 
 ### 5-8. 시연 진행
 
+**0. 시연 환경 띄우기**
+
+시연은 **개발 모드 컨테이너를 띄워 둔 채** 진행합니다 — 소스가 마운트되어
+있어, 라이브 중 Claude Code가 생성하는 `agent/`·`llm/`·`tools/`가 재빌드 없이
+바로 서버에 반영됩니다.
+
+```bash
+git clone https://github.com/2026-ai-service-engineering-a/week01-order-agent
+cd week01-order-agent
+cp .env.example .env        # GEMINI_API_KEY 채우기 (v0.1 목은 키 없이도 동작)
+docker compose -f compose.dev.yml up --build
+```
+
 **1. v0.1 투어**
 
-- 목 API 실행 → `/order`에 질문 → 고정 응답 확인
+- 웹 주문 화면(`http://localhost:8000`)에 접속해 예시 버튼으로 주문 → 고정 응답 확인
+- curl로도 같은 것을 확인합니다:
+
+  ```bash
+  curl -s -X POST http://localhost:8000/order \
+    -H "Content-Type: application/json" \
+    -d '{"message": "참치김밥 두 줄이랑 라면 하나, 라면은 치즈 추가"}'
+  ```
+
 - 폴더 구조, menu.json·stock.json 열어서 보여주기
 - 멘트: "지금 이 API는 거짓말을 합니다. 오늘 이 자리에서 진짜로 만듭니다"
 
@@ -524,12 +559,13 @@ flowchart LR
 - 생성되는 동안 침묵하지 않습니다 — 만들어지는 파일을 따라가며 내레이션합니다
   - "지금 생긴 이 while 루프가 하네스층입니다" (사다리 연결)
   - "이 litellm.completion 한 줄이 아까 그림의 Platform 레이어입니다" (전주기 연결)
+- 개발 모드 컨테이너가 떠 있으므로 파일이 저장되는 즉시 서버에 반영됩니다 — 별도 재시작 없음
 - 생성이 빠르게 끝나면 파일별 구조 리뷰로 시간을 씁니다
 
 **4. 리뷰 + 실행 + 수정 사이클**
 
-- 정상 케이스: "참치김밥 두 줄이랑 라면 하나, 라면은 치즈 추가" → 주문서 json 확인, 합계 암산으로 검증
-- 실패 케이스: "돈까스 되나요?", "김밥 100줄" → 거절·대안 제시 확인
+- 정상 케이스: 웹 화면에서 "참치김밥 두 줄이랑 라면 하나, 라면은 치즈 추가" → 주문서 json 확인, 합계 암산으로 검증
+- 실패 케이스: "돈까스 되나요?", "김밥 100줄" → 거절·대안 제시 확인 (예시 버튼으로 바로 재현 가능)
 - 구현이 어긋나면 수정을 지시합니다 — 검증하고 고치게 하는 모습 자체가 콘텐츠입니다
 - 리뷰 중 모델 문자열 환경변수를 짚고 프로바이더 독립을 예고합니다
 
@@ -548,7 +584,124 @@ flowchart LR
 - 가벼운 실패(에러, 어긋난 구현)는 피하지 않습니다 — 복구 과정을 보여주는 것이 목적에 부합합니다
 - Gemini 무료 티어 rate limit 확인 — 시연 시간대에 쿼터 여유를 확보하고, 필요 시 보조 키를 준비합니다
 
-## 6. 프로젝트 트랙 소개
+## 6. 코드 구조 분석
+
+시연 전후로 코드를 직접 읽을 때의 가이드입니다. 시작점은
+[v0.1 태그](https://github.com/2026-ai-service-engineering-a/week01-order-agent/tree/v0.1),
+지시 프롬프트(PROMPT.md)를 실행해 완성한 참고 구현은
+[v0.2 태그](https://github.com/2026-ai-service-engineering-a/week01-order-agent/tree/v0.2)로
+발행되어 있습니다. 두 태그의 차이가 곧 "에이전트를 붙이며 생긴 것"의 전부입니다.
+
+```bash
+git diff v0.1 v0.2 --stat
+```
+
+### 6-1. v0.1 분석 — 거짓말하는 API
+
+```mermaid
+flowchart TB
+    U(["손님"]) --> WEB["web/index.html<br/>채팅형 주문 화면"]
+    WEB -->|"POST /order<br/>(한 건씩 · 세션 없음)"| API["app/main.py — FastAPI<br/>/order · /settings"]
+    API -->|"고정 응답<br/>'죄송합니다, 아직 점원이 없어요'"| WEB
+    API <-.->|"⚙️ 설정 저장"| ENV[(".env<br/>GEMINI_API_KEY · MODEL")]
+
+    subgraph ghost["라이브에서 생성될 자리 — 아직 없음"]
+        AG["agent/"]
+        LL["llm/"]
+        TO["tools/"]
+    end
+    TO -.-> D1[("data/menu.json")]
+    TO -.-> D2[("data/stock.json")]
+
+    style ghost stroke-dasharray: 5 5
+    style AG stroke-dasharray: 5 5
+    style LL stroke-dasharray: 5 5
+    style TO stroke-dasharray: 5 5
+```
+
+- `app/main.py` — FastAPI 앱 하나가 전부입니다. `/order`는 고정 문자열을
+  돌려주고, `/settings`(GET/PUT)는 웹 화면의 ⚙️ 설정을 `.env`에 기록합니다.
+  웹 정적 파일은 API 라우트보다 뒤에 마운트해 `/order`가 가려지지 않게 합니다
+- `web/index.html` — 채팅형 주문 화면. 입력 한 건마다 `{"message": …}` 하나를
+  `/order`로 POST합니다 — 서버에 세션·대화 이력이 없다는 점을 기억해 두세요
+  (6-2의 한계와 이어집니다)
+- `data/menu.json`·`stock.json` — 도구가 읽을 재료. 메뉴 22개(이름·가격·옵션)와
+  재고 수량입니다
+- `pyproject.toml`·`uv.lock` — litellm·fastapi가 미리 선언되어 있어 시연 중
+  설치 대기가 없습니다
+- **없는 것** — `agent/`·`llm/`·`tools/`. 라이브 빌드에서 생성될 자리입니다
+
+### 6-2. v0.2 분석 — 에이전트가 붙은 구조
+
+지시 프롬프트의 요구사항이 코드 구조로 어떻게 번역됐는지 보세요.
+
+```mermaid
+flowchart TB
+    WEB["web/<br/>주문 화면"] -->|"POST /order"| API["app/main.py"]
+    API --> RUN["agent/loop.py — run_agent<br/>MAX_TURNS = 8"]
+    RUN -->|"complete(messages, tools)"| LLM["llm/client.py<br/>LiteLLM 래퍼 · MODEL은 호출 시점에 로드"]
+    LLM <--> G["Gemini API"]
+    RUN -->|"execute(name, args)"| REG["tools/__init__.py<br/>스키마 + 구현 레지스트리<br/>실패 시 {error} 반환"]
+    REG --> M["search_menu"]
+    REG --> S["check_stock"]
+    REG --> O["create_order<br/>단가·합계는 코드가 계산"]
+    M --> D1[("menu.json")]
+    S --> D2[("stock.json")]
+    O --> D1
+    O --> D2
+    RUN -->|"주문서 json"| API
+    API --> WEB
+```
+
+- `llm/client.py` — LiteLLM 래퍼. `complete(messages, tools)` 함수 하나뿐이고,
+  모델명은 **호출 시점에** 환경변수 `MODEL`에서 읽습니다 — 웹 ⚙️ 설정으로
+  바꾼 값이 재시작 없이 적용되는 이유입니다
+- `tools/` — 도구마다 **스키마(OpenAI function 형식) + 순수 파이썬 구현**의
+  쌍입니다. `execute()` 레지스트리는 도구가 실패해도 예외 대신
+  `{"error": …}`를 돌려줍니다 — 에러를 모델에게 보여 주고 스스로 고치게
+  하는 패턴입니다
+- `tools/order.py` — **단가·합계는 모델이 아니라 코드가 메뉴판 기준으로
+  계산합니다.** LLM은 항목을 고르고, 돈 계산은 결정적인 코드가 맡습니다 —
+  주문서 json이라는 [[structured-output|구조화 출력]]과 함께 "LLM은 채팅이
+  아니라 시스템 부품"이라는 원칙의 실물입니다
+- `agent/loop.py` — 시스템 프롬프트(메뉴를 지어내지 말 것, 주문 전 재고 확인
+  등)와 에이전트 루프. `MAX_TURNS = 8` 상한으로 무한 루프를 막습니다 —
+  루프·상한·역할 분리, 이것이 하네스의 씨앗입니다
+
+**한계 — 대화가 이어지지 않습니다.** `run_agent`는 매 요청마다 시스템
+프롬프트와 이번 메시지 하나로 **새 대화를 시작**합니다.
+
+```python
+def run_agent(user_message: str) -> dict:
+    messages = [
+        {"role": "system", "content": SYSTEM_PROMPT},
+        {"role": "user", "content": user_message},  # 매 요청 새 대화 — 이전 기억 없음
+    ]
+    for _ in range(MAX_TURNS):
+        response = complete(messages, tools=TOOL_SCHEMAS)
+        ...
+```
+
+```mermaid
+flowchart TB
+    subgraph req1["요청 1 — 새 대화"]
+        direction LR
+        U1["'참치김밥 두 줄 주세요'"] --> A1["에이전트 루프"] --> O1["주문서 ✓"]
+    end
+    subgraph req2["요청 2 — 또 새 대화 (요청 1을 모름)"]
+        direction LR
+        U2["'치즈도 추가해 주세요'"] --> A2["에이전트 루프"] --> O2["무엇에 추가…?"]
+    end
+    req1 ~~~ req2
+```
+
+- 루프 안의 대화 이력은 **한 요청 안의 도구 왕복용**일 뿐입니다
+- 웹 화면이 채팅처럼 보여도 서버는 이전 주문을 기억하지 못합니다 —
+  주문은 **한 문장에** 다 담아야 합니다
+- 결함이 아니라 1주차의 의도된 범위입니다 — 대화 메모리는 컨텍스트
+  엔지니어링(사다리 2단)의 주제이고, 이후 주차에서 다룹니다
+
+## 7. 프로젝트 트랙 소개
 
 방금 만든 주문 에이전트를 좌표로 사용합니다. 5개 트랙은 결국 **같은 구조에서
 무엇을 갈아끼우는가**의 차이입니다.
@@ -580,7 +733,7 @@ flowchart TB
 - 주차별 템플릿은 개인 프로젝트의 부품으로 재사용할 수 있습니다 (별도 진행도 가능, 템플릿은 출발점)
 - 프로젝트 계획 백그라운드 과제와 연결: "오늘부터 매주, 내 프로젝트라면 무엇을 갈아끼울지 생각하며 보세요"
 
-## 7. 개인 repo 개설 실습
+## 8. 개인 repo 개설 실습
 
 세션 중 유일하게 수강생이 직접 손을 움직이는 구간입니다.
 
@@ -593,7 +746,7 @@ flowchart TB
 환경 미비(devcontainer 미설치 등) 상태로 참석해도 1주차 참여에 지장이 없습니다.
 환경 구축은 2주차 주제입니다.
 
-## 8. 마무리
+## 9. 마무리
 
 - 2주차 예고: Python AI 개발환경 (devcontainer, uv/pip, GitHub 워크플로)
 - 2주차 VOD 사전 시청 범위: S1 환경 셋업
