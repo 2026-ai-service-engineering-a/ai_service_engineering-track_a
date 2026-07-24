@@ -1,0 +1,29 @@
+# Clone and run — view the lecture site with nothing installed but Docker,
+# from the repo root:
+#
+#   docker compose up
+#
+# then open http://localhost:4321/ .
+#
+# The site lives in site/ (this repo also carries the course's example code);
+# the build context and bind mounts point there. Self-contained: deps and
+# source are baked into the image (site/Dockerfile.dev), so this needs no other
+# files from your host and works on a fresh clone. It serves the Astro dev
+# server — the production site is the static `astro build` output (dist/), not
+# this image.
+#
+# Editing content? Use docker-compose.dev.yml instead — it bind-mounts site/
+# so edits hot-reload:
+#
+#   docker compose -f docker-compose.dev.yml up
+services:
+  app:
+    build:
+      context: ./site
+      dockerfile: Dockerfile.dev
+    ports:
+      - '4321:4321'
+    environment:
+      # Non-interactive: should pnpm's pre-run dependency check ever want to
+      # touch node_modules, let it proceed instead of aborting at a TTY prompt.
+      CI: 'true'
