@@ -24,6 +24,9 @@
 - **커밋 전 검증** — 사이트(`site/`) 변경이 있으면 `cd site && pnpm build &&
   pnpm check`가 통과해야 한다. 렌더링에 영향 주는 변경(표·이스케이프 등)은
   해당 페이지를 열어 눈으로도 확인한다.
+- **문서 스타일 검사** — md/mdx를 고쳤으면 `python3 scripts/check-style.py`도
+  통과해야 한다. writing-rules 중 기계로 잡히는 항목(`).` 마침표 겹침, 취소선
+  위험 물결표, MDX 꺾쇠 링크, 볼드 경계)을 검사한다.
 - **스테이징 확인** — 커밋 전에 `git status`로 산출물(node_modules, dist 등)이
   섞이지 않았는지 확인한다.
 
