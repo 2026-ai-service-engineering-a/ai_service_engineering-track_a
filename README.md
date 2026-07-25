@@ -95,6 +95,7 @@ ai_service_engineering-track_a/
 ├── src/                     # 회차별 예제 코드 (추가 예정)
 ├── tests/                   # 단위 테스트 (추가 예정)
 ├── pyproject.toml           # uv 기반 의존성 (추가 예정)
+├── CHANGELOG.md             # 릴리스 변경 기록
 └── README.md
 ```
 
