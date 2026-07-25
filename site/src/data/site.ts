@@ -74,12 +74,24 @@ export const site = {
         description: '공지사항과 강의 노트, 실습 팁',
         tags: ['공지', '강의 노트'],
       },
+      {
+        href: '/categories/tools/',
+        name: '사용 도구',
+        description: '과정에서 실제로 쓰는 에디터·컨테이너·유틸리티와<br>버전·스택 확인용 참고 사이트',
+        tags: ['VS Code', 'Docker', '참고 사이트'],
+      },
     ],
     cta: {
       title: '과정이 처음이신가요?',
       description: '트랙 구성, 커리큘럼, 선행 요건은<br>소개 페이지에서 확인하세요.',
       button: { label: '과정 소개 보기', href: '/about/' },
     },
+    /**
+     * cards 홈에서는 테마의 카탈로그 Browse 내비가 숨겨지므로(테마 1.22.0),
+     * 헤더에 "사용 도구" 항목을 추가해 native 도구 카탈로그 페이지로 연결한다.
+     * 홈의 "사용 도구" 카드와 같은 곳(/categories/tools/)을 가리킨다.
+     */
+    browse: { href: '/categories/tools/', label: { ko: '사용 도구' } },
   },
   /** 테마 UI 문자열의 로케일별 오버라이드. */
   ui: {
