@@ -22,7 +22,6 @@ order: "02"
 - **세션 포커스**: docker compose 개발환경 구동, Git Flow 3회전 시연, DB 기반 도구와 유닛테스트, 권한·신뢰성 방어
 - **산출물**: 동작하는 개발 환경 (각자 환경 구축은 과제로 연결)
 - **시연 저장소**: [week02-meeting-room-agent](https://github.com/2026-ai-service-engineering-a/week02-meeting-room-agent)
-- **VOD 사전 시청**: S1 환경 셋업
 - **운영 방식**: 멘토 시연 → 코드·프롬프트 공개 → 영상 아카이브 (코드 따라 쓰기 없음)
 
 > **이 자료를 내 컴퓨터에서 보기**: 강의 사이트 저장소를 클론해
@@ -70,8 +69,8 @@ order: "02"
 
 ### 2-1. devcontainer에서 compose로
 
-VOD S1은 devcontainer를 다룹니다. 오늘은 다른 방식을 쓰는데, 이 차이 자체가
-강의 내용입니다.
+개발 컨테이너를 다루는 방식은 하나가 아닙니다. 오늘은 devcontainer가 아니라
+docker compose를 쓰는데, 이 차이 자체가 강의 내용입니다.
 
 - devcontainer: 에디터 통합형. "내 개발 컨테이너 하나"를 정의합니다. 혼자, 단일 서비스일 때 최적입니다
 - docker compose: 서비스가 여러 개일 때의 표준. **실행 환경과 개발 환경을 같은 파일 체계로 관리**합니다
@@ -689,5 +688,4 @@ flowchart LR
 ### 10-2. 3주차 예고
 
 - 주제: LLM API와 프롬프트 (LiteLLM 멀티 프로바이더, 프롬프트 패턴, [[structured-output|structured output]])
-- VOD 사전 시청: S1 전체
 - 예고 멘트: "1·2주차에 계속 지나가며 본 `litellm.completion` 그 한 줄을, 다음 주에 제대로 엽니다"
