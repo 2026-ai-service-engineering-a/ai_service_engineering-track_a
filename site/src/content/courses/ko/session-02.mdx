@@ -39,6 +39,50 @@ order: "02"
 > Docker가 처음이라면 [Docker와 Docker Compose, 처음이라면](/article/docker-basics/)을
 > 참고하세요.
 
+## 0. 사전 준비
+
+이 세션의 시연을 내 컴퓨터에서 재현하려면 미리 설치할 도구는 두 개면
+충분합니다: git과 Docker. Python·uv·PostgreSQL·LiteLLM 같은 나머지 런타임과
+라이브러리는 전부 컨테이너 이미지 안에 들어 있어 따로 설치하지 않습니다.
+
+### 0-1. git
+
+git은 시연 저장소를 내려받고(clone) 버전을 관리하는 도구입니다. 2주차의
+Git Flow 시연도 이 도구로 진행합니다.
+
+- **Windows**
+  - [git-scm.com/downloads](https://git-scm.com/downloads) 에서 Windows용 설치 파일을 받아 실행합니다 (옵션은 기본값 그대로 두면 됩니다)
+  - 또는 터미널에서 `winget install --id Git.Git -e`
+  - 확인: 새 터미널(PowerShell 또는 Git Bash)에서 `git --version`
+- **Mac**
+  - 터미널에서 `git --version` 을 입력하면, git이 없을 때 Xcode Command Line Tools 설치를 안내합니다. "설치"를 누르면 됩니다
+  - Homebrew가 있으면 `brew install git`
+  - 확인: `git --version`
+
+### 0-2. Docker
+
+[[docker|Docker]]는 이 강의의 개발 환경 전체(앱·DB·의존성)를 컨테이너로 띄우는
+도구입니다. Docker만 있으면 앞에서 말한 런타임을 직접 설치하지 않아도 됩니다.
+
+- **Windows**
+  - [docker.com/products/docker-desktop](https://www.docker.com/products/docker-desktop/) 에서 Docker Desktop for Windows를 받아 설치합니다
+  - WSL2가 필요합니다. 설치 과정에서 함께 안내되며, 최신 Windows에서는 대개 자동으로 처리됩니다
+  - 설치 후 Docker Desktop(고래 아이콘)을 한 번 실행해 데몬을 켜 둡니다
+  - 확인: `docker --version` 과 `docker compose version`
+- **Mac**
+  - [docker.com/products/docker-desktop](https://www.docker.com/products/docker-desktop/) 에서 자기 칩에 맞는 버전을 받습니다 (Apple Silicon용과 Intel용이 나뉩니다)
+  - 또는 Homebrew로 `brew install --cask docker`
+  - 설치 후 Docker Desktop을 실행해 데몬을 켜 둡니다
+  - 확인: `docker --version` 과 `docker compose version`
+
+Docker가 처음이라면 [Docker와 Docker Compose, 처음이라면](/article/docker-basics/)에
+개념과 명령을 더 풀어 두었습니다.
+
+> **참고**: 에이전트를 실제로 돌려 보려면 무료 Gemini API 키 하나가 추가로
+> 필요합니다. 발급은 시연 저장소 README와 10장 과제 안내를 참고하세요. git과
+> Docker만 있으면 개발 환경 자체는 전부 뜨고, v0.1의 목 응답까지 확인할 수
+> 있습니다.
+
 ## 1. 세션 목표
 
 세션이 끝나면 다음을 얻게 됩니다.
