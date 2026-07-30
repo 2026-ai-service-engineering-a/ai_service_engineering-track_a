@@ -171,17 +171,19 @@ flowchart TB
     end
 
     subgraph added["v1.0 — 오늘 얹는 AI 에이전트 층"]
+        CHAT["web/ 채팅 패널<br/>자연어 입력창 (오늘 추가)"]
         API2["FastAPI<br/>POST /reserve (자연어 한 문장)"]
         AG["agent/<br/>에이전트 루프"]
         LLM["llm/<br/>LiteLLM 래퍼 (MODEL 환경변수)"]
         TOOLS["tools/<br/>기존 서비스를 감싼 도구 4종<br/>검색 · 가용 · 예약 생성 · 예약 취소"]
+        CHAT --> API2
         API2 --> AG
         AG <--> LLM
         AG --> TOOLS
     end
 
     U -->|"폼 클릭 (기존 방식)"| WEBUI
-    U -->|"자연어 (오늘 추가)"| API2
+    U -->|"자연어 (오늘 추가)"| CHAT
     TOOLS -->|"같은 서비스 함수 호출"| SVC
     SVC --> PG[("PostgreSQL<br/>teams · users · rooms · reservations<br/>conversations · messages")]
     AUTH --> PG
@@ -699,11 +701,12 @@ week02-meeting-room-agent (v0.1)
 - `llm/` `tools/` `agent/` 모듈 (Claude Code 구현, 3회전 누적): `tools/`는 v0.1 `services/`를 감싼 래퍼
 - `/reserve`가 실제 에이전트 호출, 예약이 (기존 서비스를 통해) DB에 기록됨
 - **대화 이어가기**: `conversation_id` 기반, 이력은 DB 저장(서버 무상태), 소유자만 이어가기 가능
+- **web 자연어 채팅 패널**: 예약 화면(폼·타임라인) 위에 채팅창을 얹어 브라우저에서 `/reserve`를 부른다. `conversation_id`로 대화가 이어지고, 응답 후 타임라인·예약 목록이 자동 갱신된다 (별도 브랜치 `feature/chat-ui`, 새 의존성 없이 기존 web/index.html 확장)
 - 예약 취소 도구 (본인 예약 또는 관리자, 권한은 서비스에 있고 도구가 인증 컨텍스트를 주입)
 - LiteLLM 재시도·폴백 체인(`FALLBACK_MODELS`), 토큰·비용 로그, 루프 상한
 - `tests/`에 도구 통합 테스트 + 권한 테스트 3종(취소 거부·관리자 허용·대화 탈취 거부) 추가: 겹침 유닛테스트는 v0.1 것을 그대로 재사용
 - `PROMPT.md`에 지시 프롬프트 3개 누적
-- PR 3개 머지 이력, README 영상 링크 (세션 후)
+- PR 4개 머지 이력 (에이전트 3회전 + 채팅 UI), README 영상 링크 (세션 후)
 - 요약: 새로 만든 것은 도구·에이전트·신뢰성 계층뿐입니다. 예약 로직·겹침·권한은 v0.1 서비스를 그대로 재사용했습니다
 
 **수강생 재현 여정**
