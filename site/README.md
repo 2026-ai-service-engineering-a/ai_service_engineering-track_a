@@ -1,4 +1,4 @@
-# site — Track A 강의 사이트
+# site: Track A 강의 사이트
 
 [stack-site-builder](https://github.com/CodeComposeStudio/stack-site-builder) 테마 기반의
 Astro 강의 사이트. 라우트·컴포넌트·스타일·마크다운 파이프라인은 테마가 제공하고,
@@ -33,7 +33,7 @@ docker compose -f docker-compose.dev.yml up  # site/ 바인드 마운트 + 핫�
 | 글 | `src/content/articles/ko/<slug>.mdx` | `category`: `notice` \| `lecture-note` (src/data/article-categories.ts) |
 | 개념 | `src/content/concepts/ko/<slug>.mdx` | `category`: `llm` \| `retrieval` \| `serving` (src/data/concept-categories.ts) |
 | 소개 등 독립 페이지 | `src/content/pages/ko/<slug>.mdx` | `/<slug>/`로 렌더, `nav` 프론트매터로 헤더 노출 제어 |
-| 용어집 | `src/data/glossary.mjs` | 본문에서 `[[용어]]` / `[[용어\|표시명]]`으로 참조 — 미등록 용어는 빌드 실패 |
+| 용어집 | `src/data/glossary.mjs` | 본문에서 `[[용어]]` / `[[용어\|표시명]]`으로 참조 (미등록 용어는 빌드 실패) |
 
 각 컬렉션에 시드 문서가 하나씩 들어 있으니(1회차 강의·슬라이드, RAG 개념,
 공지 글, 소개) 새 문서는 그것을 복사해 시작하면 된다.
@@ -43,12 +43,12 @@ docker compose -f docker-compose.dev.yml up  # site/ 바인드 마운트 + 핫�
 
 ## 사이트 데이터
 
-- `src/data/site.ts` — 사이트 이름, 로케일, 섹션 토글, cards 홈(히어로/카드/CTA), UI 문자열
-- `src/data/*-categories.ts` — 강의/개념/글 분류 트리 (id가 콘텐츠 `category` 값)
-- `astro.config.mjs` — 배포 도메인(`site`)은 확정 시 변경 (TODO 주석 참고)
+- `src/data/site.ts`: 사이트 이름, 로케일, 섹션 토글, cards 홈(히어로/카드/CTA), UI 문자열
+- `src/data/*-categories.ts`: 강의/개념/글 분류 트리 (id가 콘텐츠 `category` 값)
+- `astro.config.mjs`: 배포 도메인(`site`)은 확정 시 변경 (TODO 주석 참고)
 
 ## 비공개(수강생 전용) 콘텐츠
 
 아무 문서나 프론트매터에 `private: true`(+`teaser`)를 붙이면 본문이 암호화되어
-로그인 후에만 보인다. 사용자/키는 `.env`의 `AAS_PRIVATE_*` 환경 변수로 관리 —
+로그인 후에만 보인다. 사용자/키는 `.env`의 `AAS_PRIVATE_*` 환경 변수로 관리.
 테마 저장소의 `playground/.env.sample`과 `docs/private-content-design.md` 참고
