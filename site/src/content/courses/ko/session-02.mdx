@@ -380,7 +380,18 @@ sequenceDiagram
 v0.1을 클론한 상태에서 시작합니다. 목표는 **클론 → 한 명령 → 전부 뜬다**,
 그 체감입니다.
 
-1. `git clone` → `.env` 준비 (`.env.example` 복사, 프로바이더 키 입력: 기본은 Gemini, 폴백용 Claude·OpenAI 키는 선택)
+> **v0.1로 시작하기**: 저장소의 기본 브랜치 `main`은 완성본(v1.5)이라, 그냥
+> 클론하면 정답을 받습니다. 시작점은 v0.1 태그에서 작업 브랜치로 잡습니다.
+>
+> ```bash
+> git clone https://github.com/2026-ai-service-engineering-a/week02-meeting-room-agent.git
+> cd week02-meeting-room-agent
+> git switch -c week02 v0.1   # v0.1 태그에서 작업 브랜치 생성
+> ```
+>
+> 완성본과 비교는 태그로: `git checkout v1.0` · `git checkout v1.5` · `git diff v0.1 v1.0`.
+
+1. 위처럼 v0.1로 클론 → `.env` 준비 (`.env.example` 복사, 프로바이더 키 입력: 기본은 Gemini, 폴백용 Claude·OpenAI 키는 선택)
 2. `docker compose -f docker-compose.yml -f docker-compose.dev.yml up`: app과 db가 함께 뜨는 로그 관찰
    - `init.sql`이 적용되는 순간을 로그에서 짚습니다 ("DB 스키마가 코드로 관리됩니다")
 3. DB 확인: `docker compose exec db psql`로 테이블·시드 데이터 조회 (rooms 몇 개, 기존 예약)
