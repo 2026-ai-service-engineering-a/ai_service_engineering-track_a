@@ -816,6 +816,17 @@ flowchart TB
     LLM <-->|litellm.completion| PROV
 ```
 
+**도구 5종 명세** (모두 v0.1 `services/` 함수를 감싼 얇은 래퍼, 3회전에 걸쳐 누적):
+
+| 도구 | 하는 일 (감싼 서비스) | 코드가 주입 (모델 지정 불가) |
+| --- | --- | --- |
+| `search_rooms` | 인원·설비로 회의실 검색 (`rooms.search_rooms`) | — |
+| `check_availability` | 특정 방의 예약·빈 시간 조회 (`rooms.get_availability`) | — |
+| `create_reservation` | 예약 생성, 겹침·인원은 서비스가 검사 (`reservations.create_reservation`) | 예약자 = 현재 사용자 |
+| `cancel_reservation` | 예약 취소, 본인·관리자만 (`reservations.cancel_reservation`) | 취소자 id·role |
+| `list_reservations` | 내 예약 내역, 관리자는 전체 (`reservations.list_reservations`) | 조회 범위 id·role |
+
+- 읽기 도구 2종은 주입이 없고, 쓰기·사적 도구 3종은 인증 컨텍스트를 코드가 주입합니다. 위 표가 곧 에이전트의 **능력 상한이자 보안 경계**입니다 (여기 없는 일은 일어나지 않습니다)
 - 사람 경로와 에이전트 경로는 UI만 다르고 규칙은 하나입니다. 폼의 `/reservations`도, 도구의 `create_reservation`도 같은 `services/` 함수를 부르므로 겹침·인원·권한이 똑같이 적용됩니다
 - 에이전트가 세상에 할 수 있는 일은 도구 5종이 전부입니다. 예약자·취소자·조회 범위는 모델이 아니라 인증 컨텍스트에서 코드가 주입합니다
 - 신뢰성은 `llm/` 한 곳에 모입니다: 재시도(지수 백오프), 폴백 체인, 토큰·비용 로그
