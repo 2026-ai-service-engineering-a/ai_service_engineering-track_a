@@ -9,8 +9,9 @@
   2) 취소선   — 한 문단에 이스케이프 안 된 `~` 2개 이상 (GFM 취소선 오발동)
   3) MDX 링크 — .mdx 안의 `<http…>` 꺾쇠 자동 링크 (JSX로 해석되어 빌드 실패)
   4) 볼드 경계 — 닫는 괄호·따옴표 뒤 `**` + 한글 (별표가 그대로 노출)
+  5) 줄표(—)  — 한글 문장에서 줄표(em dash)로 구절을 잇는 형태 (표의 빈 칸 마커는 제외)
 
-코드 펜스(``` … ```)와 인라인 코드 스팬(`…`)은 검사에서 제외한다.
+코드 펜스(``` … ```, mermaid 포함)와 인라인 코드 스팬(`…`)은 검사에서 제외한다.
 위반이 있으면 목록을 출력하고 종료 코드 1을 반환한다.
 """
 
@@ -22,6 +23,9 @@ FENCE_RE = re.compile(r"```.*?```", re.S)
 INLINE_CODE_RE = re.compile(r"`[^`\n]*`")
 
 CLOSE_PUNCT = r")\]\"”'』」"
+
+# 표의 빈 칸 마커 `| — |`는 연결자가 아니므로 검사 대상에서 뺀다.
+EMDASH_EMPTY_CELL_RE = re.compile(r"(?<=\|)\s*—\s*(?=\|)")
 
 
 def tracked_files() -> list[str]:
@@ -68,6 +72,11 @@ def check_file(path: str) -> list[str]:
     for i, line in enumerate(lines, 1):
         if re.search(rf"[{CLOSE_PUNCT}]\*\*[가-힣A-Za-z0-9]", line):
             problems.append(f"{path}:{i}: '…)**한글' — 볼드가 닫히지 않음, 문장 다듬기/<strong> 사용")
+
+    # 5) 줄표(—) — 한글 문장에서 줄표로 잇는 형태 (표의 빈 칸 마커 `| — |`는 제외)
+    for i, line in enumerate(lines, 1):
+        if "—" in EMDASH_EMPTY_CELL_RE.sub("  ", line):
+            problems.append(f"{path}:{i}: '—' 줄표 — 문장을 끊거나 리스트·쉼표·콜론·괄호로 바꾼다")
 
     return problems
 

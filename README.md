@@ -1,4 +1,4 @@
-# AI 서비스 엔지니어링 — Track A
+# AI 서비스 엔지니어링: Track A
 
 공통 선행 VOD([ai_service_engineering](https://github.com/CodeCompose7/ai_service_engineering))의 확장 과정으로, 공통 기술 스택을 단계적으로 익힌 뒤 **개인별 배포 가능한 오픈소스 기반 AI 데모 서비스**를 완성하는 14회차 실습 트랙의 강의 자료 및 예제 코드 저장소입니다.
 
@@ -24,7 +24,7 @@ flowchart LR
 
 ## 주차별 운영안
 
-### 1\~9주 — 공통 역량 구간
+### 1\~9주: 공통 역량 구간
 
 | 주차 | 주제 | 세션 실습 포커스 | 산출물 |
 | --- | --- | --- | --- |
@@ -38,7 +38,7 @@ flowchart LR
 | 8 | FastAPI 서비스화 | AI 기능 API화, 입력 검증·에러 처리·스트리밍 | AI API 서버 |
 | 9 | 자유 UI 구현 | Streamlit / Gradio / Next.js / Swagger UI 선택 (라이브 브리핑 제공) | 웹 데모 초안 |
 
-### 10\~14주 — 개인 프로젝트 구간
+### 10\~14주: 개인 프로젝트 구간
 
 | 주차 | 주제 | 세션 포커스 | 산출물 |
 | --- | --- | --- | --- |
@@ -111,7 +111,7 @@ docker compose down    # 중지·정리
 ```
 
 콘텐츠를 수정하면서 보려면 `docker compose -f docker-compose.dev.yml up`을
-사용하세요 — `site/`를 바인드 마운트해 핫리로드로 반영됩니다. 로컬 pnpm 개발 등
+사용하세요. `site/`를 바인드 마운트해 핫리로드로 반영됩니다. 로컬 pnpm 개발 등
 자세한 내용은 [site/README.md](site/README.md)를 참고하세요.
 
 ## License
