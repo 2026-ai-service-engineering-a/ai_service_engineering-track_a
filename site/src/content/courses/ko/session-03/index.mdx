@@ -346,7 +346,12 @@ flowchart LR
 >
 > 완성본과 비교는 태그로: `git checkout v1.0` · `git diff v0.1 v1.0`.
 
-1. 위처럼 v0.1로 클론 → `.env` 준비 (`.env.example` 복사, 프로바이더 키 입력) → `docker compose -f docker-compose.yml -f docker-compose.dev.yml up`으로 api·ui 두 서비스가 뜹니다 (2주차 관례 그대로, DB만 없음)
+1. 위처럼 v0.1로 클론 → `.env` 준비 (`.env.example` 복사, 프로바이더 키 입력) → 아래 명령으로 api·ui 두 서비스가 뜹니다 (2주차 관례 그대로, DB만 없음)
+
+   ```bash
+   docker compose -f docker-compose.yml -f docker-compose.dev.yml up
+   ```
+
 2. 브라우저에서 UI 열기 → 조건 입력 → 목 응답이 UI에 표시됩니다: "아직 영양사가 출근 전입니다"
 3. UI는 이미 완성돼 있고 이번 주에는 건드리지 않습니다. 만드는 것은 이 뒤의 헤드리스 API이고, curl이나 Swagger로 불러도 똑같이 동작합니다. 실제로 curl을 한 번 쳐서 같은 목 응답을 확인합니다 (분리의 증명)
 4. `data/foods.json` 열어보기: 실제 음식들, 나트륨 수치, 1인분량이 보입니다. 순대국밥 한 그릇의 나트륨을 직접 계산해 보면 암산으로도 약 4,200mg이 나옵니다.
