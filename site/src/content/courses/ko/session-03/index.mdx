@@ -645,8 +645,19 @@ curl -s localhost:8000/plan -X POST -H 'Content-Type: application/json' \
 ```
 
 ```json
-{ "detail": [ { "loc": ["body", "kcal_max"],
-    "msg": "Input should be a valid integer", "input": "많이" } ] }
+{
+  "detail": [
+    {
+      "type": "int_parsing",
+      "loc": [
+        "body",
+        "kcal_max"
+      ],
+      "msg": "Input should be a valid integer, unable to parse string as an integer",
+      "input": "많이"
+    }
+  ]
+}
 ```
 
 - LLM 요금이 나가기 전에 Pydantic이 공짜로 막았습니다. 첫 번째 관문입니다.
@@ -661,14 +672,50 @@ curl -s localhost:8000/plan -X POST -H 'Content-Type: application/json' \
 ```json
 {
   "meals": [
-    { "day": "월", "food_code": "D101-007280000-0001", "food_name": "김밥_소고기",
-      "serving_g": 250, "calories_kcal": 447.5, "protein_g": 16.2,
-      "sodium_mg": 667.5, "reason": "단백질 보강과 나트륨 여유를 함께 확보" },
-    ...
+    {
+      "day": "월",
+      "food_code": "D101-047220000-0001",
+      "food_name": "닭구이_닭가슴살구이",
+      "serving_g": 300,
+      "calories_kcal": 510.0,
+      "protein_g": 82.8,
+      "sodium_mg": 195.0,
+      "reason": "저칼로리 고단백으로 한 끼 기준 칼로리·단백질을 충족합니다."
+    },
+    {
+      "day": "화",
+      "food_code": "D101-006350000-0001",
+      "food_name": "덮밥_제육덮밥",
+      "serving_g": 450,
+      "calories_kcal": 652.5,
+      "protein_g": 34.2,
+      "sodium_mg": 787.5,
+      "reason": "족과 단백질이 높고 나트륨이 800mg 이하로 균형 잡힌 덮밥입니다."
+    },
+    ...,
+    {
+      "day": "일",
+      "food_code": "D101-076250000-0001",
+      "food_name": "돈가스_등심돈가스",
+      "serving_g": 250,
+      "calories_kcal": 625.0,
+      "protein_g": 31.25,
+      "sodium_mg": 600.0,
+      "reason": "단백질 기준을 충족하면서 칼로리도 적정 범위에 듭니다."
+    }
   ],
-  "report": { "passed": true, "violations": [] },
+  "report": {
+    "passed": true,
+    "violations": []
+  },
   "attempts": 1,
-  "history": []
+  "history": [
+    {
+      "attempt": 1,
+      "passed": true,
+      "violations": []
+    }
+  ]
 }
 ```
 
@@ -682,12 +729,35 @@ docker compose logs api | grep -A 40 "PLANNER PROMPT"
 ```
 
 ```plaintext
-[debug] PLANNER PROMPT ─ system:
-  너는 식단 계획자다. 규칙: ... 환산 예시) 순대국밥 100g=75kcal, 1인분 900g → 675kcal ...
-[debug] PLANNER PROMPT ─ user:
-  조건: 500~800kcal, 나트륨≤800mg, 단백질≥25g
-  후보 목록: [D101-007000000-0001 김밥 140kcal/100g 1인분230g Na307mg] [...]
-[debug] PLANNER RAW OUTPUT: {"meals":[{"day":"월", ...
+❯ docker compose logs api | grep -A 40 "PLANNER PROMPT"
+meal-planner-api  | [DEBUG] PLANNER PROMPT ─ system:
+meal-planner-api  | 너는 식단 계획자다. 저녁 7끼(월~일)를 짠다.
+meal-planner-api  | 
+meal-planner-api  | 규칙:
+meal-planner-api  | - 반드시 후보 목록 안의 음식만 쓴다. 목록에 없는 음식 금지.
+meal-planner-api  |   food_code·food_name·serving_g는 목록의 값을 글자 그대로 옮긴다.
+meal-planner-api  | - 영양값은 100g 기준이다. 1인분 환산값 = 100g값 × serving_g ÷ 100 을 계산해
+meal-planner-api  |   calories_kcal·protein_g·sodium_mg에 넣는다.
+meal-planner-api  | - 제약: 한 끼 500~800kcal, 단백질 25g 이상,
+meal-planner-api  |   나트륨 800mg 이내, 같은 대표식품(food_name의 '_' 앞부분)은 주 2회 이하.
+meal-planner-api  | - 요청사항은 제약을 어기지 않는 범위에서만 반영한다. 둘이 충돌하면 제약이 이긴다.
+meal-planner-api  | - 요일은 월~일 각각 정확히 한 번.
+meal-planner-api  | - reason에는 그 음식을 고른 이유를 한 줄로 쓴다.
+meal-planner-api  | 
+meal-planner-api  | 환산 예시:
+meal-planner-api  | - 순대국밥 75kcal/100g, 1인분 900g → 75 × 900 ÷ 100 = 675 kcal.
+meal-planner-api  |   나트륨 470mg/100g → 470 × 900 ÷ 100 = 4,230 mg
+meal-planner-api  | - 김밥 140kcal/100g, 1인분 230g → 140 × 230 ÷ 100 = 322 kcal.
+meal-planner-api  |   나트륨 307mg/100g → 307 × 230 ÷ 100 = 706.1 mg
+meal-planner-api  | [DEBUG] PLANNER PROMPT ─ user:
+meal-planner-api  | 조건: 500~800kcal, 나트륨≤800mg, 단백질≥25g
+meal-planner-api  | 
+meal-planner-api  | 후보 목록:
+meal-planner-api  | [D101-047220000-0001 닭구이_닭가슴살구이 170kcal/100g 단백질27.6g 나트륨65mg 1인분300g]
+meal-planner-api  | [D101-048290000-0001 돼지구이_목살구이 240kcal/100g 단백질19.5g 나트륨85mg 1인분250g]
+...
+meal-planner-api  | [D101-009560000-0001 덮밥_회덮밥 118kcal/100g 단백질7.2g 나트륨170mg 1인분450g]
+meal-planner-api  | [D101-005280000-0001 볶음밥_김치볶음밥 158kcal/100g 단백질4.8g 나트륨265mg 1인분400g]
 ```
 
 - 모델이 보는 것은 객체가 아니라 결국 **이 텍스트**입니다. 후보 목록이 여기 박혀 있으니 환각이 억제된 것입니다. 데이터가 **객체 → 텍스트 → JSON → 객체**를 여행하고, 경계마다 보증자가 다릅니다 (들어올 땐 Pydantic, 나올 땐 instructor)
@@ -697,10 +767,10 @@ docker compose logs api | grep -A 40 "PLANNER PROMPT"
 ```mermaid
 flowchart TB
     CALL["LLM 호출"] --> OK{"응답이 왔는가?"}
-    OK -- "아니오 — 429·5xx·타임아웃<br/>(모델 층 실패)" --> FB["**LiteLLM 폴백**<br/>다음 프로바이더로 교체"]
+    OK -- "아니오 — 429·5xx·타임아웃<br/>(모델 층 실패)" --> FB["LiteLLM 폴백<br/>다음 프로바이더로 교체"]
     FB --> CALL
     OK -- 예 --> VALID{"스키마를 통과했는가?"}
-    VALID -- "아니오 — 필드 누락·타입 불일치<br/>(형식 층 실패)" --> RETRY["**instructor 재시도**<br/>검증 오류를 담아 같은 모델에 재요청"]
+    VALID -- "아니오 — 필드 누락·타입 불일치<br/>(형식 층 실패)" --> RETRY["instructor 재시도<br/>검증 오류를 담아 같은 모델에 재요청"]
     RETRY --> CALL
     VALID -- 예 --> OBJ["검증된 객체 — 파이프라인 진행"]
 ```
@@ -750,20 +820,108 @@ sequenceDiagram
 
 ```bash
 curl -s localhost:8000/plan -X POST -H 'Content-Type: application/json' \
-  -d '{"kcal_min":500,"kcal_max":800,"sodium_limit_mg":800,"protein_min_g":25,
+  -d '{"kcal_min":500,"kcal_max":600,"sodium_limit_mg":800,"protein_min_g":25,
        "request":"국물 요리 위주로 짜줘"}' | jq
 ```
 
 ```json
 {
-  "meals": [ ... 최종 7끼 ... ],
-  "report": { "passed": true, "violations": [] },
-  "attempts": 2,
+  "meals": [
+    {
+      "day": "월",
+      "food_code": "D101-047220000-0001",
+      "food_name": "닭구이_닭가슴살구이",
+      "serving_g": 300,
+      "calories_kcal": 510.0,
+      "protein_g": 82.8,
+      "sodium_mg": 195.0,
+      "reason": "저염·고단백의 담백한 구이로 가벼운 한 끼."
+    },
+    ...,
+    {
+      "day": "일",
+      "food_code": "D101-047220000-0001",
+      "food_name": "닭구이_닭가슴살구이",
+      "serving_g": 300,
+      "calories_kcal": 510.0,
+      "protein_g": 82.8,
+      "sodium_mg": 195.0,
+      "reason": "목살의 중복을 해소하기 위해 담백한 닭가슴살로 대체."
+    }
+  ],
+  "report": {
+    "passed": false,
+    "violations": [
+      {
+        "type": "중복",
+        "day": "금-토-일",
+        "food_code": "D101-009560000-0001",
+        "evidence": "덮밥_회덮밥이 금(450g), 토(450g), 일(닭가슴살구이)로 나타남 — 회덮밥은 금토 2회",
+        "severity": "low",
+        "suggestion": "토요일 회덮밥을 다른 생선구이로 교체"
+      }
+    ]
+  },
+  "attempts": 3,
   "history": [
-    { "attempt": 1, "passed": false, "violations": [
-      { "type": "제약_위반", "day": "화", "food_code": "D101-004310000-0001",
-        "evidence": "순대국밥 470mg/100g × 900g = 4,230mg > 800mg",
-        "severity": "high", "suggestion": "국물이 적은 밥류(비빔밥 등)로 교체" } ] }
+    {
+      "attempt": 1,
+      "passed": false,
+      "violations": [
+        {
+          "type": "중복",
+          "day": "월,토",
+          "food_code": "D101-047220000-0001",
+          "evidence": "닭구이_닭가슴살구이가 주 2회(월, 토) 나왔음 - 제약 위반 없음",
+          "severity": "low",
+          "suggestion": "재검토 필요 없음"
+        },
+        {
+          "type": "중복",
+          "day": "목,일",
+          "food_code": "D101-048290000-0001",
+          "evidence": "돼지구이_목살구이가 주 2회(목, 일) 나왔음 - 제약 위반 없음",
+          "severity": "low",
+          "suggestion": "재검토 필요 없음"
+        }
+      ]
+    },
+    {
+      "attempt": 2,
+      "passed": false,
+      "violations": [
+        {
+          "type": "중복",
+          "day": "월/토",
+          "food_code": "D101-047220000-0001",
+          "evidence": "닭구이(닭가슴살구이)가 월요일과 토요일에 2회 나타남",
+          "severity": "medium",
+          "suggestion": "토요일 닭가슴살구이를 다른 생선구이나 소고기 요리로 교체"
+        },
+        {
+          "type": "중복",
+          "day": "목/일",
+          "food_code": "D101-048290000-0001",
+          "evidence": "돼지구이(목살구이)가 목요일과 일요일에 2회 나타남",
+          "severity": "medium",
+          "suggestion": "일요일 목살구이를 다른 육류 요리로 교체"
+        }
+      ]
+    },
+    {
+      "attempt": 3,
+      "passed": false,
+      "violations": [
+        {
+          "type": "중복",
+          "day": "금-토-일",
+          "food_code": "D101-009560000-0001",
+          "evidence": "덮밥_회덮밥이 금(450g), 토(450g), 일(닭가슴살구이)로 나타남 — 회덮밥은 금토 2회",
+          "severity": "low",
+          "suggestion": "토요일 회덮밥을 다른 생선구이로 교체"
+        }
+      ]
+    }
   ]
 }
 ```
