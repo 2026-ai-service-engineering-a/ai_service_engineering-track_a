@@ -218,10 +218,21 @@ flowchart TB
 
 ```mermaid
 flowchart LR
-    XL["K-FIND 음식 DB 엑셀<br/>140+ 컬럼, 약 2만 행"] --> F1["필터<br/>데이터구분 = D (음식)"] --> F2["컬럼 10개 추출<br/>코드·이름·분류·에너지<br/>탄단지·나트륨·당류·1인분량"] --> J[("data/foods.json<br/>경량 스냅샷")]
+    XL["K-FIND 음식 DB 엑셀<br/>140+ 컬럼, 약 2만 행"] --> F1["필터<br/>데이터구분 = D (음식)"] --> F2["컬럼 10개 추출<br/>코드·이름·분류·에너지<br/>탄단지·나트륨·당류·1인분량"] --> F3["샘플링<br/>500종"] --> J[("data/foods.json<br/>경량 스냅샷")]
 ```
 
-- 수집·전처리 스크립트(`scripts/prepare_data.py`)도 레포에 공개해, 출처와 가공 과정이 증명되게 합니다.
+**직접 돌려 보기.** 내려받은 엑셀을 `data/food_data.xlsx`로 이름을 바꿔 넣고
+전처리를 한 번 실행하면, 위 그림이 그대로 돌아 `data/foods.json`이 만들어집니다.
+
+```bash
+# K-FIND에서 받은 "음식 DB" 엑셀을 data/food_data.xlsx로 이름 변경한 뒤
+docker compose run --rm prepare-data data/food_data.xlsx
+```
+
+- 전처리는 `prepare-data` 서비스로 분리돼 있습니다. api·ui처럼 계속 떠 있는 것이 아니라 필요할 때 한 번 돌리고 끝나는 작업이라 `up`이 아니라 `run --rm`으로 부릅니다.
+- 2만 행을 다 담지 않고 **500종만 샘플링**합니다. 이 목록은 계획자 프롬프트에 통째로 들어가므로 컨텍스트에 실리는 크기여야 합니다. 데이터가 이보다 커지면 목록 주입 대신 검색이 필요해지고, 그것이 4\~6주차의 주제입니다.
+- 원본 엑셀은 커밋하지 않습니다. 레포에 남는 것은 결과물 `foods.json`과 전처리 스크립트(`scripts/prepare_data.py`)뿐이고, 이 둘이면 누구든 같은 스냅샷을 다시 만들 수 있습니다. 출처와 가공 과정이 코드로 증명되는 셈입니다.
+- v0.1에는 이미 만들어진 `foods.json`이 들어 있습니다. 이 단계를 건너뛰고 바로 시연을 재현해도 되고, 위 명령은 **원본에서 다시 만들어 보는 경로**입니다.
 - **1인분량이 이 데이터의 함정이자 보석입니다.** 영양값은 100g 기준인데 1인분은 김밥 230g, 순대국밥 900g입니다. 사람이 먹는 단위로 환산해야 하고, 이 환산이 LLM이 정확히 틀리는 지점입니다 (5장의 드라마)
 - 나트륨이 소재를 완성합니다. 순대국밥은 나트륨 470mg/100g에 1인분이 900g라, **한 그릇 약 4,200mg으로 WHO 하루 권장(2,000mg)의 두 배**입니다. 국물 요리를 좋아할수록 예산이 터지고, 수정 루프가 연출 없이 진짜로 돕니다.
 - 데이터 수집 시점의 공공데이터 Open-API 제한 이슈는 파일 다운로드로 우회했음을 언급합니다. "실데이터의 첫 교훈: 데이터 소스는 죽습니다. 스냅샷과 출처 기록이 엔지니어링입니다" (4주차 예고)
@@ -238,7 +249,8 @@ ANTHROPIC_API_KEY=
 GEMINI_API_KEY=
 ```
 
-- 역할이 곧 설정입니다. 코드 어디에도 모델명이 없습니다. 조합 교체는 env 수정 + 재실행입니다 (시연 4에서 실증)
+- 역할이 곧 설정입니다.
+  - 코드 어디에도 모델명이 없습니다. 조합 교체는 env 수정 + 재실행입니다 (시연 4에서 실증)
 - 폴백이 검증자에 붙는 이유: 계획자가 죽으면 "식단이 안 나옴"(불편)이지만, 검증자가 죽으면 <strong>"검증 안 된 식단이 나감"</strong>(위험)입니다. 신뢰성 투자는 위험한 쪽부터 합니다.
 
 ### 2-5. structured output은 어디서 나오나: 실물
@@ -335,18 +347,43 @@ flowchart LR
 
 ### 3-1. v0.1 투어
 
-> **v0.1로 시작하기**: 저장소의 기본 브랜치 `main`은 완성본이라, 그냥 클론하면
-> 정답을 받습니다. 시작점은 v0.1 태그에서 작업 브랜치로 잡습니다.
->
-> ```bash
-> git clone https://github.com/2026-ai-service-engineering-a/week03-meal-planner.git
-> cd week03-meal-planner
-> git switch -c week03 v0.1   # v0.1 태그에서 작업 브랜치 생성
-> ```
->
-> 완성본과 비교는 태그로: `git checkout v1.0` · `git diff v0.1 v1.0`.
+**시작점 내려받기.** 저장소를 클론하지 않고 **v0.1 태그의 ZIP을 내려받아**
+시작합니다. 클론하면 완성본 이력까지 딸려 와 정답을 먼저 보게 되고, 무엇보다
+**첫 커밋을 내가 찍는 것**이 이번 주 Git Flow 시연의 출발점이기 때문입니다.
 
-1. 위처럼 v0.1로 클론 → `.env` 준비 (`.env.example` 복사, 프로바이더 키 입력) → 아래 명령으로 api·ui 두 서비스가 뜹니다 (2주차 관례 그대로, DB만 없음)
+저장소 페이지에서 ① 태그 선택기를 **v0.1**로 바꾸고 ② `Code` → ③ `Download ZIP`:
+
+![](download_code_0.1.png)
+
+내려받은 ZIP을 풀고, 그 폴더를 내 git 저장소로 만듭니다.
+
+```bash
+cd week03-meal-planner-0.1      # 압축을 푼 폴더
+
+git init
+git add -A
+git commit -m "chore: v0.1 시작점"
+
+git flow init -d                # main·develop과 feature/ 접두사를 기본값으로 설정
+```
+
+- `git flow`는 git에 기본 포함되지 않은 별도 도구입니다. macOS는 `brew install git-flow-avh`로 설치합니다. 설치가 여의치 않으면 `git switch -c develop`으로 develop 브랜치를 직접 만들고 `feature/*`도 손으로 만들면 됩니다 (git flow는 그 관례를 자동화해 주는 도구일 뿐입니다)
+- `-d`는 브랜치 이름과 접두사를 기본값으로 두고 질문을 건너뛰는 옵션입니다. 4·5장에서 만들 `feature/planner`·`feature/validator-loop`가 이 설정을 따릅니다.
+- 이 세 줄이 중요한 이유는 4장부터의 회전이 **내 저장소의 내 커밋**으로 쌓이기 때문입니다. 남의 이력을 이어받는 것이 아니라, v0.1이라는 백지에서 내가 만들어 가는 기록이 됩니다.
+- 4·5장의 PR·CI까지 재현하려면 내 GitHub 계정에 빈 저장소를 하나 만들고 `git remote add origin <내 저장소 URL>`로 연결한 뒤 push합니다. 로컬 커밋만 쌓아도 회전 자체는 그대로 따라갈 수 있습니다.
+
+**완성본과 비교하기.** 막히거나 결과를 대조하고 싶으면 같은 방법으로 태그를
+**v1.0**으로 바꿔 한 번 더 내려받아, 별도 폴더에 풀어 두고 견줍니다.
+
+![](download_code_1.0.png)
+
+```bash
+diff -r week03-meal-planner-0.1 week03-meal-planner-1.0 | less
+```
+
+- v1.0은 정답이 아니라 **참고 구현**입니다. 프롬프트로 만드는 방식이라 파일 분해나 이름이 달라지는 것이 정상이고, 요구사항을 만족하면 성공입니다 (1주차와 같은 원칙)
+
+1. 위처럼 준비했으면 `.env.example`을 복사해 `.env`를 만들고 프로바이더 키를 채웁니다. 아래 명령으로 api·ui 두 서비스가 뜹니다 (2주차 관례 그대로, DB만 없음)
 
    ```bash
    docker compose -f docker-compose.yml -f docker-compose.dev.yml up
@@ -808,7 +845,8 @@ docker compose logs api | grep -A 3 "FALLBACK"
 ## 7. 저장소 설계: v0.1에서 v1.0으로
 
 **저장소**: [week03-meal-planner](https://github.com/2026-ai-service-engineering-a/week03-meal-planner),
-조직 소유, template repository로 지정합니다.
+조직 소유. 시작점 v0.1과 완성본 v1.0을 태그로 발행해, 재현자가 필요한 지점의
+ZIP을 내려받게 합니다 (3-1 참고)
 
 ### 7-1. v0.1: 시연 시작점 (사전 준비)
 
@@ -824,13 +862,14 @@ week03-meal-planner (v0.1)
 │   │                        #   결과 대시보드(식단표·위반 리포트), suggestion 원클릭 채택
 │   └── Dockerfile
 ├── data/
-│   └── foods.json           # 식약처 영양DB 스냅샷 (전처리 완료, 출처 명기)
+│   ├── foods.json           # 식약처 영양DB 스냅샷 500종 (전처리 완료, 출처 명기)
+│   └── food_data.xlsx       # 내려받은 원본 자리 (.gitignore — 커밋하지 않음)
 ├── scripts/
-│   └── prepare_data.py      # 원본 엑셀 → foods.json 전처리 (수집 경로 문서화)
+│   └── prepare_data.py      # 원본 엑셀 → foods.json 전처리 (prepare-data 서비스가 실행)
 ├── examples/
 │   ├── naive_plan.py        # 0단 나쁜 프롬프트 (의도된 실패 예제)
 │   └── naive_parse.py       # 0단 출력을 json.loads 시도 → 실패 확인용 (3줄)
-├── docker-compose.yml       # api + ui 두 서비스 (DB 없음)
+├── docker-compose.yml       # api + ui, 그리고 일회성 prepare-data (DB 없음)
 ├── docker-compose.dev.yml   # 개발 오버라이드 (볼륨·--reload·포트) — 2주차 관례
 ├── .env.example             # PLANNER_MODEL, VALIDATOR_MODEL, VALIDATOR_FALLBACKS, 키 3종
 ├── PROMPT.md                # 자리만
@@ -840,7 +879,7 @@ week03-meal-planner (v0.1)
 - **UI는 사전 구축 자산입니다.** 2주차 인증과 같은 지위입니다. 라이브 빌드 대상이 아니고, 구조는 README에 해설합니다 (직접 만드는 것은 9주차)
 - UI는 API를 `http://api:8000`으로만 호출합니다. compose 서비스 이름이 곧 호스트명입니다 (2주차 app↔db와 같은 원리)
 - DB가 없어 2주차보다 가볍습니다. compose는 매주의 관례로 유지해 수강생이 손에 익히게 합니다.
-- foods.json은 시연 규모에 맞게 필터된 스냅샷입니다 (음식 수백 종 수준, 레포에 부담 없는 크기)
+- foods.json은 시연 규모에 맞게 500종으로 샘플링한 스냅샷입니다. 프롬프트에 후보 목록을 통째로 넣을 수 있는 크기이자, 레포에 부담이 없는 크기입니다 (2-3장 전처리 절차 참고)
 
 ### 7-2. v1.0: 시연 종료점
 
@@ -863,7 +902,7 @@ week03-meal-planner (v0.1)
 
 ### 9-1. 이번 주 과제: week03 재현
 
-- 재현 과제: week03 재현입니다. 2주차에 설치한 [[docker|Docker]]로 `compose up`부터 시작합니다.
+- 재현 과제: week03 재현입니다. v0.1 ZIP을 내려받아 `git init` · `git flow init`으로 내 저장소를 만든 뒤(3-1 참고), 2주차에 설치한 [[docker|Docker]]로 `compose up`부터 시작합니다.
 - 키 안내: OpenAI·Anthropic·Gemini 3개 중 **폴백 시연까지 재현하려면 2개 이상**이 필요합니다. 1개뿐이면 계획자·검증자를 같은 회사의 다른 모델로 구성할 수 있지만, 교차 검증의 의미는 줄어듭니다.
 - 확장 과제 (선택): 하루 3끼 × 7일로 확장, 제약 커스터마이즈 (단백질 목표 등)
 - 막히면 디스코드로 질문합니다. 환경 문제는 텍스트로 해결이 어려우면 오프라인 모임을 활용합니다.
