@@ -4,6 +4,7 @@ description: "3주차 라이브 세션 슬라이드: LiteLLM 멀티 프로바이
 presenter: CodeCompose
 date: "2026-08-07"
 transition: none
+toc_level: 3
 toc_open: false
 ---
 
@@ -16,22 +17,6 @@ import Slide from 'stack-site-builder/components/Slide.astro';
 3주차 · LLM API와 프롬프트
 
 *CodeCompose · 2026-08-07*
-
-</Slide>
-
-<Slide>
-
-## 이 자료, 내 컴퓨터에서 볼 수 있습니다
-::sub[클론해서 띄우고, 새 자료는 git pull로]
-
-```bash
-git clone https://github.com/2026-ai-service-engineering-a/ai_service_engineering-track_a
-cd ai_service_engineering-track_a
-docker compose up --build      # → http://localhost:4321
-```
-
-- 새 자료가 올라오면: `git pull` 한 뒤 다시 `docker compose up --build`
-- Docker가 처음이면: 사이트의 글 "Docker와 Docker Compose, 처음이라면" 참고
 
 </Slide>
 
@@ -58,7 +43,7 @@ docker compose up --build      # → http://localhost:4321
 
 <Slide>
 
-## 계약이란
+### 계약이란
 
 - 응답이 자연어가 아니라 **미리 정한 타입**으로 돌아오는 것
 - 그 타입을 어긴 응답은 **코드에 닿기 전에 걸러지는** 것
@@ -70,7 +55,7 @@ docker compose up --build      # → http://localhost:4321
 
 <Slide>
 
-## 자연어로 받으면 vs 계약으로 받으면
+### 자연어로 받으면 vs 계약으로 받으면
 
 | 구분 | 자연어 | 계약 |
 | --- | --- | --- |
@@ -79,7 +64,10 @@ docker compose up --build      # → http://localhost:4321
 | 값을 꺼내려면 | 정규식·json.loads로 캐낸다 | `meal.sodium_mg > 800`처럼 바로 비교 |
 | 형식이 틀리면 | 내가 알아채고 내가 고친다 | 검증 실패가 모델에게 되돌아가 자동 재시도 |
 
-오른쪽은 "예쁘게 받기"가 아닙니다.
+<br/>
+
+오른쪽은 "예쁘게 받기"가 아닙니다.  
+
 다음 단계의 코드가 곧바로 소비할 수 있는 **데이터**이고,
 이 차이가 오늘 만들 파이프라인 전체를 지탱합니다
 
@@ -87,21 +75,23 @@ docker compose up --build      # → http://localhost:4321
 
 <Slide>
 
-## 세션 목표 (1/2)
+### 세션 목표 (1/2)
 ::sub[오늘 세션이 끝나면 얻게 되는 것]
 
 - 역할별로 모델·회사가 갈리는 **LiteLLM 멀티 프로바이더** 구성
-  계획자는 OpenAI, 검증자는 Claude, 그러나 같은 `litellm.completion` 인터페이스
+  - 계획자는 OpenAI, 
+  - 검증자는 Claude, 
+  - 그러나 같은 `litellm.completion` 인터페이스
 - 생성자와 검증자를 **다른 회사 모델로 교차**시키는 이유
-  self-preference bias: 자기 출력을 검사하면 후해집니다
-- structured output이 왜 "형식 맞추기"가 아니라 **파이프라인의 배선**인지
-  스키마 없이는 단계 간 연결 자체가 불가능합니다
+  - self-preference bias: 자기 출력을 검사하면 후해집니다
+- structured output이 왜 "형식 맞추기"가 아니라 **파이프라인의 배선**
+  - 스키마 없이는 단계 간 연결 자체가 불가능합니다
 
 </Slide>
 
 <Slide>
 
-## 세션 목표 (2/2)
+### 세션 목표 (2/2)
 
 - 폴백 체인의 가치: 검증자가 죽으면 **안전 검사가 통째로 서는** 구조에서 실감
 - 프롬프트 패턴의 사다리: 나쁜 프롬프트의 실패를
@@ -113,7 +103,7 @@ docker compose up --build      # → http://localhost:4321
 
 <Slide>
 
-## 운영안 요구사항과 이 예제의 대응
+### 운영안 요구사항과 이 예제의 대응
 
 | 요구사항 | 드러나는 자리 |
 | --- | --- |
@@ -127,7 +117,7 @@ docker compose up --build      # → http://localhost:4321
 
 <Slide>
 
-## 1·2주차와 달라지는 것
+### 1·2주차와 달라지는 것
 
 | 구분 | 1·2주차 (에이전트) | 3주차 (파이프라인) |
 | --- | --- | --- |
@@ -168,7 +158,7 @@ docker compose up --build      # → http://localhost:4321
 
 <Slide>
 
-## 제어 주체의 대비
+### 제어 주체의 대비
 
 ```mermaid
 flowchart LR
@@ -195,8 +185,10 @@ flowchart LR
 
 <Slide class="center">
 
-## 세상의 AI 서비스 대부분은
-## 사실 오른쪽(파이프라인)입니다
+### 세상의 AI 서비스 대부분은 <br/><br/> 사실 오른쪽(파이프라인)입니다
+
+<br/>
+<br/>
 
 예측 가능하고, 디버깅 가능하고, 비용이 계산되기 때문
 
@@ -219,7 +211,7 @@ flowchart LR
 
 <Slide>
 
-## 시스템 전체 그림
+### 시스템 전체 그림
 
 ```mermaid
 flowchart TB
@@ -266,10 +258,10 @@ flowchart TB
 
 <Slide>
 
-## UI는 폼형입니다. 채팅이 아닙니다
+### UI는 폼형입니다. 채팅이 아닙니다
 ::sub[UI의 형태는 백엔드 계약의 번역이어야 합니다]
 
-- 이 API는 **무상태 단발 함수**: 채팅창을 붙이면 UI가
+- 이 API는 **무상태 단발 함수** : 채팅창을 붙이면 UI가
   "이전 대화를 기억한다"는 지키지 못할 약속을 하게 됩니다
 - 2주차는 서버에 대화 상태(`conversations`·`messages`)가 있었으므로 채팅형이 정당,
   3주차는 무상태이므로 폼형이 정당
@@ -279,7 +271,7 @@ flowchart TB
 
 <Slide>
 
-## 요청사항 필드가 수정 경험을 만듭니다
+### 요청사항 필드가 수정 경험을 만듭니다
 
 - 폼에는 구조화된 조건(칼로리·나트륨·단백질)과 **자유 요청사항 한 줄**
 - 검증 리포트의 `suggestion`("국물이 적은 밥류로 교체")을
@@ -292,21 +284,19 @@ flowchart TB
 
 <Slide>
 
-## UI와 API는 별개 컨테이너, 대화는 HTTP뿐
+### UI와 API는 별개 컨테이너, 대화는 HTTP뿐
 ::sub[이것이 헤드리스입니다]
 
 - UI를 Streamlit에서 Next.js로 갈아끼워도 API는 **한 줄도** 안 바뀝니다
 - compose 네트워크에서 서비스 이름(`api`)이 곧 호스트명
   (2주차 app↔db와 같은 원리)
-- UI는 **사전 구축**: 2주차의 인증처럼 미리 만들어 제공.
-  직접 만드는 것은 9주차, 다만 결과물(식단표)이 눈에 보여야 하므로
-  매주 템플릿의 표준 구성품으로 포함
+- UI는 **사전 구축**: 2주차의 인증처럼 미리 만들어 제공
 
 </Slide>
 
 <Slide>
 
-## LLM 호출 지점은 정확히 두 곳
+### LLM 호출 지점은 정확히 두 곳
 
 - 계획자와 검증자, **둘뿐**입니다. 나머지는 전부 평범한 코드
   "AI 서비스라고 AI가 많은 게 아닙니다"
@@ -319,7 +309,7 @@ flowchart TB
 
 <Slide class="center">
 
-## 만든 쪽이 검사하면 안 된다
+### 만든 쪽이 검사하면 안 된다
 
 회사를 가르는 이유는 취향이 아니라 편향
 
@@ -330,29 +320,27 @@ flowchart TB
 
 <Slide>
 
-## 데이터: 진짜 정부 데이터
+### 데이터: 진짜 정부 데이터
 ::sub[실존하는 음식들의 분석 기반 영양 수치, 제작한 샘플이 아닙니다]
 
 - 코드가 다루는 데이터는 `data/foods.json` 하나
 - K-FIND 원본 엑셀(140여 컬럼, 약 2만 행)에서
   **음식 500종 · 컬럼 10개**만 추린 스냅샷, v0.1에 이미 내장
 - 500종인 이유: 이 목록이 계획자 **프롬프트에 통째로** 들어가기 때문.
-  컨텍스트에 실리는 크기여야 합니다
-- 같은 페이지의 **가공식품 DB**(187MB, 31만 건)는 4주차의 주인공
-  "오늘은 작고 깨끗한 쪽, 다음 주는 크고 더러운 쪽"
+  컨텍스트에 실리는 크기여야 합니다.
 
 </Slide>
 
 <Slide>
 
-## 1인분량이 이 데이터의 함정이자 보석
+### 1인분량이 이 데이터의 함정이자 보석
 
 - 영양값은 **100g 기준**, 1인분은 김밥 230g · 순대국밥 **900g**
 - 사람이 먹는 단위로 환산해야 하고,
   이 환산이 **LLM이 정확히 틀리는 지점**
 - 나트륨이 소재를 완성합니다:
-  순대국밥 470mg/100g × 900g ≈ **한 그릇 4,200mg**
-  WHO 하루 권장(2,000mg)의 두 배
+  - 순대국밥 470mg/100g × 900g ≈ **한 그릇 4,200mg**
+  - WHO 하루 권장(2,000mg)의 두 배
 - 국물 요리를 좋아할수록 예산이 터지고,
   수정 루프가 연출 없이 진짜로 돕니다
 
@@ -360,7 +348,7 @@ flowchart TB
 
 <Slide>
 
-## env가 곧 조직도
+### env가 곧 조직도
 ::sub[역할이 곧 설정: 코드 어디에도 모델명이 없습니다]
 
 ```sh
@@ -379,7 +367,7 @@ GEMINI_API_KEY=
 
 <Slide>
 
-## 폴백이 검증자에 붙는 이유
+### 폴백이 검증자에 붙는 이유
 
 - 계획자가 죽으면: "식단이 안 나옴" → **불편**
 - 검증자가 죽으면: "검증 안 된 식단이 나감" → **위험**
@@ -389,7 +377,7 @@ GEMINI_API_KEY=
 
 <Slide>
 
-## structured output은 어디서 나오나
+### structured output은 어디서 나오나
 ::sub[모델의 출력을 자유 텍스트가 아니라 검증된 타입 데이터로 받는 것]
 
 - 이 시스템에서는 LLM 호출 지점 **두 곳 모두**가 structured output
@@ -409,7 +397,7 @@ class PlanRequest(BaseModel):   # ← /plan의 입력
 
 <Slide>
 
-## 계획자의 출력 계약: MealPlan
+### 계획자의 출력 계약: MealPlan
 
 ```python
 class Meal(BaseModel):
@@ -430,7 +418,7 @@ class MealPlan(BaseModel):      # ← 계획자의 출력
 
 <Slide>
 
-## 검증자의 출력 계약: ValidationReport
+### 검증자의 출력 계약: ValidationReport
 
 ```python
 class Violation(BaseModel):
@@ -452,7 +440,7 @@ class ValidationReport(BaseModel):  # ← 검증자의 출력
 
 <Slide>
 
-## 호출은 이렇게 바뀝니다
+### 호출은 이렇게 바뀝니다
 
 ```python
 # 0단 (나쁜 예): 문자열이 돌아옴 — 파싱·검증·재시도 전부 내 몫
@@ -471,7 +459,7 @@ plan.meals[1].sodium_mg             # 바로 코드에서 사용 — 파싱 코�
 
 <Slide>
 
-## 실제로 나오는 데이터
+### 실제로 나오는 데이터
 ::sub[검증자 출력 예]
 
 ```json
@@ -494,7 +482,7 @@ plan.meals[1].sodium_mg             # 바로 코드에서 사용 — 파싱 코�
 
 <Slide>
 
-## 왜 두 출력 모두 structured여야 하는가
+### 왜 두 출력 모두 structured여야 하는가
 ::sub[둘 다 사람이 읽는 글이 아니라 다음 코드가 소비하는 데이터]
 
 ```mermaid
@@ -511,7 +499,7 @@ flowchart LR
 
 <Slide class="center">
 
-## structured output은 예쁘게 받기가 아닙니다
+### structured output은 예쁘게 받기가 아닙니다
 
 타입 있는 입력과 타입 있는 출력,
 곧 **LLM을 함수처럼 쓰기**
@@ -528,12 +516,12 @@ flowchart LR
 
 <Slide>
 
-## 시작점 내려받기
+### 시작점 내려받기
 ::sub[클론이 아니라 태그 ZIP: 버전이 고정되어 문서와 같은 상태에서]
 
 - 클론하면 완성본 이력까지 딸려 와 정답을 먼저 보게 됩니다
 - 버전별 코드는 저장소의 **Tags 페이지**에서:
-  `github.com/2026-ai-service-engineering-a/week03-meal-planner/tags`
+  [https://github.com/2026-ai-service-engineering-a/week03-meal-planner/tags](https://github.com/2026-ai-service-engineering-a/week03-meal-planner/tags)
 - 태그마다 `zip` 링크가 붙어 있어 필요한 버전을 골라 내려받으면 됩니다
 - 지금은 **v0.1의 zip**을 받아 압축을 풉니다
 
@@ -541,7 +529,7 @@ flowchart LR
 
 <Slide>
 
-## env 세팅과 구동
+### env 세팅과 구동
 
 ```bash
 cd week03-meal-planner-0.1
@@ -552,26 +540,26 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml up
 - api·ui 두 서비스가 뜹니다 (2주차 관례 그대로, DB만 없음)
 - v0.1은 **키 없이도 뜹니다**: UI와 목 응답까지 확인 가능
 - 파이프라인 실행에는 OpenAI·Anthropic·Gemini 3개 중 **2개 이상** 권장
-  계획자·검증자를 다른 회사로 교차시키는 것이 이번 주의 핵심이라서
+  - 계획자·검증자를 다른 회사로 교차시키는 것이 이번 주의 핵심이라서
 
 </Slide>
 
 <Slide>
 
-## v0.1 투어
+### v0.1 투어
 
-1. 브라우저에서 UI 열기 → 조건 입력 → 목 응답:
-   **"아직 영양사가 출근 전입니다"**
-2. UI는 이미 완성돼 있고 이번 주에 건드리지 않습니다.
-   만드는 것은 이 뒤의 **헤드리스 API**
-3. curl이나 Swagger로 불러도 똑같이 동작:
-   실제로 curl을 한 번 쳐서 같은 목 응답 확인 (분리의 증명)
+1. 브라우저에서 UI 열기 → 조건 입력 → 목 응답
+    - **"아직 영양사가 출근 전입니다"**
+2. UI는 이미 완성돼 있고 이 UI는 건드리지 않습니다.
+    - 만드는 것은 이 뒤의 **헤드리스 API**
+3. curl이나 Swagger로 불러도 똑같이 동작
+    - 실제로 curl을 한 번 쳐서 같은 목 응답 확인 (분리의 증명)
 
 </Slide>
 
 <Slide>
 
-## data/foods.json 열어보기
+### data/foods.json 열어보기
 
 - 실제 음식들, 나트륨 수치, 1인분량이 보입니다
 - 순대국밥 한 그릇의 나트륨을 지금 계산해 보면:
@@ -582,7 +570,7 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml up
 
 <Slide>
 
-## 0단: 나쁜 프롬프트의 실패를 먼저
+### 0단: 나쁜 프롬프트의 실패를 먼저
 ::sub[진행: 프롬프트 설명 → 실행 → 결과 관찰 → 파싱 시도 → 실패 확인]
 
 미리 말해 둘 것:
@@ -598,7 +586,7 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml up
 
 <Slide>
 
-## ① 코드 열고 프롬프트 설명
+### ① 코드 열고 프롬프트 설명
 ::sub[v0.1에 포함된 examples/naive_plan.py 전문]
 
 ```python
@@ -622,11 +610,15 @@ print(resp.choices[0].message.content)
 
 <Slide>
 
-## ② 실행 1회차
+### ② 실행 1회차
+
+- 명령
 
 ```bash
 docker compose exec api uv run python examples/naive_plan.py
 ```
+
+- 결과
 
 ```plaintext
 물론이죠! 나트륨을 줄인 건강한 일주일 저녁 식단입니다 😊
@@ -643,22 +635,26 @@ docker compose exec api uv run python examples/naive_plan.py
 
 <Slide>
 
-## 1회차 출력에서 읽어야 할 것
+#### 1회차 출력에서 읽어야 할 것
 
 - **인사말과 이모지**가 JSON을 감싸고 있습니다. 이대로는 파싱이 안 됩니다
 - **"연어 스테이크 샐러드"**: 우리 foods.json에 없는 음식, 곧 환각.
-  `grep 연어 data/foods.json`을 쳐 보면 없다는 것이 확인됩니다
+  - `grep 연어 data/foods.json`을 쳐 보면 없다는 것이 확인됩니다
 - **"약 200mg"**: 숫자가 아니라 문자열이고, 근거 없는 창작 수치
 
 </Slide>
 
 <Slide>
 
-## ③ 실행 2회차: 같은 명령 다시
+### ③ 실행 2회차: 같은 명령 다시
+
+- 명령
 
 ```bash
 docker compose exec api uv run python examples/naive_plan.py
 ```
+
+- 결과
 
 ```plaintext
 {
@@ -670,20 +666,24 @@ docker compose exec api uv run python examples/naive_plan.py
 ```
 
 - 이번에는 인사말이 없고, **키 이름이 전부 바뀌었습니다**
-  월요일은 day로, 메뉴는 menu로. "어제 짠 파싱 코드가 오늘 죽는 이유"
+  - 월요일은 day로, 메뉴는 menu로. "어제 짠 파싱 코드가 오늘 죽는 이유"
 - 같은 프롬프트, 같은 모델, 다른 형식.
-  **부탁으로 받은 JSON은 계약이 아닙니다**
+  - **부탁으로 받은 JSON은 계약이 아닙니다**
 
 </Slide>
 
 <Slide>
 
-## ④ 파싱 시도 → 실패 확인
+### ④ 파싱 시도 → 실패 확인
+
+- 명령
 
 ```bash
 docker compose exec api uv run python examples/naive_parse.py
 # ①의 출력을 json.loads 하는 3줄짜리
 ```
+
+- 결과
 
 ```plaintext
 json.decoder.JSONDecodeError: Expecting value: line 1 column 1 (char 0)
@@ -691,13 +691,13 @@ json.decoder.JSONDecodeError: Expecting value: line 1 column 1 (char 0)
 
 - 1회차 출력(인사말 포함)을 넣으면 **첫 글자에서 즉사**합니다
 - 이 에러를 try/except와 정규식으로 막기 시작하면 늪입니다.
-  그 늪의 이름이 "JSON 흉내"
+  - 그 늪의 이름이 "JSON 흉내"
 
 </Slide>
 
 <Slide>
 
-## ⑤ 실패 3종 정리
+### ⑤ 실패 3종 정리
 
 | 화면에서 본 것 | 실패 유형 | 오늘의 처방 |
 | --- | --- | --- |
@@ -706,13 +706,14 @@ json.decoder.JSONDecodeError: Expecting value: line 1 column 1 (char 0)
 | "약 200mg" (창작 수치) | 수치 창작 | **데이터 대조·크로스체크** (2회전) |
 
 세 실패는 처방이 다릅니다.
+
 이번 세션은 이 표의 오른쪽 열 순서대로 진행됩니다
 
 </Slide>
 
 <Slide>
 
-## 처방의 사다리
+### 처방의 사다리
 
 ```mermaid
 flowchart LR
@@ -734,24 +735,26 @@ flowchart LR
 
 <Slide>
 
-## 회전 진행 형식
+### 회전 진행 형식
 ::sub[두 회전 공통]
 
 1. 지시 프롬프트 작성·설명
 2. 무엇이 만들어졌나 (코드에서 그 부분 짚기)
 3. 커밋 → PR → 머지
 
+---
+
 - 프롬프트 방식이라 생성은 빠릅니다. 시간의 무게중심은 ②
 - **실행은 회전 중간에 하지 않습니다.**
-  두 회전이 모두 머지된 v1.0 상태에서 한 번에
+  - 두 회전이 모두 머지된 v1.0 상태에서 한 번에
 - 문서의 출력 예시도 전부 태그 기준:
-  재현자가 같은 태그에서 돌리면 같은 기준으로 비교할 수 있습니다
+  - 재현자가 같은 태그에서 돌리면 같은 기준으로 비교할 수 있습니다
 
 </Slide>
 
 <Slide>
 
-## 1차 지시
+### 1차 지시
 
 ```plaintext
 식단 플래너의 1단계: 계획자를 만들어줘.
@@ -779,55 +782,56 @@ flowchart LR
 
 <Slide>
 
-## 줄별 의도: 후보 주입
+### 줄별 의도: 후보 주입
 ::sub["목록에 없는 음식 금지"]
 
 - 0단 **환각**에 대한 처방:
   모델의 상상력을 데이터의 울타리 안에 가둡니다
 - 4\~6주차 컨텍스트 엔지니어링·RAG의 첫 실물이기도 합니다
 - 다만 지금 하는 것은 후보 500종을 **프롬프트에 통째로 싣는 것**.
-  데이터가 작아서 되는 방식입니다
+  - 데이터가 작아서 되는 방식입니다
 
 </Slide>
 
 <Slide>
 
-## 통째 주입이 오래 못 가는 세 가지 이유
+### 통째 주입이 오래 못 가는 세 가지 이유
 
 - **환각이 완전히 사라지지 않습니다**
-  컨텍스트 주입은 확률을 낮추는 일이지 보증이 아닙니다.
-  검증자와 코드 크로스체크가 따로 필요한 이유
+  - 컨텍스트 주입은 확률을 낮추는 일이지 보증이 아닙니다.
+  - 검증자와 코드 크로스체크가 따로 필요한 이유
 - **비용이 입력 토큰에 비례합니다**
-  후보 목록은 호출마다 통째로 다시 실려 갑니다.
-  수정 루프까지 돌면 `/plan` 한 번에 같은 목록을 네 번까지
+  - 후보 목록은 호출마다 통째로 다시 실려 갑니다.
+  - 수정 루프까지 돌면 `/plan` 한 번에 같은 목록을 네 번까지
 - **큰 입력은 큰 모델을 요구합니다**
-  컨텍스트 상한을 넘으면 더 비싼 모델로.
-  비용을 피하려다 다시 비용으로 돌아옵니다
+  - 컨텍스트 상한을 넘으면 더 비싼 모델로.
+  - 비용을 피하려다 다시 비용으로 돌아옵니다
 
 데이터가 커지면 **다 넣는 대신 골라 넣게** 됩니다.
+
 그것이 검색이고 RAG입니다 (4\~6주차)
 
 </Slide>
 
 <Slide>
 
-## 줄별 의도: 나머지
+### 줄별 의도: 나머지
 
 - **"instructor를 사용"**: 0단 형식 붕괴의 처방.
-  "JSON으로 줘"라고 비는 것과, 스키마 검증 실패 시 자동 재시도의 차이
+  - "JSON으로 줘"라고 비는 것과, 스키마 검증 실패 시 자동 재시도의 차이
 - **"few-shot 환산 예시"**: 0단 수치 창작의 처방 시도.
-  **그래도 틀린다는 것**이 2회전의 복선
+  - **그래도 틀린다는 것**이 2회전의 복선
 - **"디버그 로그"**: 프롬프트 전문·원출력·재시도가 로그에 남아야
-  "실제로 이렇게 처리된다"를 열어 볼 수 있습니다.
-  **관측 가능성도 요구사항입니다**
+  - "실제로 이렇게 처리된다"를 열어 볼 수 있습니다.
+  - **관측 가능성도 요구사항입니다**
 - **"작업 단위마다 커밋"**: 브랜치가 지시 단위라면 커밋은 그 안의 작업 단위.
-  재현자가 diff로 만들어진 순서를 따라갈 수 있게
+  - 재현자가 diff로 만들어진 순서를 따라갈 수 있게
 
 </Slide>
 
 <Slide>
 
-## 무엇이 만들어졌나: git log부터
+### 무엇이 만들어졌나: git log부터
 
 - 생성이 끝나면 `git log --oneline`부터 봅니다
 - 스키마 → 호출 → 연결 커밋이 쪼개져 쌓였는지 확인
@@ -838,7 +842,7 @@ flowchart LR
 
 <Slide>
 
-## 코드에서 이 부분
+### 코드에서 이 부분
 
 | 파일 | 보는 곳 | 왜 중요한가 |
 | --- | --- | --- |
@@ -851,7 +855,7 @@ flowchart LR
 
 <Slide>
 
-## 커밋 → PR → 머지
+### 커밋 → PR → 머지
 
 - PR을 생성합니다. 커밋이 여러 개 쌓인 PR이 만들어집니다
 - **과정이 남는 PR**과 결과만 있는 PR의 차이
@@ -875,7 +879,7 @@ flowchart LR
 
 <Slide>
 
-## 2차 지시
+### 2차 지시
 
 ```plaintext
 2단계: 검증자와 수정 루프를 추가해줘.
@@ -902,35 +906,33 @@ flowchart LR
 
 <Slide>
 
-## 줄별 의도: 교차와 근거
+### 줄별 의도: 교차와 근거
 
 - **"계획자와 다른 프로바이더"**: 교차 검증의 구조화.
-  env를 보면 이 정책이 설정으로 보입니다
+  - env를 보면 이 정책이 설정으로 보입니다
 - **"근거 수치" 필드**: 검증자가 "나트륨 초과 같아요"가 아니라
-  "화요일 순대국밥: 470mg/100g × 900g = 4,230mg > 800mg"을 내놓게 강제
+  - "화요일 순대국밥: 470mg/100g × 900g = 4,230mg > 800mg"을 내놓게 강제
 - structured output이 판정의 **품질**을 끌어올리는 예
 
 </Slide>
 
 <Slide>
 
-## 줄별 의도: 크로스체크와 정직한 실패
+### 줄별 의도: 크로스체크와 정직한 실패
 
 - **"코드 크로스체크"**: 정직한 설계 포인트.
-  **산수만 필요하면 LLM 검증자는 필요 없습니다. 코드가 더 정확합니다**
+  - **산수만 필요하면 LLM 검증자는 필요 없습니다. 코드가 더 정확합니다**
 - LLM 검증자의 값어치는 위반의 해석 · 심각도 판단 · 수정 제안.
-  산수는 코드가 이중으로 보증합니다. **"믿되, 재계산하라"**
+  - 산수는 코드가 이중으로 보증합니다. **"믿되, 재계산하라"**
 - LLM-as-judge의 예고편이자 한계 고지
 - **"정직한 실패"**: 3회 상한. 파이프라인에도 루프 가드가 있습니다
-  (2주차 에이전트 루프 가드의 재회)
-- **"커밋을 나눠라"**: "검증자만 있는 상태"와 "루프까지 연결된 상태"가
-  커밋으로 구분되어야 재현자가 단계를 밟을 수 있습니다
+  - (2주차 에이전트 루프 가드의 재회)
 
 </Slide>
 
 <Slide>
 
-## 코드에서 이 부분
+### 코드에서 이 부분
 
 | 파일 | 보는 곳 | 왜 중요한가 |
 | --- | --- | --- |
@@ -943,7 +945,7 @@ flowchart LR
 
 <Slide>
 
-## 커밋 → PR → 머지 → v1.0 태그
+### 커밋 → PR → 머지 → v1.0 태그
 
 - 커밋 이력 확인 → PR → CI → 머지. 1회전과 같은 절차라 빠르게
 - 머지 후 **v1.0 태그**를 찍습니다
@@ -963,8 +965,10 @@ flowchart LR
 
 <Slide>
 
-## v1.0 내려받아 띄우기
+### v1.0 내려받아 띄우기
 ::sub[Tags 페이지에서 v1.0의 zip]
+
+[https://github.com/2026-ai-service-engineering-a/week03-meal-planner/tags](https://github.com/2026-ai-service-engineering-a/week03-meal-planner/tags)
 
 ```bash
 cd week03-meal-planner-1.0
@@ -975,13 +979,14 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml up
 - v0.1을 띄워 둔 상태라면 먼저 내립니다
 - `.env`는 v0.1 폴더의 것을 복사
 - 같은 지시를 직접 돌려 내 버전을 만들어 봤다면 파일 이름과
-  로그 마커가 문서와 다를 수 있습니다. 요구사항을 만족하면 그것대로 성공
+  로그 마커가 문서와 다를 수 있습니다. 
+  - 요구사항을 만족하면 그것대로 성공
 
 </Slide>
 
 <Slide>
 
-## v0.1에서 무엇이 달라졌나
+### v0.1에서 무엇이 달라졌나
 ::sub[두 회전이 더한 것이 전부]
 
 | 구분 | v0.1 | v1.0 |
@@ -993,6 +998,8 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml up
 | UI·데이터 | 사전 구축 UI · foods.json | 변경 없음 (헤드리스 분리의 증명) |
 | PROMPT.md | 자리만 | 지시 프롬프트 2개 누적 |
 
+- 명령 (참조만 하세요)
+
 ```bash
 diff -r week03-meal-planner-0.1 week03-meal-planner-1.0 | less
 ```
@@ -1001,7 +1008,7 @@ diff -r week03-meal-planner-0.1 week03-meal-planner-1.0 | less
 
 <Slide>
 
-## 계획자 층: 데이터의 여행
+### 계획자 층: 데이터의 여행
 ::sub[지도를 먼저 걸어두고, 각 지점을 명령 → 실물로 엽니다]
 
 ```mermaid
@@ -1019,12 +1026,16 @@ flowchart TB
 
 <Slide>
 
-## 관문 ②: 틀린 입력은 LLM에 가기도 전에 죽는다
+### 관문 ②: 틀린 입력은 LLM에 가기도 전에 죽는다
+
+- 명령
 
 ```bash
 curl -s localhost:8000/plan -X POST -H 'Content-Type: application/json' \
   -d '{"kcal_min":500,"kcal_max":"많이","sodium_limit_mg":800,"protein_min_g":25}' | jq
 ```
+
+- 결과
 
 ```json
 { "detail": [ { "loc": ["body", "kcal_max"],
@@ -1037,12 +1048,16 @@ curl -s localhost:8000/plan -X POST -H 'Content-Type: application/json' \
 
 <Slide>
 
-## 정상 호출 → 응답 실물
+### 정상 호출 → 응답 실물
+
+- 명령
 
 ```bash
 curl -s localhost:8000/plan -X POST -H 'Content-Type: application/json' \
   -d '{"kcal_min":500,"kcal_max":800,"sodium_limit_mg":800,"protein_min_g":25,"request":""}' | jq
 ```
+
+- 결과
 
 ```json
 {
@@ -1064,24 +1079,28 @@ curl -s localhost:8000/plan -X POST -H 'Content-Type: application/json' \
 
 <Slide>
 
-## 응답에서 검증할 것
+### 응답에서 검증할 것
 
 - 식품코드를 foods.json에서 `grep`으로 확인 (실존 여부)
 - 환산값 하나를 암산으로 대조
 - **틀린 끼니가 나오면 수정 루프의 복선**:
-  few-shot을 줬는데도 틀립니다.
-  프롬프트만으로 산수를 보증할 수 없습니다
+  - few-shot을 줬는데도 틀립니다.
+  - 프롬프트만으로 산수를 보증할 수 없습니다
 
 </Slide>
 
 <Slide>
 
-## 관문 ③·④: 모델이 실제로 본 것과 뱉은 것
+### 관문 ③·④: 모델이 실제로 본 것과 뱉은 것
 ::sub[LOG_LEVEL=debug: 관측 가능성도 요구사항이었습니다]
+
+- 명령
 
 ```bash
 docker compose logs api | grep -A 40 "PLANNER PROMPT"
 ```
+
+- 결과
 
 ```plaintext
 [debug] PLANNER PROMPT ─ system:
@@ -1096,27 +1115,26 @@ docker compose logs api | grep -A 40 "PLANNER PROMPT"
 
 <Slide>
 
-## 모델이 보는 것은 결국 이 텍스트
+### 모델이 보는 것은 결국 이 텍스트
 
 - 객체가 아니라 **텍스트**입니다.
-  후보 목록이 여기 박혀 있으니 환각이 억제된 것
-- 데이터가 **객체 → 텍스트 → JSON → 객체**를 여행하고,
-  경계마다 보증자가 다릅니다
+  - 후보 목록이 여기 박혀 있으니 환각이 억제된 것
+- 데이터가 **객체 → 텍스트 → JSON → 객체**를 여행하고, 경계마다 보증자가 다릅니다
 - 들어올 땐 Pydantic, 나올 땐 instructor
 
 </Slide>
 
 <Slide>
 
-## 나오지 않을 때: 실패의 두 층
+### 나오지 않을 때: 실패의 두 층
 
 ```mermaid
 flowchart TB
     CALL["LLM 호출"] --> OK{"응답이 왔는가?"}
-    OK -- "아니오 — 429·5xx·타임아웃<br/>(모델 층 실패)" --> FB["**LiteLLM 폴백**<br/>다음 프로바이더로 교체"]
+    OK -- "아니오 — 429·5xx·타임아웃<br/>(모델 층 실패)" --> FB["LiteLLM 폴백<br/>다음 프로바이더로 교체"]
     FB --> CALL
     OK -- 예 --> VALID{"스키마를 통과했는가?"}
-    VALID -- "아니오 — 필드 누락·타입 불일치<br/>(형식 층 실패)" --> RETRY["**instructor 재시도**<br/>검증 오류를 담아 같은 모델에 재요청"]
+    VALID -- "아니오 — 필드 누락·타입 불일치<br/>(형식 층 실패)" --> RETRY["instructor 재시도<br/>검증 오류를 담아 같은 모델에 재요청"]
     RETRY --> CALL
     VALID -- 예 --> OBJ["검증된 객체 — 파이프라인 진행"]
 ```
@@ -1127,11 +1145,15 @@ flowchart TB
 
 <Slide>
 
-## instructor 재시도 관찰
+### instructor 재시도 관찰
+
+- 명령
 
 ```bash
 docker compose logs api | grep -B 2 -A 8 "INSTRUCTOR RETRY"
 ```
+
+- 결과
 
 ```plaintext
 [debug] PLANNER RAW OUTPUT: {"meals":[{"day":"월요일", ...     ← Literal["월",...] 위반
@@ -1141,15 +1163,14 @@ docker compose logs api | grep -B 2 -A 8 "INSTRUCTOR RETRY"
 [debug] PLANNER RAW OUTPUT: {"meals":[{"day":"월", ...          ← 통과
 ```
 
-형식이 틀리면 사람이 고치는 것이 아니라,
-**오류가 모델에게 되돌아가고 모델이 고칩니다.**
-그것이 자동 재시도의 실체
+- 형식이 틀리면 사람이 고치는 것이 아니라, **오류가 모델에게 되돌아가고 모델이 고칩니다.**
+  - 그것이 자동 재시도의 실체
 
 </Slide>
 
 <Slide>
 
-## 수정 루프: 검증자가 계획자의 실수를 잡아낸다
+### 수정 루프: 검증자가 계획자의 실수를 잡아낸다
 
 ```mermaid
 sequenceDiagram
@@ -1175,14 +1196,20 @@ sequenceDiagram
 
 <Slide>
 
-## 위반을 유도하는 호출
+### 위반을 유도하는 호출
 ::sub[국물 요리 유도로 나트륨 위반이 거의 확실히 발생합니다]
+
+발생하지 않을 때도 있습니다. 그럴 때는 `kcal_max`를 `600`으로 하면 나타나기도 합니다.
+
+- 명령
 
 ```bash
 curl -s localhost:8000/plan -X POST -H 'Content-Type: application/json' \
   -d '{"kcal_min":500,"kcal_max":800,"sodium_limit_mg":800,"protein_min_g":25,
        "request":"국물 요리 위주로 짜줘"}' | jq
 ```
+
+- 결과
 
 ```json
 {
@@ -1202,22 +1229,25 @@ curl -s localhost:8000/plan -X POST -H 'Content-Type: application/json' \
 
 <Slide>
 
-## 루프가 돌았다는 증거가 응답에 있습니다
+### 루프가 돌았다는 증거가 응답에 있습니다
 
 - `attempts: 2`: 1차에서 검증자가 잡았고, 2차에서 통과
 - `history`: 시도별 위반 이력이 그대로 남습니다
-- 3회 안에 통과 못 하면 `passed: false`인 리포트와
-  마지막 안이 그대로 나갑니다: **정직한 실패**
+- 3회 안에 통과 못 하면 `passed: false`인 리포트 및 마지막 안이 그대로 나갑니다: **정직한 실패**
 
 </Slide>
 
 <Slide>
 
-## 검증자가 실제로 받은 것·뱉은 것
+### 검증자가 실제로 받은 것·뱉은 것
+
+- 명령
 
 ```bash
 docker compose logs api | grep -A 30 "VALIDATOR PROMPT"
 ```
+
+- 결과
 
 ```plaintext
 [debug] VALIDATOR PROMPT ─ user:
@@ -1233,11 +1263,15 @@ docker compose logs api | grep -A 30 "VALIDATOR PROMPT"
 
 <Slide>
 
-## 위반이 계획자에게 되돌아간 실물
+### 위반이 계획자에게 되돌아간 실물
+
+- 명령
 
 ```bash
 docker compose logs api | grep -A 15 "PLANNER PROMPT (revision)"
 ```
+
+- 결과
 
 ```plaintext
 [debug] PLANNER PROMPT (revision) ─ user:
@@ -1253,11 +1287,15 @@ docker compose logs api | grep -A 15 "PLANNER PROMPT (revision)"
 
 <Slide>
 
-## 크로스체크와 테스트
+### 크로스체크와 테스트
+
+- 명령
 
 ```bash
 docker compose exec api uv run pytest tests/test_conversion.py -v
 ```
+
+- 결과
 
 ```plaintext
 test_conversion.py::test_serving_conversion PASSED
@@ -1266,13 +1304,15 @@ test_conversion.py::test_daily_sodium_sum PASSED
 
 - 크로스체크 결과와 검증자 판정을 나란히 놓고 일치를 확인합니다
 - 불일치가 나면 그것대로 볼거리: 누가 맞을까요.
-  **산수는 코드가 맞습니다**
+  - **산수는 코드가 맞습니다**
 
 </Slide>
 
 <Slide>
 
-## 조합 교체: env만으로
+### 조합 교체: env만으로
+
+- 명령
 
 ```bash
 # .env: PLANNER_MODEL=openai/gpt-...  →  PLANNER_MODEL=gemini/gemini-...
@@ -1280,18 +1320,20 @@ docker compose up -d --force-recreate api   # env 변경은 재기동으로 반�
 curl -s localhost:8000/plan -X POST ... | jq '.meals[0]'   # 같은 요청 재실행
 ```
 
+- 결과
+
 ```plaintext
 [debug] LLM CALL ─ role=planner model=gemini/gemini-...   ← 로그에서 확인
 ```
 
 - 코드는 한 줄도 안 바뀌었습니다.
-  diff가 없다는 것(`git status`가 깨끗함)이 이 시연의 증거
+  - diff가 없다는 것(`git status`가 깨끗함)이 이 시연의 증거
 
 </Slide>
 
 <Slide>
 
-## 설정이 자유라는 것의 뜻
+### 설정이 자유라는 것의 뜻
 
 - 검증자를 계획자와 같은 모델로 바꾸면? **돌아는 갑니다**
 - 하지만 교차 검증의 의미가 사라집니다
@@ -1302,7 +1344,7 @@ curl -s localhost:8000/plan -X POST ... | jq '.meals[0]'   # 같은 요청 재�
 
 <Slide>
 
-## 폴백: 모의 장애
+### 폴백: 모의 장애
 
 ```mermaid
 flowchart LR
@@ -1322,11 +1364,15 @@ curl -s localhost:8000/plan -X POST ... | jq '.report.passed'   # 그래도 검�
 
 <Slide>
 
-## 폴백 로그
+### 폴백 로그
+
+- 명령
 
 ```bash
 docker compose logs api | grep -A 3 "FALLBACK"
 ```
+
+- 결과
 
 ```plaintext
 [warn]  LLM CALL FAILED ─ role=validator model=anthropic/no-such-model (NotFoundError)
@@ -1336,35 +1382,32 @@ docker compose logs api | grep -A 3 "FALLBACK"
 
 - 응답은 정상, 로그에만 장애의 흔적
 - 사용자는 프로바이더 장애를 몰랐습니다.
-  검증자가 죽었는데 서비스는 살았고, 검증도 됐습니다
+  - 검증자가 죽었는데 서비스는 살았고, 검증도 됐습니다
 
 </Slide>
 
 <Slide class="center">
 
-## 폴백은 사치가 아니라
-## 안전 검사의 가용성입니다
+### 폴백은 사치가 아니라 안전 검사의 가용성입니다
 
 </Slide>
 
 <Slide>
 
-## UI 통주행
+### UI 통주행
 ::sub[curl로 봤던 그 JSON이 같은 API 그대로 UI에서는 이렇게]
 
 - 조건 폼 입력 → 식단표가 표로 렌더링
 - 위반 리포트·시도 횟수가 함께 표시
 - **요청사항 순환 시연**:
-  리포트의 `suggestion`("국물이 적은 밥류로 교체")을
-  원클릭으로 요청사항 필드에 채택 → 재요청 → 새 식단
+  - 리포트의 `suggestion`("국물이 적은 밥류로 교체")을 원클릭으로 요청사항 필드에 채택 → 재요청 → 새 식단
 - 이어서 요청사항 클리어 → 재요청 → 초기 조건만의 새 식단
 
 </Slide>
 
 <Slide class="center">
 
-## 수정처럼 보였지만
-## 서버는 매번 처음 보는 요청을 받았습니다
+### 수정처럼 보였지만 서버는 매번 처음 보는 요청을 받았습니다
 
 상태는 저 폼 필드가 전부
 
@@ -1375,9 +1418,7 @@ docker compose logs api | grep -A 3 "FALLBACK"
 
 <Slide class="center">
 
-## 이번 주 LLM 호출은 딱 두 군데였습니다
-
-그 두 군데를 신뢰할 수 있게 만드는 데 2시간
+### 이번 주 LLM 호출은 딱 두 군데였습니다
 
 멀티 프로바이더 · 스키마 · 폴백 · 크로스체크
 
@@ -1396,11 +1437,13 @@ v1.5는 그 위에 **관측(observability)과 재현 편의**
 
 Tags 페이지에서 v1.5의 zip
 
+[https://github.com/2026-ai-service-engineering-a/week03-meal-planner/tags](https://github.com/2026-ai-service-engineering-a/week03-meal-planner/tags)
+
 </Slide>
 
 <Slide>
 
-## v1.5: 무엇이 더해졌나
+### v1.5: 무엇이 더해졌나
 ::sub[PR 3개와 수정 1건, 과정은 git log v1.0..v1.5에]
 
 | PR | 브랜치 | 더한 것 |
@@ -1415,13 +1458,13 @@ Tags 페이지에서 v1.5의 zip
 
 <Slide>
 
-## audit: "통과"가 감상이 아니라 산수가 됩니다
+### audit: "통과"가 감상이 아니라 산수가 됩니다
 
 - v1.0의 `report.passed`는 **검증자의 판정**
-- `audit`은 끼니별 실존·환산·열량·단백질·나트륨을
-  크로스체크 **순수 함수로 재계산한 근거표**
+- `audit`은 끼니별 실존·환산·열량·단백질·나트륨을 크로스체크
+  - **순수 함수로 재계산한 근거표**
 - 적용 기준(constraints)까지 응답에 에코:
-  무엇을 기준으로 판정했는지가 응답만 봐도 드러납니다
+  - 무엇을 기준으로 판정했는지가 응답만 봐도 드러납니다
 
 ```bash
 curl -s localhost:8000/plan -X POST ... | jq '.audit'
@@ -1431,13 +1474,17 @@ curl -s localhost:8000/plan -X POST ... | jq '.audit'
 
 <Slide>
 
-## /plan/stream: 진행은 보여주되 무상태는 지킵니다
+### /plan/stream: 진행은 보여주되 무상태는 지킵니다
+
+- 명령
 
 ```bash
 curl -sN localhost:8000/plan/stream -X POST -H 'Content-Type: application/json' \
   -d '{"kcal_min":500,"kcal_max":800,"sodium_limit_mg":800,"protein_min_g":25,
        "request":"국물 요리 위주로 짜줘"}'
 ```
+
+- 결과
 
 ```plaintext
 data: {"event":"progress","stage":"planner","detail":"계획자 호출 — 식단 초안 생성 (시도 1/3)",...}
@@ -1454,14 +1501,14 @@ data: {"event":"result","data":{...}}
 
 <Slide>
 
-## llm_calls와 /config
+### llm_calls와 /config
 
 - **llm_calls**: 로그에만 있던 것이 응답으로 올라옵니다.
-  `grep`으로 캐던 "모델이 실제로 본 것과 뱉은 것"을 UI에서 열어봅니다
+  - `grep`으로 캐던 "모델이 실제로 본 것과 뱉은 것"을 UI에서 열어봅니다
 - 폴백이 동작했다면 **실제 사용된 모델**이,
   수정 루프라면 **시도 번호**가 함께 남습니다
 - **GET /config**: 역할별 모델과 폴백 체인.
-  키는 절대 내보내지 않습니다. 모델 문자열은 비밀이 아니라 정책
+  - 키는 절대 내보내지 않습니다. 모델 문자열은 비밀이 아니라 정책
 
 ```bash
 curl -s localhost:8000/config | jq
@@ -1471,7 +1518,7 @@ curl -s localhost:8000/config | jq
 
 <Slide>
 
-## 관측이 실제로 버그를 잡았습니다
+### 관측이 실제로 버그를 잡았습니다
 ::sub[UI 호출 기록으로 돌려 보다 검증자 오판 2건이 실물로]
 
 - 검증자에게 주는 원본 수치 목록에 식품코드가 빠져
@@ -1484,7 +1531,7 @@ curl -s localhost:8000/config | jq
 
 <Slide class="center">
 
-## 판정은 코드가, 문장은 검증자가
+### 판정은 코드가, 문장은 검증자가
 
 크로스체크 원칙 "믿되, 재계산하라"의 완성
 
@@ -1492,7 +1539,7 @@ curl -s localhost:8000/config | jq
 
 <Slide>
 
-## v1.5 UI에서
+### v1.5 UI에서
 
 - **진행 로그**가 실시간으로 차오릅니다 (SSE 소비)
 - 결과 아래 **검증 상세 표**: 끼니별 판정
