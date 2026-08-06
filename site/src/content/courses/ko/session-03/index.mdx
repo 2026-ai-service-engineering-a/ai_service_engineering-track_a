@@ -1036,7 +1036,7 @@ v1.5는 그 위에 **관측(observability)과 재현 편의**를 얹은 확장�
 | PR | 브랜치 | 더한 것 |
 | --- | --- | --- |
 | #3 | `feature/compose-data-prep` | 데이터 전처리를 compose 일회성 서비스 `prepare-data`로 분리. 호스트에 파이썬·pandas 없이 스냅샷 재생성 (11장 부록의 그 명령) |
-| #4 | `feature/progress-and-audit` | `POST /plan/stream`(SSE)로 파이프라인 진행 이벤트를 흘리고, 응답에 코드 재계산 근거 `audit`을 싣는다. UI에 진행 로그·검증 상세 |
+| #4 | `feature/progress-and-audit` | `POST /plan/stream`([[sse\|SSE]])로 파이프라인 진행 이벤트를 흘리고, 응답에 코드 재계산 근거 `audit`을 싣는다. UI에 진행 로그·검증 상세 |
 | #5 | `feature/llm-call-inspector` | 응답에 호출 기록 `llm_calls`(호출별 입·출력 전문·토큰·비용)를 싣고, `GET /config`로 역할별 모델 구성을 노출. UI에 호출 기록 뷰어·사이드바 |
 
 세 PR도 두 회전과 같은 방식(지시 → 생성 → 검증 → PR)으로 만들어졌습니다.
@@ -1057,7 +1057,7 @@ curl -s localhost:8000/plan -X POST -H 'Content-Type: application/json' \
   | jq '.audit'
 ```
 
-**진행 이벤트 (SSE)**: UI가 쓰는 엔드포인트를 curl로도 볼 수 있습니다.
+**진행 이벤트 ([[sse|SSE]])**: UI가 쓰는 엔드포인트를 curl로도 볼 수 있습니다.
 
 ```bash
 curl -sN localhost:8000/plan/stream -X POST -H 'Content-Type: application/json' \

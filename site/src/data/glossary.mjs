@@ -65,4 +65,8 @@ export const glossary = {
     label: 'Docker Compose',
     def: '컨테이너 실행에 필요한 포트·볼륨·환경변수 설정을 compose.yml 파일 하나로 선언하고, docker compose up 한 번으로 띄우는 도구.',
   },
+  sse: {
+    label: 'SSE',
+    def: 'Server-Sent Events. HTTP 연결 하나를 열어둔 채 서버가 클라이언트로 이벤트를 단방향으로 흘려보내는 웹 표준(Content-Type: text/event-stream). 브라우저는 EventSource로 소비한다. LLM 토큰 스트리밍과 작업 진행 상황 전달에 흔히 쓰이며, WebSocket과 달리 일반 HTTP라 가볍다.',
+  },
 };
