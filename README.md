@@ -29,7 +29,7 @@ flowchart LR
 | 주차 | 주제 | 세션 실습 포커스 | 산출물 |
 | --- | --- | --- | --- |
 | 1 | AI 서비스 전주기 이해 | 과정 조망, 엔지니어링 사다리, 프로젝트 트랙 소개, 개인 repo 개설 | 학습 목표 + 개인 repo |
-| 2 | Python AI 개발환경 | devcontainer 구동, uv/pip, GitHub 워크플로, Codex/Claude 활용 세팅 | 동작하는 개발 환경 |
+| 2 | Python AI 개발환경 | 컨테이너 기반 개발환경 구동, uv/pip, GitHub 워크플로, Codex/Claude 활용 세팅 | 동작하는 개발 환경 |
 | 3 | LLM API와 프롬프트 | LiteLLM 멀티 프로바이더 호출, 프롬프트 패턴, structured output(instructor) | LLM 호출 실습 코드 |
 | 4 | 데이터 수집·정제 | CSV/PDF/웹/API 수집, pandas 정제, 한국어 PDF 함정 대응 | 정제 데이터셋 |
 | 5 | 임베딩·벡터DB | sentence-transformers(`bge-m3`), Chroma add/query, 유사도 검색 | 검색 실습 코드 |
@@ -89,12 +89,15 @@ flowchart LR
 
 ```plaintext
 ai_service_engineering-track_a/
-├── site/                    # 강의 사이트 (stack-site-builder 기반 Astro) — 강의·슬라이드·개념·용어집
+├── site/                    # 강의 사이트 (stack-site-builder 기반 Astro) — 강의·슬라이드·글·개념·용어집
 ├── docs/                    # 규칙 문서(작성·문서화·git) + 회차별 강의 문서·실습 가이드 (추가 예정)
 ├── scripts/                 # 저장소 스크립트 (문서 스타일 검사 등)
 ├── src/                     # 회차별 예제 코드 (추가 예정)
 ├── tests/                   # 단위 테스트 (추가 예정)
 ├── pyproject.toml           # uv 기반 의존성 (추가 예정)
+├── docker-compose.yml       # 사이트 실행 (보기 전용, 소스 내장)
+├── docker-compose.dev.yml   # 사이트 실행 (site/ 바인드 마운트 + 핫리로드)
+├── CLAUDE.md                # AI 도구용 저장소 가이드
 ├── CHANGELOG.md             # 릴리스 변경 기록
 └── README.md
 ```
