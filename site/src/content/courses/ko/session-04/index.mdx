@@ -1,10 +1,10 @@
 ---
 title: "4주차: 데이터 수집·정제와 RAG 검색"
-description: "4주차 라이브 세션 상세 교안: 식약처 가공식품 DB 31만 건 원본 정제, 더러움 3종(인코딩·결측·비정형) 처방, 규칙 우선 LLM 잔여 파싱, 배치 안전장치, SQLite 검색 서비스, 구글 임베딩 벡터 인덱스와 RAG 질의응답"
-summary: "라이브 세션의 상세 교안입니다. 3주차의 깨끗한 foods.json이 어떻게 만들어졌는지, 치우기 전의 원본을 직접 만나며 알게 됩니다. 식약처 가공식품 DB 187MB·31만 건을 인코딩 정리·결측 정책·컬럼 슬림으로 정제하고, 자유 텍스트 섭취참고량을 규칙 우선·LLM 잔여로 파싱하며, 정제 데이터셋을 SQLite에 굳혀 검색 서비스로 소비합니다. 그 위에 구글 임베딩으로 벡터 인덱스를 세워 의미 검색을 열고, 검색이 추린 몇 건만 컨텍스트로 LLM을 불러 RAG 질의응답의 비용 구조를 보입니다. 정제는 코드가 아니라 리포트로 검증합니다."
+description: "4주차 라이브 세션 상세 교안: 식약처 가공식품 DB 31만 건 원본 정제, 더러움 3종(인코딩·결측·비정형) 처방, 규칙 우선 LLM 잔여 파싱, 배치 안전장치, PostgreSQL 검색 서비스, 구글 임베딩 벡터 인덱스와 RAG 질의응답"
+summary: "라이브 세션의 상세 교안입니다. 3주차의 깨끗한 foods.json이 어떻게 만들어졌는지, 치우기 전의 원본을 직접 만나며 알게 됩니다. 식약처 가공식품 DB 187MB·31만 건을 인코딩 정리·결측 정책·컬럼 슬림으로 정제하고, 자유 텍스트 섭취참고량을 규칙 우선·LLM 잔여로 파싱하며, 정제 데이터셋을 PostgreSQL에 적재해 검색 서비스로 소비합니다. 그 위에 구글 임베딩으로 벡터 인덱스를 세워 의미 검색을 열고, 검색이 추린 몇 건만 컨텍스트로 LLM을 불러 RAG 질의응답의 비용 구조를 보입니다. 정제는 코드가 아니라 리포트로 검증합니다."
 date: 2026-08-14
 category: foundation
-tags: ["데이터 정제", "pandas", "결측 정책", "배치 LLM", "instructor", "SQLite", "임베딩", "RAG"]
+tags: ["데이터 정제", "pandas", "결측 정책", "배치 LLM", "instructor", "PostgreSQL", "임베딩", "RAG"]
 level: 2
 order: "04"
 ---
@@ -25,7 +25,7 @@ order: "04"
 
 - **주제**: 데이터 수집·정제와 RAG 검색 (정제되지 않은 실데이터를 서비스 가능한 데이터셋으로, 데이터셋을 의미 검색으로)
 - **세션 포커스**: RAG 검색과 비용 사다리, 정제안됨 3종 관찰과 처방(개념 위주), Git Flow 4회전과 회전별 릴리즈(v0.2부터 v1.0까지)
-- **시연 소재**: "가공식품 영양 탐색기". 31만 건 가공식품 정제 → SQLite → 키워드 검색 + 의미 검색·질의응답
+- **시연 소재**: "가공식품 영양 탐색기". 31만 건 가공식품 정제 → PostgreSQL → 키워드 검색 + 의미 검색·질의응답
 - **데이터**: 식약처 가공식품 DB (187.42MB, 약 31만 건, K-FIND 파일 다운로드)
 - **산출물**: 정제 데이터셋 (+ 그것을 소비하는 검색·RAG 서비스)
 - **시연 저장소**: [week04-food-data-pipeline](https://github.com/2026-ai-service-engineering-a/week04-food-data-pipeline)
@@ -50,7 +50,7 @@ order: "04"
 > **참고**
 >
 > 이번 주 파이프라인은 대부분 LLM 없이 돕니다.  
-> v0.1 투어, 1회전 정제, 3회전 SQLite·검색 서비스는 API 키가 없어도 재현할 수 있습니다.  
+> v0.1 투어, 1회전 정제, 3회전 PostgreSQL·검색 서비스는 API 키가 없어도 재현할 수 있습니다.  
 > 
 > LLM이 등장하는 곳은 2회전의 잔여 파싱과 4회전의 RAG 답변 두 군데로,
 > `PARSER_MODEL`용 프로바이더 키 하나면 됩니다. 3주차 키를 재사용하세요.
@@ -74,7 +74,7 @@ order: "04"
   - 결측 (수집 데이터의 숙명입니다. 분석값이 아니라 표시사항 수집이라 대부분 비어 있습니다) → 결측 정책
   - 비정형 (자유 텍스트 "1회 섭취참고량") → 파싱: 규칙 우선, LLM은 잔여
 - 데이터 재현성의 원칙: **원본은 레포 밖, 받는 방법은 레포 안** (raw는 gitignore, 스크립트와 출처가 재현을 보장합니다)
-- 저장 방식의 3단 선택 기준: 메모리(소형 참조) / SQLite(대형 참조·검색) / PostgreSQL(상태·쓰기)
+- 저장소의 역할 분담: 정확 질의는 정형 DB(PostgreSQL)가, 의미 검색은 벡터 DB(Chroma)가 맡습니다. 원본은 한 곳에 두고 색인은 옆에 둡니다
 - [[llm|LLM]]의 새로운 자리: 런타임 서비스가 아니라 **배치 데이터 처리 도구**로서의 LLM (3주차 instructor의 재등장)
 - [[rag|RAG]]의 첫 개념: **다 주지 말고, 찾아서 준다**. 31만 건은 컨텍스트에 안 들어갑니다. [[embedding|임베딩]] 검색으로 관련 몇 건만 추려 LLM에 주는 구조가 RAG이고, 그 구조가 곧 비용 절감입니다
 - 비용 사다리: SQL(공짜) → 임베딩(싸다) → LLM(비싸다) 순입니다. 싼 층에서 풀리는 문제를 비싼 층으로 가져가지 않는 것이 이번 주 전체를 관통하는 원칙입니다
@@ -86,7 +86,7 @@ order: "04"
 | --- | --- | --- |
 | 데이터 | 음식 DB (11MB·2만 건, 깨끗함) | **가공식품 DB** (187MB·31만 건, 더러움) |
 | 데이터 취급 | 미리 정제된 스냅샷을 소비 | 정제 과정을 개념 수준으로 시연 |
-| 저장 | json → 메모리 로드 | **SQLite** (파일형 DB, 인덱스) |
+| 저장 | json → 메모리 로드 | **PostgreSQL** + **Chroma** (원본과 벡터 색인) |
 | 검색 | 없음 (코드가 후보 주입) | 키워드(SQL) + **의미 검색**(임베딩) |
 | LLM의 자리 | 런타임 서비스 (계획자·검증자) | **배치 파싱 + RAG 답변** (검색이 추린 컨텍스트만) |
 | 원본의 위치 | 레포 안 (작아서 가능) | **레포 밖**(gitignore), 스크립트가 재현 보장 |
@@ -119,7 +119,8 @@ flowchart LR
     SRC["K-FIND<br/>가공식품 DB 엑셀<br/>187MB · 31만 건"] -->|"다운로드 스크립트<br/>(data/raw — gitignore)"| RAW[("data/raw/")]
     RAW --> C1["1회전<br/>정제<br/>인코딩·결측·슬림"]
     C1 --> C2["2회전<br/>섭취참고량 파싱<br/>규칙 → LLM 잔여"]
-    C2 --> DB[("food.db<br/>SQLite + 인덱스")]
+    C2 --> LD["3회전<br/>PostgreSQL 적재"]
+    LD --> DB[("db 서비스<br/>PostgreSQL 원본 행")]
     C2 --> EM["4회전<br/>구글 임베딩<br/>배치 인덱싱"]
     EM --> VEC[("chroma 서비스<br/>Chroma 벡터 DB")]
     DB --> API["FastAPI<br/>검색·RAG API"]
@@ -127,23 +128,24 @@ flowchart LR
     API --> UI["Streamlit UI<br/>검색·비교·질문 (사전 구축)"]
 ```
 
-- 왼쪽 절반(수집에서 파싱까지)이 이번 주 산출물 "정제 데이터셋"이고, 오른쪽 절반(SQLite에서 UI까지)이 그것을 소비하는 서비스입니다.
-- 벡터 인덱스는 [[vector-db|벡터 DB]]인 Chroma를 **서버 모드**로 씁니다. 4회전에서 [[docker-compose|Compose]]에 `chroma` 서비스 블록 하나를 더하면 벡터 DB 서버가 생기고, 데이터는 `data/chroma/` 볼륨에 남습니다. 서비스 추가가 compose.yml 몇 줄인 것, 이것이 compose의 장점입니다.
-- 파이프라인은 **몇 번이고 다시 돌릴 수 있어야 합니다**. 원본이 갱신되면 스크립트 재실행으로 food.db가 재생산됩니다 (재현성)
+- 왼쪽 절반(수집에서 파싱까지)이 이번 주 산출물 "정제 데이터셋"이고, 오른쪽 절반(PostgreSQL에서 UI까지)이 그것을 소비하는 서비스입니다.
+- 저장소는 두 개입니다. 원본 행은 PostgreSQL에 살고, 벡터 색인은 [[vector-db|벡터 DB]]인 Chroma에 삽니다. 3회전이 [[docker-compose|Compose]]에 `db` 서비스를, 4회전이 `chroma` 서비스를 더합니다. 서비스 추가가 compose.yml 몇 줄인 것, 이것이 compose의 장점입니다. 왜 두 개가 필요한지는 다음 절에서 다룹니다.
+- 파이프라인은 **몇 번이고 다시 돌릴 수 있어야 합니다**. 원본이 갱신되면 스크립트 재실행으로 DB와 색인이 재생산됩니다 (재현성)
 
-### 2-3. 저장 방식의 3단 선택 기준
+### 2-3. 저장소는 왜 두 개인가: 정형 DB와 벡터 DB
 
 ```mermaid
 flowchart LR
-    Q1{"쓰기·상태가<br/>있는가?"} -- 예 --> PG["PostgreSQL<br/>(2주차 — 예약·대화)"]
-    Q1 -- 아니오 --> Q2{"크기·검색이<br/>메모리를 넘는가?"}
-    Q2 -- "아니오 (수 MB)" --> MEM["메모리 로드<br/>(3주차 — foods.json)"]
-    Q2 -- "예 (수십 MB~)" --> SQ["SQLite<br/>(4주차 — 31만 건 검색)"]
+    Q{"질문의 모양이<br/>어떤가?"} -- "정확하다<br/>(이름·정렬·필터)" --> PG["PostgreSQL<br/>원본 31만 행 (3회전)"]
+    Q -- "흐릿하다<br/>('매콤한 분식 간식')" --> CH["Chroma<br/>벡터 색인 (4회전)"]
+    CH -- "식품코드 top-k로<br/>원본 조회" --> PG
 ```
 
-- SQLite는 서버가 아니라 **파일**입니다. compose에 서비스가 늘지 않고 api + ui 그대로입니다. "DB를 쓴다"와 "DB 서버를 운영한다"는 다른 결정입니다.
-- 4회전의 벡터 인덱스는 반대쪽 답을 고릅니다. 수천 건이면 SQLite 확장(sqlite-vec)이나 메모리 전수 비교로도 되지만, 31만 건 의미 검색에는 ANN(근사 최근접) 인덱스가 필요해서 Chroma를 **서버 모드**로 씁니다. "의미 검색을 켠다"가 "서비스를 하나 더 운영한다"가 되는 선택이지만, compose에서는 2주차 PostgreSQL처럼 서비스 블록 하나를 더하는 일이라 부담이 작습니다.
-- 2주차엔 왜 PostgreSQL이었고, 3주차엔 왜 파일이었고, 이번 주는 왜 SQLite인가. 이 세 답을 갖고 있으면 10주차 기획에서 저장 고민이 끝납니다.
+- 두 저장소는 서로 다른 질문에 답합니다. "이름에 떡볶이가 들어간 것, 나트륨 낮은 순"처럼 조건이 명확한 질의는 PostgreSQL의 일입니다. "매콤한 분식 간식"처럼 글자가 아니라 의미로 물어야 하는 질의는 Chroma의 일입니다.
+- 서로 대체하지 못합니다. 벡터 검색은 결과를 유사도 순으로만 주므로 정렬·집계·페이지네이션을 못 하고, SQL은 글자가 다른 동의어("매콤한 분식"과 "떡볶이")를 잇지 못합니다. 대체가 아니라 분담입니다.
+- 원본은 한 벌, 색인은 옆에 둡니다. 식품 행의 원본은 PostgreSQL에만 있고, Chroma에는 벡터와 필터용 최소 메타데이터만 둡니다. 의미 검색도 식품코드 top-k를 얻은 뒤 원본 행은 PostgreSQL에서 꺼내 옵니다. 답의 근거가 항상 원본 한 곳에서 나오는 설계입니다.
+- PostgreSQL은 2주차의 재등장입니다. 그때는 예약·대화의 쓰기 상태를 맡았고, 이번엔 31만 건 읽기 검색을 맡습니다. compose에 `db` 서비스 블록 하나를 더하는 것도 그때와 같은 모양입니다.
+- 2주차엔 왜 PostgreSQL 하나였고, 3주차엔 왜 메모리 로드였고, 이번 주는 왜 DB가 두 개인가. 이 답을 갖고 있으면 10주차 기획에서 저장 고민이 끝납니다.
 
 ### 2-4. LLM의 자리: 기본은 배치, 런타임엔 답변 한 곳
 
@@ -186,10 +188,10 @@ flowchart LR
 ```bash
 cp .env.example .env
 docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d
-docker compose ps        # api · ui 두 서비스 (SQLite는 파일이라 서비스가 아님)
+docker compose ps        # api · ui 두 서비스 (db·chroma 서비스는 3·4회전이 추가)
 ```
 
-- 브라우저에서 UI를 열면 **빈 상태 화면**이 뜹니다: "데이터가 아직 없습니다. 아래 절차로 food.db를 준비하세요"
+- 브라우저에서 UI를 열면 **빈 상태 화면**이 뜹니다: "데이터가 아직 없습니다. 아래 절차로 데이터를 적재하세요"
 - v0.1이 v1.0이 되는 순간은 코드가 아니라 **이 화면이 채워지는 순간**입니다.
 
 ```bash
@@ -258,7 +260,7 @@ EOF
 | --- | --- | --- |
 | 1회전 정제 | `feature/clean` | v0.2 |
 | 2회전 섭취참고량 파싱 | `feature/serving-parse` | v0.3 |
-| 3회전 SQLite 서비스 | `feature/sqlite-service` | v0.4 |
+| 3회전 PostgreSQL 서비스 | `feature/pg-service` | v0.4 |
 | 4회전 RAG 검색 | `feature/rag-search` | v1.0 |
 
 ### 4-1. 지시 프롬프트
@@ -489,27 +491,30 @@ cat reports/parse_report.txt
 docker compose exec api uv run pytest tests/test_serving_rule.py -v
 ```
 
-## 6. 시연 4: Git Flow 3회전 (`feature/sqlite-service`)
+## 6. 시연 4: Git Flow 3회전 (`feature/pg-service`)
 
-정제 데이터셋을 SQLite로 굳히고, 검색 서비스에 연결해 UI를 살립니다.
+정제 데이터셋을 PostgreSQL에 적재하고, 검색 서비스에 연결해 UI를 살립니다.
 
 ### 6-1. 지시 프롬프트
 
 ```plaintext
-3단계: SQLite 구축과 검색 API를 만들어줘.
+3단계: PostgreSQL 적재와 검색 API를 만들어줘.
 
-- data/clean/foods_parsed.parquet → data/food.db (SQLite) 적재 스크립트
+- docker-compose.yml에 db 서비스 추가: postgres 이미지,
+  데이터는 data/pg 볼륨에 영속, api는 DATABASE_URL 환경변수로 접속
+- data/clean/foods_parsed.parquet → db의 foods 테이블 적재 스크립트
   - 테이블: foods (정제된 컬럼 그대로 + serving_g, parse_method)
   - 인덱스: 식품명, 분류, 나트륨, 당류
 - 검색 API: GET /foods — 이름 키워드, 분류, 나트륨/당류/칼로리 상한 필터,
   정렬(나트륨·당류·에너지), 페이지네이션
 - 상세 API: GET /foods/{code} — 100g 기준값과 1회 제공량 환산값을 함께 반환.
   serving_g가 NULL이면 환산값도 NULL로 두고 사유(원문)를 함께 표시 — 지어내지 마
-- 시작 시 food.db가 없으면 안내 메시지와 함께 뜨되 /health는 동작
+- 시작 시 foods 테이블이 없거나 비어 있으면 안내 메시지와 함께 뜨되 /health는 동작
 - LLM 없음 — 이 서비스는 SQL이면 충분하다
-- 작업 단위마다 커밋 — 적재 스크립트 → 검색 API → 상세·환산 순
+- 작업 단위마다 커밋 — db 서비스 → 적재 스크립트 → 검색 API → 상세·환산 순
 ```
 
+- db 서비스가 이번 주 첫 인프라 추가입니다. 2주차의 PostgreSQL이 같은 모양으로 돌아오고, compose에서는 서비스 블록 하나를 더하는 일입니다. 4회전의 chroma가 이 패턴을 한 번 더 반복합니다.
 - "LLM 없음" 줄을 일부러 넣습니다. AI를 안 쓰는 결정도 지시에 명시된다는 것을 보여주는 줄입니다.
 - 이 줄은 4회전에서 뒤집히는 것이 아니라 정교해집니다. LLM이 돌아오되, 검색이 추린 몇 건만 들고 돌아옵니다.
 
@@ -517,7 +522,8 @@ docker compose exec api uv run pytest tests/test_serving_rule.py -v
 
 | 파일 | 보는 곳 | 왜 중요한가 |
 | --- | --- | --- |
-| `pipeline/load_sqlite.py` | `CREATE INDEX ...` 4줄 | "31만 건에서 검색이 안 느린 이유가 이 네 줄입니다" |
+| `docker-compose.yml` | 새 `db` 서비스 블록 | "2주차 PostgreSQL의 재등장입니다. 서비스 추가는 블록 하나" |
+| `pipeline/load_pg.py` | `CREATE INDEX ...` 4줄 | "31만 건에서 검색이 안 느린 이유가 이 네 줄입니다" |
 | `api/routes/foods.py` | 필터 조합 쿼리 빌더 | "LLM 없이 SQL만. AI가 필요 없는 곳입니다" |
 | `api/routes/foods.py` | 상세의 환산부, `if serving_g is None` 분기 | "2회전의 NULL 정책이 API 응답까지 관통하는 지점" |
 
@@ -529,17 +535,25 @@ docker compose exec api uv run pytest tests/test_serving_rule.py -v
 
 재현자 시작점: `git checkout v0.4`
 
+**db 서비스 기동**
+
+```bash
+docker compose up -d     # 3회전이 추가한 db(PostgreSQL) 서비스가 새로 뜹니다
+docker compose ps        # api · ui · db 세 서비스
+```
+
 **적재와 확인**
 
 ```bash
-docker compose exec api uv run python -m pipeline.load_sqlite \
-  --input data/clean/foods_parsed.parquet --db data/food.db
-docker compose exec api uv run python -c \
-  "import sqlite3; print(sqlite3.connect('data/food.db').execute('select count(*) from foods').fetchone())"
+docker compose exec api uv run python -m pipeline.load_pg \
+  --input data/clean/foods_parsed.parquet
+docker compose exec db psql -U app -d food -c "select count(*) from foods"
 ```
 
 ```plaintext
-(987,)
+ count
+-------
+   987
 ```
 
 **검색 API**
@@ -607,11 +621,11 @@ curl -s localhost:8000/foods/P1xx-...(serving 없음 케이스) | jq '.per_servi
 
 - docker-compose.yml에 chroma 서비스 추가: chromadb/chroma 이미지,
   데이터는 data/chroma 볼륨에 영속, api는 CHROMA_HOST 환경변수로 접속
-- 임베딩 인덱스 구축: foods_parsed.parquet의 식품명·분류(대/중)·제조사를
+- 임베딩 인덱스 구축: db의 foods 테이블에서 식품명·분류(대/중)·제조사를
   한 문장으로 합쳐 구글 임베딩(LiteLLM 경유, EMBEDDING_MODEL 환경변수)으로
   벡터화하고, chroma 서비스의 foods 컬렉션에 저장
-  - id는 식품코드, 메타데이터로 분류·나트륨·당류·에너지·serving_g 저장
-    (검색 결과 필터와 컨텍스트 조립에 사용)
+  - id는 식품코드, 메타데이터는 where 필터용 분류·나트륨만.
+    검색 응답과 컨텍스트는 식품코드로 foods 테이블 원본 행을 조회해 조립
   - 배치 호출로 묶고, 중간 저장·재개(이미 임베딩된 행 건너뜀), 진행 로그,
     --limit 옵션 — 2단계와 같은 배치 안전장치
   - reports/embed_report.txt: 건수, 토큰 합계, 비용 합계
@@ -627,9 +641,9 @@ curl -s localhost:8000/foods/P1xx-...(serving 없음 케이스) | jq '.per_servi
 
 줄별 의도 포인트:
 
-- "chroma 서비스 추가": DB 서버가 필요해지면 compose에 블록 하나를 더합니다. 2주차 PostgreSQL과 같은 자리이고, 인프라 확장이 diff 몇 줄로 리뷰되는 것이 compose를 쓰는 이유입니다.
+- "chroma 서비스 추가": DB 서버가 필요해지면 compose에 블록 하나를 더합니다. 3회전 db 서비스에 이은 두 번째 반복이고, 인프라 확장이 diff 몇 줄로 리뷰되는 것이 compose를 쓰는 이유입니다.
 - "식품명·분류·제조사를 한 문장으로": 무엇을 임베딩하느냐가 검색 품질을 정합니다. 영양 수치는 벡터에 넣지 않습니다. 숫자는 필터의 일이고, 여기서도 각자의 자리가 있습니다.
-- "메타데이터로 저장": 벡터는 찾기용, 숫자는 거르기용입니다. Chroma의 where 필터로 "나트륨 500mg 이하만" 같은 조건을 의미 검색과 함께 겁니다.
+- "메타데이터는 필터용만, 원본은 조회": 벡터 DB는 색인이고 원본은 PostgreSQL 한 곳입니다. Chroma의 where 필터로 "나트륨 500mg 이하만" 같은 조건을 의미 검색과 함께 걸고, 답에 쓸 내용은 식품코드로 원본에서 꺼냅니다.
 - "LLM 호출 없음": 의미 검색까지는 임베딩만으로 됩니다. 챗봇으로 풀고 싶은 문제의 절반은 검색으로 끝납니다.
 - "top-5를 컨텍스트로": RAG의 본체가 이 한 줄입니다. 31만 건이 아니라 5건입니다. 컨텍스트가 곧 비용입니다.
 - "지어내지 마": 1·2회전의 NULL 정책이 답변에도 이어집니다. 근거 없는 답은 RAG의 실패입니다.
@@ -643,7 +657,7 @@ curl -s localhost:8000/foods/P1xx-...(serving 없음 케이스) | jq '.per_servi
 | `docker-compose.yml` | 새 `chroma` 서비스 블록 | "서비스 추가가 diff 몇 줄입니다. 인프라 변경도 코드 리뷰를 지나갑니다" |
 | `pipeline/embed_index.py` | 배치 루프 + Chroma upsert | "2회전 배치 러너와 같은 예의입니다. 재개·상한·진행 로그" |
 | `api/routes/semantic.py` | 질의 임베딩 → 컬렉션 top-k 질의 | "검색은 벡터 연산 하나. LLM이 없습니다" |
-| `api/routes/ask.py` | 컨텍스트 조립부 (top-5 → 프롬프트) | "RAG의 심장. 다 주지 않고 찾아서 줍니다" |
+| `api/routes/ask.py` | 컨텍스트 조립부 (top-5 식품코드 → 원본 조회 → 프롬프트) | "RAG의 심장. 다 주지 않고 찾아서 줍니다" |
 | `api/routes/ask.py` | "모르면 모른다" 시스템 지시 | "환각을 막는 최소 장치. 근거 밖 답변을 금지합니다" |
 
 ### 7-3. 커밋 → PR → 머지 → 릴리즈 v1.0
@@ -658,14 +672,13 @@ curl -s localhost:8000/foods/P1xx-...(serving 없음 케이스) | jq '.per_servi
 
 ```bash
 docker compose up -d     # 4회전이 추가한 chroma 서비스가 새로 뜹니다
-docker compose ps        # api · ui · chroma 세 서비스
+docker compose ps        # api · ui · db · chroma 네 서비스
 ```
 
 **임베딩 인덱스 구축 (샘플)**
 
 ```bash
-docker compose exec api uv run python -m pipeline.embed_index \
-  --input data/clean/foods_parsed.parquet --db data/food.db
+docker compose exec api uv run python -m pipeline.embed_index
 cat reports/embed_report.txt
 ```
 
@@ -754,9 +767,9 @@ docker compose exec api env LOG_LEVEL=debug uv run python -c "..." # /ask 한 �
 week04-food-data-pipeline (v0.1)
 ├── api/
 │   ├── app/
-│   │   └── main.py          # FastAPI — /health 동작, /foods는 "food.db 없음" 안내
+│   │   └── main.py          # FastAPI — /health 동작, /foods는 "데이터 없음" 안내
 │   ├── Dockerfile
-│   └── pyproject.toml       # pandas, pyarrow, litellm, instructor, fastapi, pytest, openpyxl, chromadb
+│   └── pyproject.toml       # pandas, pyarrow, litellm, instructor, fastapi, pytest, openpyxl, psycopg, chromadb
 ├── ui/
 │   ├── app.py               # Streamlit (사전 구축) — 빈 상태 화면 + 검색·상세·질문 화면
 │   └── Dockerfile
@@ -765,13 +778,14 @@ week04-food-data-pipeline (v0.1)
 │   │   └── raw_sample.csv   # 원본에서 뽑은 1,000건 (더러움 보존 — 커밋됨)
 │   ├── raw/                 # 전체 원본 자리 (.gitignore — 187MB는 레포 밖)
 │   ├── clean/               # 파이프라인 출력 자리 (.gitignore)
+│   ├── pg/                  # db 서비스 볼륨 자리 (.gitignore — 3회전이 채움)
 │   └── chroma/              # chroma 서비스 볼륨 자리 (.gitignore — 4회전이 채움)
 ├── scripts/
 │   ├── download_file.py     # K-FIND 파일 다운로드 (기본 권장 경로)
 │   └── download_api.py      # Open-API 경로 (인증키 필요, 09~19시 제한 안내 출력)
-├── docker-compose.yml       # api + ui (SQLite는 파일이라 서비스 아님 — chroma 서비스는 4회전이 추가)
+├── docker-compose.yml       # api + ui (db 서비스는 3회전, chroma 서비스는 4회전이 추가)
 ├── docker-compose.dev.yml
-├── .env.example             # PARSER_MODEL, EMBEDDING_MODEL, 키, LOG_LEVEL, 호출 상한 기본값
+├── .env.example             # PARSER_MODEL, EMBEDDING_MODEL, 키, DB 접속값, LOG_LEVEL, 호출 상한 기본값
 ├── PROMPT.md                # 자리만
 └── README.md                # 데이터 출처·버전 기록(2026-07-28판), 다운로드 절차 2종, 빈 상태 안내
 ```
@@ -785,8 +799,8 @@ clone 직후 동작하는 것:
 ### 8-2. v1.0: 시연 종료점
 
 - 릴리즈 태그 사다리: v0.1 → v0.2 → v0.3 → v0.4 → v1.0. 태그 하나가 회전 하나의 완결 상태이고, 교안의 실행 블록과 1:1로 대응합니다
-- docker-compose.yml은 4회전에서 `chroma` 서비스가 더해져 api·ui·chroma 세 서비스가 됩니다. 인프라 변경도 PR diff에 남습니다
-- `pipeline/`: textclean·clean(1회전), serving_rule·serving_llm·batch(2회전), load_sqlite(3회전), embed_index(4회전), spot_check와 CLI
+- docker-compose.yml은 3회전의 `db`, 4회전의 `chroma` 서비스가 더해져 api·ui·db·chroma 네 서비스가 됩니다. 인프라 변경도 PR diff에 남습니다
+- `pipeline/`: textclean·clean(1회전), serving_rule·serving_llm·batch(2회전), load_pg(3회전), embed_index(4회전), spot_check와 CLI
 - `reports/` 출력 체계: clean_report·parse_report·embed_report·rejected.csv (정제는 리포트로 검증)
 - `/foods` 검색·상세, `/foods/semantic` 의미 검색, `/ask` RAG 질의응답 API 동작. UI가 검색·질문 화면으로 전환됩니다 (UI 코드는 v0.1 그대로)
 - `tests/`: 문자 정리·규칙 파서 유닛테스트
@@ -817,6 +831,6 @@ clone 직후 동작하는 것:
 ### 10-2. 더 가보려면
 
 - **로컬 임베딩**: 이번 주는 API 임베딩(구글)이었습니다. sentence-transformers의 `bge-m3` 같은 로컬 모델은 GPU 없이 CPU로도 돌고 호출 비용이 0이 됩니다. 대신 모델을 직접 들고 다녀야 합니다. "빌리는 것"과 "직접 드는 것"의 저울이 임베딩에도 있습니다.
-- **벡터 저장의 위아래**: 이번 주는 Chroma를 compose 서비스로 띄우는 서버 모드였습니다. 규모가 작으면 내려갈 수 있습니다. Chroma **임베디드 모드**는 서버 없이 api 안의 라이브러리로 돌고, sqlite-vec는 SQLite 확장이라 벡터가 food.db 안에 들어갑니다. 반대로 수백만 벡터·동시 쓰기·분산이 필요해지면 Qdrant·pgvector로 올라갑니다. 저장 3단 선택 기준의 벡터판입니다.
+- **벡터 저장의 위아래**: 이번 주는 정형 DB(PostgreSQL)와 벡터 DB(Chroma)를 나란히 뒀습니다. 규모가 작으면 Chroma **임베디드 모드**(서버 없이 api 안의 라이브러리)로 내려갈 수 있고, pgvector 확장을 쓰면 운영 중인 PostgreSQL 한 대에 벡터까지 합칠 수도 있습니다. 수백만 벡터·분산이 필요해지면 Qdrant 같은 전용 서버로 올라갑니다. 어디에 두든 원본과 색인을 분리하는 원칙은 같습니다.
 - **청킹**: 이번 주 RAG는 행 단위라 자를 것이 없었습니다. 문서(PDF·매뉴얼) RAG에서는 문서를 어떻게 자르느냐(청킹)가 검색 품질을 정합니다. VOD S2의 청킹·임베딩 단위가 이 주제를 다룹니다.
 - **시맨틱 캐시**: 4회전의 임베딩으로 2회전을 더 줄일 수도 있습니다. 잔여 원문을 LLM에 보내기 전에 이미 파싱된 유사 원문을 찾아 재사용하면, 규칙과 LLM 사이에 층이 하나 더 생깁니다. 확장 과제로 남겨둡니다.
