@@ -380,7 +380,7 @@ P101-406000100-0077     ﻿우리밀 한입 스콘 쑥고물
 | 회전 | 브랜치 | 릴리즈 | 함께 배포되는 산출물 |
 | --- | --- | --- | --- |
 | 1회전 정제 + 섭취참고량 파싱 | `feature/clean` | v0.2 | `week04-v0.2-data.tar.gz` (21MB) |
-| 2회전 PostgreSQL 검색 서비스 | `feature/pg-service` | v0.3 | `week04-v0.3-data.tar.gz` (34MB, 덤프 포함) |
+| 2회전 PostgreSQL 검색 서비스 | `feature/pg-service` | v0.3 → v0.3.1 | `week04-v0.3-data.tar.gz` (34MB, 덤프 포함) |
 | 3회전 RAG 검색 | `feature/rag-search` | v1.0 | `chroma_foods.tar.gz` (1.6GB, Drive) · `embed_report.txt` |
 
 ### 4-1. 지시 프롬프트
@@ -745,18 +745,21 @@ reports/clean_report.txt · parse_report.txt · rejected.csv
 | 파일 | 보는 곳 | 왜 중요한가 |
 | --- | --- | --- |
 | `docker-compose.yml` | 새 `db` 서비스 블록 | "2주차 PostgreSQL의 재등장입니다. 서비스 추가는 블록 하나" |
-| `pipeline/load_pg.py` | `COPY ... FROM STDIN` | "30만 행을 INSERT로 넣으면 커피를 마시고 와야 합니다" |
-| `pipeline/load_pg.py` | `CREATE INDEX ...` 5줄 | "30만 건에서 검색이 안 느린 이유가 이 다섯 줄입니다" |
-| `api/routes/foods.py` | 필터 조합 쿼리 빌더 | "LLM 없이 SQL만. AI가 필요 없는 곳입니다" |
-| `api/routes/foods.py` | 상세의 환산부, `if serving_g is None` 분기 | "1회전의 NULL 정책이 API 응답까지 관통하는 지점" |
+| `api/pipeline/load_pg.py` | `COPY ... FROM STDIN` | "30만 행을 INSERT로 넣으면 커피를 마시고 와야 합니다" |
+| `api/pipeline/load_pg.py` | `INDEXES` 리스트 | "30만 건에서 검색이 안 느린 이유가 이 여섯 줄입니다 (pg_trgm + 인덱스 5개)" |
+| `api/app/foods.py` | 필터 조합 쿼리 빌더 | "LLM 없이 SQL만. AI가 필요 없는 곳입니다" |
+| `api/app/foods.py` | `SORTS` + `SORT_TIEBREAK` | "정렬 키가 하나면 동점 사이 순서가 안 정해집니다" |
+| `api/app/foods.py` | 상세의 환산부, `if serving_g is None` 분기 | "1회전의 NULL 정책이 API 응답까지 관통하는 지점" |
 
 ### 5-3. 커밋 → PR → 머지 → 릴리즈 v0.3
 
-- PR → CI → 머지 → **v0.3 태그** + `foods.dump` 첨부. 아직 v1.0이 아닙니다. 마지막 회전이 남았습니다.
+- PR → CI → 머지 → **v0.3 태그** + `week04-v0.3-data.tar.gz` 첨부. 덤프까지 들어 있습니다. 아직 v1.0이 아닙니다. 마지막 회전이 남았습니다.
 
 ### 5-4. 실행: v0.3에서 UI가 살아나는 순간
 
-재현자 시작점: `git checkout v0.3`
+재현자 시작점: `git checkout v0.3.1`
+
+- 태그가 둘인 이유는 아래 "여기서 발견한 버그"에 있습니다. v0.3을 낸 뒤에 정렬 버그를 찾았고, **태그를 옮기는 대신 hotfix로 v0.3.1을 냈습니다.** 이미 나간 태그를 조용히 바꾸면 "v0.3을 받았다"는 말이 사람마다 다른 뜻이 됩니다. 데이터 자산은 그대로라 v0.3 것을 씁니다.
 
 **db 서비스 기동**
 
@@ -848,19 +851,47 @@ curl -s "localhost:8000/foods?q=매콤한 분식 간식" | jq '.total'
 **키워드 검색의 한계 ②: 글자가 같으면 엉뚱한 게 걸린다**
 
 ```bash
-curl -s "localhost:8000/foods?q=튀김&sort=sodium_asc&limit=4" | jq '.items[] | {name, category, sodium_mg}'
+curl -s "localhost:8000/foods?q=튀김&sort=sodium_asc&limit=4" | jq '.items[] | {name, category_big, sodium_mg}'
 ```
 
 ```json
-{ "name": "해피스푼콩기름튀김전용유", "category": "식물성유지류", "sodium_mg": 0 }
-{ "name": "하림 튀김유", "category": "식용유지가공품", "sodium_mg": 0 }
-{ "name": "픽스치킨 튀김전용유", "category": "식물성유지류", "sodium_mg": 0 }
-{ "name": "튀김전용유", "category": "식물성유지류", "sodium_mg": 0 }
+{ "name": "연두부튀김", "category_big": "두부류 또는 묵류", "sodium_mg": 0.0 }
+{ "name": "해피스푼콩기름튀김전용유", "category_big": "식용유지류", "sodium_mg": 0.0 }
+{ "name": "튀김전용콩식용유", "category_big": "식용유지류", "sodium_mg": 0.0 }
+{ "name": "건강 튀김유", "category_big": "식용유지류", "sodium_mg": 0.0 }
 ```
 
 - "나트륨 낮은 튀김"을 찾았더니 **튀김전용유**가 나옵니다. 기름이니 나트륨이 0인 게 맞고, SQL도 틀리지 않았습니다. 글자만 봤을 뿐입니다.
 - 두 실패가 짝입니다. 하나는 **의미가 같은데 글자가 달라서** 0건, 다른 하나는 **글자가 같은데 의미가 달라서** 헛것. 이 둘이 3회전의 출발점입니다.
 - 참고로 여기 `sodium_mg: 0`은 **진짜 0**입니다. 결측을 0으로 채웠다면 이 화면에서 진짜 0과 모름이 뒤섞여 구분할 방법이 없었을 겁니다. 1회전의 "0으로 채우지 마"가 여기서 값을 합니다.
+
+**여기서 발견한 버그: 1페이지의 행이 2페이지에 또 나온다**
+
+이 화면을 교안에 실으려고 출력을 확인하다 발견했습니다. 같은 질의의 1페이지와 2페이지에 **같은 행이 들어 있었습니다.**
+
+```bash
+curl -s "localhost:8000/foods?q=튀김&sort=sodium_asc&limit=4&offset=0" | jq -r '.items[].code'
+curl -s "localhost:8000/foods?q=튀김&sort=sodium_asc&limit=4&offset=4" | jq -r '.items[].code'
+```
+
+```plaintext
+1페이지: P107-101010100-0045  P107-301030100-0069  P107-103010300-0064  P107-301030100-0145
+2페이지: P107-301030100-0145  P107-117010100-0001  P107-101010100-0085  P107-101010100-0253
+          ^^^^^^^^^^^^^^^^^^ 1페이지에 이미 나온 행
+```
+
+- 원인은 `order by sodium_mg asc` 한 줄입니다. **동점 사이 순서를 안 정해 줬습니다.** 나트륨이 정확히 0인 행만 27,219개라 동점은 예외가 아니라 기본입니다.
+- 동점 구간에서 순서가 매번 달라도 되면, `offset 4`가 가리키는 자리도 매번 달라집니다. 4번째로 나왔던 행이 다음 질의에서 5번째가 되면 그 행은 두 번 보이고, 대신 다른 행 하나가 영영 안 보입니다.
+- 고침은 한 줄입니다. 유일한 값을 마지막 정렬 키로 붙여 **전순서**로 만듭니다.
+
+```python
+SORT_TIEBREAK = "code asc"
+...
+f" order by {SORTS[sort]}, {SORT_TIEBREAK}"
+```
+
+- 40건을 10개씩 네 페이지로 받아 고유 40건인지 셌습니다. 고치기 전엔 중복이 있었고, 고친 뒤엔 없습니다.
+- 이 버그는 **테스트가 아니라 교안을 쓰다가** 나왔습니다. 출력을 그대로 옮겨 적으려면 같은 명령이 같은 답을 내야 하는데, 두 번 돌려 보니 아니었습니다. **재현 가능한 문서를 쓰는 일이 곧 검증입니다.**
 
 **상세: 파싱 결과가 쓰이는 곳**
 
