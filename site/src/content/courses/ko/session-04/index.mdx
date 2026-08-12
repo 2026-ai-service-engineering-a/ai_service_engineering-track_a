@@ -363,7 +363,7 @@ P101-406000100-0077     ﻿우리밀 한입 스콘 쑥고물
 
 | 회전 | 브랜치 | 릴리즈 | 함께 배포되는 산출물 |
 | --- | --- | --- | --- |
-| 1회전 정제 + 섭취참고량 파싱 | `feature/clean` | v0.2 | `foods_parsed.parquet` (약 21MB) · 리포트 3종 |
+| 1회전 정제 + 섭취참고량 파싱 | `feature/clean` | v0.2 | `foods_clean.parquet` · `foods_parsed.parquet` (각 12MB) · `.serving_cache.json` · 리포트 3종 |
 | 2회전 PostgreSQL 검색 서비스 | `feature/pg-service` | v0.3 | `foods.dump` (pg_dump, 약 36MB) |
 | 3회전 RAG 검색 | `feature/rag-search` | v1.0 | `chroma_foods.tar.gz` (1.6GB, Drive) · `embed_report.txt` |
 
@@ -658,7 +658,16 @@ test_serving_rule.py::test_unit_in_parens PASSED
 test_serving_rule.py::test_returns_none_on_failure PASSED
 ```
 
-**받아서 쓰기**: 6분과 파싱을 건너뛰려면 v0.2 릴리즈 자산의 `foods_parsed.parquet`를 `data/clean/`에 두면 됩니다. 다음 회전의 입력이 곧바로 준비됩니다.
+**받아서 쓰기**: 1.5분과 파싱을 건너뛰려면 v0.2 릴리즈 자산을 `data/dist/`에 두고 `docker compose up` 하면 됩니다. `data-restore`가 제자리에 놓습니다.
+
+```plaintext
+[restore] foods_clean.parquet → data/clean/ (12.2M)
+[restore] foods_parsed.parquet → data/clean/ (12.5M)
+[restore] 파싱 캐시도 함께 놓았습니다 — 재실행이 공짜입니다
+```
+
+- **입력과 출력을 둘 다 배포합니다.** 처음엔 결과물(`foods_parsed`)만 줬다가, 이 절의 재실행과 `--show-residual`이 전부 "입력이 없습니다"로 죽는 것을 확인했습니다. 파싱의 입력은 `foods_clean`입니다. **배포물은 "결과"가 아니라 "그 지점을 재현할 수 있는 것"이어야 합니다.**
+- 파싱 캐시(`.serving_cache.json`)도 함께 갑니다. 여섯 줄짜리 JSON이고, 이게 있으면 LLM을 한 번도 안 부릅니다.
 
 ## 5. 시연 3: Git Flow 2회전 (`feature/pg-service`)
 
