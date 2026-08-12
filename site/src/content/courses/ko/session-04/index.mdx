@@ -286,7 +286,9 @@ docker compose exec api uv run python scripts/download_file.py \
 > ```
 
 ```bash
-docker compose exec api uv run python - <<'EOF'
+# -T는 TTY 할당을 끕니다. heredoc은 stdin이 터미널이 아니라 파이프라,
+# 이게 없으면 "cannot attach stdin to a TTY-enabled container"로 죽습니다
+docker compose exec -T api uv run python - <<'EOF'
 import pandas as pd
 df = pd.read_csv("data/sample/raw_sample.csv")
 
@@ -320,9 +322,10 @@ P101-406000100-0077     ﻿우리밀 한입 스콘 쑥고물
 90%+ 결측 열: 125개 / 전체 166열 · 통째로 빈 열: 13개
 
 고유값 29개 / 빈 값 172건
-30g     140
-70g     112
-200ml   101
+1회 섭취참고량
+30g      140
+70g      112
+200ml    101
 ```
 
 출력에서 읽어야 할 것:
