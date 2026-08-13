@@ -909,8 +909,11 @@ docker compose exec db psql -U app -d food -c "select count(*) from foods"
 #### 3) 검색 API
 
 ```bash
-curl -s "localhost:8000/foods?q=떡볶이&sort=sodium_desc&limit=3" | jq '.total, (.items[] | {name, sodium_mg, serving_g})'
+curl -s -G localhost:8000/foods --data-urlencode "q=떡볶이" \
+  -d sort=sodium_desc -d limit=3 | jq '.total, (.items[] | {name, sodium_mg, serving_g})'
 ```
+
+- **한글을 URL에 그대로 쓰면 안 됩니다.** `curl -s "…?q=떡볶이"`처럼 보내면 uvicorn의 HTTP 파서가 요청 라인의 비-ASCII 바이트를 거부해 `Invalid HTTP request received.`(400)를 돌려주고, `jq`는 그 문장을 JSON으로 읽으려다 `parse error: Invalid numeric literal`로 죽습니다. **URL 인코딩은 클라이언트의 일**이고 `-G --data-urlencode`가 그 일을 합니다.
 
 ```json
 2703
@@ -925,7 +928,7 @@ curl -s "localhost:8000/foods?q=떡볶이&sort=sodium_desc&limit=3" | jq '.total
 #### 4) 키워드 검색의 한계 ①: 글자가 다르면 0건
 
 ```bash
-curl -s "localhost:8000/foods?q=매콤한 분식 간식" | jq '.total'
+curl -s -G localhost:8000/foods --data-urlencode "q=매콤한 분식 간식" | jq '.total'
 ```
 
 ```plaintext
@@ -935,7 +938,8 @@ curl -s "localhost:8000/foods?q=매콤한 분식 간식" | jq '.total'
 #### 5) 키워드 검색의 한계 ②: 글자가 같으면 엉뚱한 게 걸린다
 
 ```bash
-curl -s "localhost:8000/foods?q=튀김&sort=sodium_asc&limit=4" | jq '.items[] | {name, category_big, sodium_mg}'
+curl -s -G localhost:8000/foods --data-urlencode "q=튀김" \
+  -d sort=sodium_asc -d limit=4 | jq '.items[] | {name, category_big, sodium_mg}'
 ```
 
 ```json
@@ -954,9 +958,13 @@ curl -s "localhost:8000/foods?q=튀김&sort=sodium_asc&limit=4" | jq '.items[] |
 이 화면을 교안에 실으려고 출력을 확인하다 발견했습니다. 같은 질의의 1페이지와 2페이지에 **같은 행이 들어 있었습니다.**
 
 ```bash
-curl -s "localhost:8000/foods?q=튀김&sort=sodium_asc&limit=4&offset=0" | jq -r '.items[].code'
-curl -s "localhost:8000/foods?q=튀김&sort=sodium_asc&limit=4&offset=4" | jq -r '.items[].code'
+curl -s -G localhost:8000/foods --data-urlencode "q=튀김" \
+  -d sort=sodium_asc -d limit=4 -d offset=0 | jq -r '.items[].code'
+curl -s -G localhost:8000/foods --data-urlencode "q=튀김" \
+  -d sort=sodium_asc -d limit=4 -d offset=4 | jq -r '.items[].code'
 ```
+
+**v0.3에서의 출력입니다.** 지금(v0.3.1) 돌리면 겹치지 않습니다 — 아래에서 고쳤기 때문입니다.
 
 ```plaintext
 1페이지: P107-101010100-0045  P107-301030100-0069  P107-103010300-0064  P107-301030100-0145
@@ -980,7 +988,9 @@ f" order by {SORTS[sort]}, {SORT_TIEBREAK}"
 #### 7) 상세: 파싱 결과가 쓰이는 곳
 
 ```bash
-curl -s "localhost:8000/foods/$(curl -s 'localhost:8000/foods?q=오리지널 떡볶이용 소스&limit=1' | jq -r '.items[0].code')" | jq
+CODE=$(curl -s -G localhost:8000/foods \
+  --data-urlencode "q=오리지널 떡볶이용 소스" -d limit=1 | jq -r '.items[0].code')
+curl -s "localhost:8000/foods/$CODE" | jq
 ```
 
 ```json
@@ -1003,8 +1013,8 @@ curl -s "localhost:8000/foods/$(curl -s 'localhost:8000/foods?q=오리지널 떡
 #### 8) NULL 케이스
 
 ```bash
-curl -s "localhost:8000/foods?q=떡볶이분말 보통맛&limit=1" | jq -r '.items[0].code' \
-  | xargs -I{} curl -s localhost:8000/foods/{} | jq '.per_serving'
+curl -s -G localhost:8000/foods --data-urlencode "q=떡볶이분말 보통맛" -d limit=1 \
+  | jq -r '.items[0].code' | xargs -I{} curl -s localhost:8000/foods/{} | jq '.per_serving'
 ```
 
 ```json
@@ -1541,7 +1551,8 @@ data-restore(완료) → chroma                          ├→ api
 #### 3) 의미 검색 ①: 0건이 결과로
 
 ```bash
-curl -s "localhost:8000/foods/semantic?q=매콤한 분식 간식&limit=3" | jq '.items[] | {name, category_big, sodium_mg, score}'
+curl -s -G localhost:8000/foods/semantic --data-urlencode "q=매콤한 분식 간식" \
+  -d limit=3 | jq '.items[] | {name, category_big, sodium_mg, score}'
 ```
 
 ```json
@@ -1555,7 +1566,8 @@ curl -s "localhost:8000/foods/semantic?q=매콤한 분식 간식&limit=3" | jq '
 #### 4) 의미 검색 ②: 튀김전용유는 안 걸리는데, 나트륨은 여전히 안 듣는다
 
 ```bash
-curl -s "localhost:8000/foods/semantic?q=나트륨 낮은 튀김 간식&limit=3" | jq '.items[] | {name, sodium_mg, score}'
+curl -s -G localhost:8000/foods/semantic --data-urlencode "q=나트륨 낮은 튀김 간식" \
+  -d limit=3 | jq '.items[] | {name, sodium_mg, score}'
 ```
 
 ```json
@@ -1569,8 +1581,8 @@ curl -s "localhost:8000/foods/semantic?q=나트륨 낮은 튀김 간식&limit=3"
 - 그래서 숫자는 필터로 겁니다. 6-1절에서 "조건이 둘인 질의는 조립안이 아니라 **검색과 필터의 분담**으로 풀 문제"라고 적어 둔 것이 이 자리입니다.
 
 ```bash
-curl -s "localhost:8000/foods/semantic?q=매콤한 분식 간식&limit=3&sodium_max=400" \
-  | jq '.items[] | {name, sodium_mg}'
+curl -s -G localhost:8000/foods/semantic --data-urlencode "q=매콤한 분식 간식" \
+  -d limit=3 -d sodium_max=400 | jq '.items[] | {name, sodium_mg}'
 ```
 
 ```json
