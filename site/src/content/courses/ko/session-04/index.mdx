@@ -212,6 +212,14 @@ flowchart LR
 > 회전마다 릴리즈 태그를 자릅니다: v0.1(시작) → v0.2(정제·파싱) →
 > v0.3(검색 서비스) → v1.0(RAG) 순입니다. 각 회전의 실행은 해당 태그에서
 > 재현할 수 있고, 회전 사이의 차이는 `git diff v0.2 v0.3`처럼 봅니다.
+>
+> **다음 회전으로 넘어갈 때는 대문자 `-C`입니다.** `-c`는 "새로 만들기"라
+> 브랜치가 이미 있으면 `fatal: a branch named 'week04' already exists`로
+> 막힙니다. `-C`는 있으면 그 자리로 옮깁니다.
+>
+> ```bash
+> git switch -C week04 v0.2   # 이미 있는 week04를 v0.2로 옮긴다
+> ```
 
 ```bash
 cp .env.example .env
@@ -504,7 +512,7 @@ f60b46d  feat: data-restore — 받은 산출물을 제자리에 + 1회전 지�
 여기까지 오는 데 1.5분의 정제와 LLM 파싱이 필요했지만, **받는 사람은 그걸 안 돌립니다.**
 
 ```bash
-git switch -c week04 v0.2
+git switch -C week04 v0.2       # 처음이면 -c, 이미 만들었으면 -C
 cp .env.example .env
 
 mkdir -p data/dist
@@ -817,7 +825,7 @@ reports/clean_report.txt · parse_report.txt · rejected.csv
 ### 5-4. 수강생 재현: 받아서 v0.3에 서기
 
 ```bash
-git switch -c week04 v0.3.1     # v0.3 뒤에 정렬 버그를 고쳤습니다 (5-5절)
+git switch -C week04 v0.3.1     # v0.3 뒤에 정렬 버그를 고쳤습니다 (5-5절)
 cp .env.example .env
 
 mkdir -p data/dist
@@ -1435,7 +1443,7 @@ curl -sS -G localhost:8000/probe/compare \
 ### 6-5. 수강생 재현: 받아서 v1.0에 서기
 
 ```bash
-git switch -c week04 v1.0.1     # v1.0 뒤에 진행 막대를 고쳤습니다 (6-6절)
+git switch -C week04 v1.0.1     # v1.0 뒤에 진행 막대를 고쳤습니다 (6-6절)
 cp .env.example .env            # GEMINI_API_KEY 필요 (질의 임베딩은 매번 부릅니다)
 
 mkdir -p data/dist
