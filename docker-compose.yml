@@ -12,10 +12,10 @@
 # server — the production site is the static `astro build` output (dist/), not
 # this image.
 #
-# Editing content? Use docker-compose.dev.yml instead — it bind-mounts site/
+# Editing content? Layer docker-compose.dev.yml on top — it bind-mounts site/
 # so edits hot-reload:
 #
-#   docker compose -f docker-compose.dev.yml up
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up
 services:
   app:
     build:

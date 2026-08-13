@@ -113,7 +113,7 @@ docker compose up      # 사이트 가동 — http://localhost:4321
 docker compose down    # 중지·정리
 ```
 
-콘텐츠를 수정하면서 보려면 `docker compose -f docker-compose.dev.yml up`을
+콘텐츠를 수정하면서 보려면 `docker compose -f docker-compose.yml -f docker-compose.dev.yml up`을
 사용하세요. `site/`를 바인드 마운트해 핫리로드로 반영됩니다. 로컬 pnpm 개발 등
 자세한 내용은 [site/README.md](site/README.md)를 참고하세요.
 

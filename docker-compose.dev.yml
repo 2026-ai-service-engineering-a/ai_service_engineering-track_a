@@ -1,13 +1,19 @@
 # Live editing — the everyday dev workflow, from the repo root:
 #
-#   docker compose -f docker-compose.dev.yml up
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up
 #
 # then open http://localhost:4321/ . site/ is bind-mounted, so edits on the
 # host hot-reload in the container. Same site/Dockerfile.dev image as the
 # default compose, but source comes from the mount instead of the baked-in
 # copy. For the zero-setup, view-only mode, use `docker compose up`.
+#
+# This is an OVERRIDE, not a second stack: it reuses the `app` service name so
+# the two files merge into one container. Naming it something else would give
+# you two services fighting over port 4321 — which is exactly what happened
+# before this was fixed. The course's other repos (week03, week04) layer their
+# dev files the same way, so the same command means the same thing everywhere.
 services:
-  dev:
+  app:
     build:
       context: ./site
       dockerfile: Dockerfile.dev
