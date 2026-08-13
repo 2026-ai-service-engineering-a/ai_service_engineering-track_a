@@ -372,29 +372,18 @@ flowchart LR
 ```bash
 git clone https://github.com/2026-ai-service-engineering-a/week04-food-data-pipeline.git
 cd week04-food-data-pipeline
-git switch -c week04 v0.1   # v0.1 태그에서 작업 브랜치 생성
+git checkout v0.1
+git describe --tags     # → v0.1   (지금 내 위치)
 ```
 
 - 기본 브랜치 `main`은 완성본이라, 그냥 클론하면 **정답을 받습니다**
 - 회전마다 태그를 자릅니다: v0.1(시작) → v0.2(정제·파싱) → v0.3(검색) → v1.0(RAG)
+  - 다음 회전으로 넘어가는 것도 `git checkout v0.2`로 똑같습니다
+- **`detached HEAD` 안내가 뜨는데 정상입니다.** 브랜치가 아니라 태그에 선 것뿐이고,
+  읽고 돌려보는 데는 지장이 없습니다. 받은 산출물과 `.env`는 gitignore라 커밋할 것도 없습니다
 - 회전 사이의 차이는 `git diff v0.2 v0.3`처럼 봅니다
-
-</Slide>
-
-<Slide>
-
-### 다음 회전으로 넘어갈 때는 대문자 `-C`
-
-```bash
-git switch -C week04 v0.2   # 이미 있는 week04를 v0.2로 옮긴다
-git describe --tags         # → v0.2   (제대로 왔는지 확인)
-```
-
-- `-c`는 "새로 만들기"라 브랜치가 이미 있으면 막힙니다
-  - `fatal: a branch named 'week04' already exists`
-- **프롬프트에는 태그가 안 뜹니다.** 브랜치에 올라탄 상태라 `week04`만 보이고,
-  편집기 그래프에는 `origin/main`이 맨 위에 그려집니다. 둘 다 정상입니다
-- 내 위치는 `git describe --tags`가 알려 줍니다
+- 브랜치가 필요한 경우는 하나뿐입니다. 지시 프롬프트로 **직접 만들어 볼 때**만
+  `git switch -c week04 v0.1`로 브랜치를 잡습니다
 
 </Slide>
 
@@ -732,7 +721,7 @@ f60b46d  feat: data-restore — 받은 산출물을 제자리에 + 1회전 지�
 ### 수강생 재현: 받아서 v0.2에 서기
 
 ```bash
-git switch -C week04 v0.2       # 처음이면 -c, 이미 만들었으면 -C
+git checkout v0.2
 cp .env.example .env
 mkdir -p data/dist
 mv ~/Downloads/week04-v0.2-data.tar.gz data/dist/
@@ -1020,7 +1009,7 @@ P117-100010300-0364,동그란스팸？,대체불가 문자 포함
 ### v0.3 릴리즈와 재현
 
 ```bash
-git switch -C week04 v0.3.1     # v0.3 뒤에 정렬 버그를 고쳤습니다
+git checkout v0.3.1             # v0.3 뒤에 정렬 버그를 고쳤습니다
 mkdir -p data/dist
 mv ~/Downloads/week04-v0.3-data.tar.gz data/dist/
 docker compose up --build
@@ -1590,7 +1579,7 @@ HNSW = {"space": "cosine", "max_neighbors": 32,      # 기본 16
 ### 받아서 v1.0에 서기
 
 ```bash
-git switch -C week04 v1.0.1     # v1.0 뒤에 진행 막대를 고쳤습니다
+git checkout v1.0.1             # v1.0 뒤에 진행 막대를 고쳤습니다
 cp .env.example .env            # GEMINI_API_KEY 필요 (질의 임베딩은 매번 부릅니다)
 mv ~/Downloads/week04-v1.0-data.tar.gz data/dist/
 mv ~/Downloads/chroma_foods.tar.gz     data/dist/
