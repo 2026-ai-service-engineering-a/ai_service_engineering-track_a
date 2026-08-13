@@ -430,10 +430,14 @@ docker compose ps        # api · ui 두 서비스 (db·chroma는 2·3회전이 
 
 ### 검증부터 합니다
 
+* 실행
+
 ```bash
 docker compose exec api uv run python scripts/download_file.py \
   --verify data/raw/20260728_가공식품DB_306307건.xlsx
 ```
+
+* 결과
 
 ```plaintext
 [verify] 크기: 187.42 MiB · 행수: 306,307 · 열수: 166
@@ -481,6 +485,8 @@ docker compose exec api uv run python scripts/download_file.py \
 
 ### 샘플을 열어 봅니다
 
+* 실행
+
 ```bash
 # -T는 TTY 할당을 끕니다. heredoc은 stdin이 터미널이 아니라 파이프라,
 # 이게 없으면 "cannot attach stdin to a TTY-enabled container"로 죽습니다
@@ -491,6 +497,8 @@ df = pd.read_csv("data/sample/raw_sample.csv")
 print(f"고유값 {df['1회 섭취참고량'].nunique()}개")
 EOF
 ```
+
+* 결과
 
 ```plaintext
 P114-103010200-0827       ？스타곰탕 냉면 무김치
@@ -744,10 +752,14 @@ docker compose up --build
 
 ### 실행 ①: 정제 (전량)
 
+* 실행
+
 ```bash
 docker compose exec api uv run python -m pipeline.clean \
   --input data/raw/20260728_가공식품DB_306307건.xlsx
 ```
+
+* 결과
 
 ```plaintext
 [clean] 입력: 306,307행 · 166열
@@ -1008,12 +1020,16 @@ P117-100010300-0364,동그란스팸？,대체불가 문자 포함
 
 ### v0.3 릴리즈와 재현
 
+* 실행
+
 ```bash
 git checkout v0.3.1             # v0.3 뒤에 정렬 버그를 고쳤습니다
 mkdir -p data/dist
 mv ~/Downloads/week04-v0.3-data.tar.gz data/dist/
 docker compose up --build
 ```
+
+* 복원 순서 (compose가 강제합니다)
 
 ```plaintext
 data-restore(완료) → db(healthy) → db-restore(완료) → api
@@ -1051,10 +1067,14 @@ data-restore(완료) → db(healthy) → db-restore(완료) → api
 
 ### 검색 API
 
+* 실행
+
 ```bash
 curl -s -G localhost:8000/foods --data-urlencode "q=떡볶이" \
   -d sort=sodium_desc -d limit=3 | jq '.total, (.items[] | {name, sodium_mg, serving_g})'
 ```
+
+* 결과
 
 ```json
 2703
@@ -1072,15 +1092,38 @@ curl -s -G localhost:8000/foods --data-urlencode "q=떡볶이" \
 
 <Slide>
 
-### 키워드 검색의 두 한계
+### 키워드 검색의 한계 ①: 글자가 다르면 0건
+
+* 실행
 
 ```bash
 curl -s -G localhost:8000/foods --data-urlencode "q=매콤한 분식 간식" | jq '.total'
-#  → 0    ① 글자가 다르면 0건. "매콤한 분식"과 "떡볶이"는 SQL에게 남남입니다
 ```
 
+* 결과
+
+```plaintext
+0
+```
+
+- "매콤한 분식"과 "떡볶이"는 SQL에게 아무 관계가 없습니다
+
+</Slide>
+
+<Slide>
+
+### 한계 ②: 글자가 같으면 엉뚱한 게 걸린다
+
+* 실행
+
+```bash
+curl -s -G localhost:8000/foods --data-urlencode "q=튀김" \
+  -d sort=sodium_asc -d limit=3 | jq '.items[] | {name, category_big, sodium_mg}'
+```
+
+* 결과
+
 ```json
-// ② 글자가 같으면 엉뚱한 게 걸린다 — "q=튀김", 나트륨 오름차순
 { "name": "연두부튀김", "category_big": "두부류 또는 묵류", "sodium_mg": 0.0 }
 { "name": "해피스푼콩기름튀김전용유", "category_big": "식용유지류", "sodium_mg": 0.0 }
 { "name": "튀김전용콩식용유", "category_big": "식용유지류", "sodium_mg": 0.0 }
@@ -1088,9 +1131,8 @@ curl -s -G localhost:8000/foods --data-urlencode "q=매콤한 분식 간식" | j
 
 - "나트륨 낮은 튀김"을 찾았더니 **튀김전용유**가 나옵니다
 - 기름이니 나트륨이 0인 게 맞고, SQL도 틀리지 않았습니다. **글자만 봤을 뿐입니다**
-- 여기 `sodium_mg: 0`은 **진짜 0**입니다
-  - 결측을 0으로 채웠다면 진짜 0과 모름이 뒤섞여 구분할 방법이 없었을 겁니다
-  - 1회전의 "0으로 채우지 마"가 여기서 값을 합니다
+- 여기 `sodium_mg: 0`은 **진짜 0**입니다.
+  결측을 0으로 채웠다면 진짜 0과 모름이 뒤섞여 구분할 방법이 없었을 겁니다
 
 </Slide>
 
@@ -1110,11 +1152,15 @@ curl -s -G localhost:8000/foods --data-urlencode "q=매콤한 분식 간식" | j
 
 ### 여기서 발견한 버그: 1페이지의 행이 2페이지에 또
 
+* v0.3에서의 출력
+
 ```plaintext
 1페이지: P107-101010100-0045  P107-301030100-0069  P107-103010300-0064  P107-301030100-0145
 2페이지: P107-301030100-0145  P107-117010100-0001  P107-101010100-0085  P107-101010100-0253
           ^^^^^^^^^^^^^^^^^^ 1페이지에 이미 나온 행
 ```
+
+* 고침 (v0.3.1)
 
 ```python
 SORT_TIEBREAK = "code asc"      # 유일한 값을 마지막 정렬 키로 붙여 전순서로
@@ -1578,6 +1624,8 @@ HNSW = {"space": "cosine", "max_neighbors": 32,      # 기본 16
 
 ### 받아서 v1.0에 서기
 
+* 실행
+
 ```bash
 git checkout v1.0.1             # v1.0 뒤에 진행 막대를 고쳤습니다
 cp .env.example .env            # GEMINI_API_KEY 필요 (질의 임베딩은 매번 부릅니다)
@@ -1585,6 +1633,8 @@ mv ~/Downloads/week04-v1.0-data.tar.gz data/dist/
 mv ~/Downloads/chroma_foods.tar.gz     data/dist/
 docker compose up --build
 ```
+
+* 복원 순서
 
 ```plaintext
 data-restore(완료) → db(healthy) → db-restore(완료) ┐
@@ -1651,10 +1701,14 @@ data-restore(완료) → chroma                          ├→ api
 
 ### 의미 검색 ①: 0건이 결과로
 
+* 실행
+
 ```bash
 curl -s -G localhost:8000/foods/semantic --data-urlencode "q=매콤한 분식 간식" \
   -d limit=3 | jq '.items[] | {name, sodium_mg, score}'
 ```
+
+* 결과
 
 ```json
 { "name": "매콤떡볶이(SPICY RICE CAKE)", "sodium_mg": 800.0, "score": 0.7469 }
@@ -1689,10 +1743,14 @@ curl -s -G localhost:8000/foods/semantic --data-urlencode "q=매콤한 분식 �
 
 ### 그래서 숫자는 필터로 겁니다
 
+* 실행
+
 ```bash
 curl -s -G localhost:8000/foods/semantic --data-urlencode "q=매콤한 분식 간식" \
   -d limit=3 -d sodium_max=400 | jq '.items[] | {name, sodium_mg}'
 ```
+
+* 결과
 
 ```json
 { "name": "매콤달콤한 맛 그대로 떡볶이 스낵", "sodium_mg": 365.0 }
@@ -1747,10 +1805,14 @@ curl -s -G localhost:8000/foods/semantic --data-urlencode "q=매콤한 분식 �
 
 ### 모르는 것은 모른다고
 
+* 실행
+
 ```bash
 curl -s -X POST localhost:8000/ask -H 'Content-Type: application/json' \
   -d '{"q": "이 중에 비건 인증을 받은 제품은?"}' | jq '.answer'
 ```
+
+* 결과
 
 ```json
 "제공된 자료로는 답할 수 없습니다."
