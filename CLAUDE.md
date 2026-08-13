@@ -27,7 +27,7 @@ AI 서비스 엔지니어링 Track A: 14회차 실습 트랙의 강의 자료·�
 ```sh
 # repo 루트에서 — Docker (Node/pnpm 설치 불필요)
 docker compose up                            # 보기 전용 (소스 내장)
-docker compose -f docker-compose.dev.yml up  # site/ 바인드 마운트 + 핫리로드
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up  # site/ 바인드 마운트 + 핫리로드
 
 # site/ 에서 — 로컬 pnpm
 pnpm dev / pnpm build / pnpm check

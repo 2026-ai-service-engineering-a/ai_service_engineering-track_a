@@ -21,7 +21,7 @@ Docker로 돌리려면 **repo 루트에서** (Node/pnpm 설치 불필요):
 
 ```sh
 docker compose up                            # 보기 전용 (소스 내장)
-docker compose -f docker-compose.dev.yml up  # site/ 바인드 마운트 + 핫리로드
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up  # site/ 바인드 마운트 + 핫리로드
 ```
 
 ## 콘텐츠 작성 위치
