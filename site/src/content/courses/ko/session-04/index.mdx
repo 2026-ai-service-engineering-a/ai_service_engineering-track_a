@@ -219,7 +219,12 @@ flowchart LR
 >
 > ```bash
 > git switch -C week04 v0.2   # 이미 있는 week04를 v0.2로 옮긴다
+> git describe --tags         # → v0.2   (제대로 왔는지 확인)
 > ```
+>
+> **프롬프트에는 태그가 안 뜹니다.** 브랜치에 올라탄 상태라 `week04`만 보이고,
+> 편집기의 그래프 패널에는 `origin/main`이 맨 위에 그려집니다. 둘 다 정상이고
+> "main으로 가버린 것"이 아닙니다. 내 위치는 `git describe --tags`가 알려 줍니다.
 
 ```bash
 cp .env.example .env
@@ -513,6 +518,7 @@ f60b46d  feat: data-restore — 받은 산출물을 제자리에 + 1회전 지�
 
 ```bash
 git switch -C week04 v0.2       # 처음이면 -c, 이미 만들었으면 -C
+git describe --tags             # → v0.2
 cp .env.example .env
 
 mkdir -p data/dist
@@ -826,6 +832,7 @@ reports/clean_report.txt · parse_report.txt · rejected.csv
 
 ```bash
 git switch -C week04 v0.3.1     # v0.3 뒤에 정렬 버그를 고쳤습니다 (5-5절)
+git describe --tags             # → v0.3.1
 cp .env.example .env
 
 mkdir -p data/dist
@@ -1444,6 +1451,7 @@ curl -sS -G localhost:8000/probe/compare \
 
 ```bash
 git switch -C week04 v1.0.1     # v1.0 뒤에 진행 막대를 고쳤습니다 (6-6절)
+git describe --tags             # → v1.0.1
 cp .env.example .env            # GEMINI_API_KEY 필요 (질의 임베딩은 매번 부릅니다)
 
 mkdir -p data/dist
