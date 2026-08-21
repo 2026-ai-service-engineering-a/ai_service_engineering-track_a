@@ -37,8 +37,8 @@ Source가 `GitHub Actions`가 아니면 워크플로는 성공해도 페이지�
   404가 난다.
 - 로컬 개발 서버도 base를 그대로 쓴다. `pnpm dev`나 `docker compose up` 후
   접속 주소는 `http://localhost:4321/ai_service_engineering-track_a/` 다.
-- 본문에 쓴 내부 절대 링크(`[텍스트](/article/…)`)는 빌드가 base를 붙여 준다
-  (`astro.config.mjs`의 `remarkBaseLinks`). 콘텐츠에는 base를 적지 않는다.
+- 본문에 쓴 내부 절대 링크(`[텍스트](/article/…)`)는 `astro.config.mjs`의
+  `remarkBaseLinks`가 빌드 시 base를 붙여 준다. 콘텐츠에는 base를 적지 않는다.
 - 커스텀 도메인을 붙이면 `base`를 `/`로 되돌리고 `site`를 그 도메인으로 바꾼 뒤,
   `site/public/CNAME`을 추가하고 Settings > Pages의 Custom domain에도 넣는다.
 

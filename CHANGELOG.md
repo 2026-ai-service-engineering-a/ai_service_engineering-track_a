@@ -6,6 +6,29 @@ AI 서비스 엔지니어링 Track A 강의 사이트의 주요 변경 사항을
 [유의적 버전](https://semver.org/lang/ko/)을 준수한다. 릴리스는 저장소 루트의
 git 태그(`vX.Y`)로, 사이트 버전은 `site/package.json`으로 관리한다.
 
+## [1.5.0] - 2026-08-21
+
+### 추가
+
+- **GitHub Pages 배포**: `main`에 push되면 `site/`를 정적 빌드해 올리는
+  워크플로(`.github/workflows/deploy.yml`)를 붙였다. 공개 주소는
+  `https://2026-ai-service-engineering-a.github.io/ai_service_engineering-track_a/`
+  이고, git flow대로 release·hotfix가 `main`에 머지될 때 배포된다
+- **배포 문서(`docs/deployment.md`)**: 저장소 최초 설정(Settings > Pages의
+  Source를 GitHub Actions로), base 경로 대응표, 워크플로가 하는 일, 커스텀
+  도메인 전환 방법, 배포가 안 될 때의 증상별 확인 목록
+
+### 변경
+
+- **프로젝트 사이트 base 경로**: `site`를 `https://2026-ai-service-engineering-a.github.io`,
+  `base`를 `/ai_service_engineering-track_a`로 맞췄다. 로컬 개발 서버와
+  `docker compose up`도 같은 경로로 접속한다
+- **본문 내부 절대 링크에 base 자동 접두**: `[텍스트](/article/…)`는 그대로
+  두면 프로젝트 사이트에서 404가 난다. remark 플러그인이 빌드 시 base를 붙이므로
+  콘텐츠는 base를 몰라도 된다
+- **저장소 공개 전환 반영**: 헤더의 GitHub 링크를 노출하고(`repoNav`),
+  private(수강생 전용) 콘텐츠를 쓰지 않는다는 원칙을 문서에 명시했다
+
 ## [1.4.0] - 2026-08-13
 
 ### 추가
