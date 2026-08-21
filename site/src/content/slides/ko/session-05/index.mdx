@@ -46,103 +46,14 @@ import ModelVsService from '../../../../components/ModelVsService.astro';
 
 </Slide>
 
-<Slide>
-
-## 이번 주 저장소는 서비스가 아니라 랩입니다
-::sub[따라 치지 않습니다. 읽고, 돌리고, 재현합니다]
-
-- `lab` 컨테이너 하나를 띄워 두고 **예제 파일을 하나씩 실행**합니다
-- 각 파일 상단 docstring에 "무엇을 보는가"와 실행 명령이 있습니다
-- 코드는 전부 완성본. 세션은 강사 시연 + 코드 리딩
-- 재현은 각자의 속도로. 같은 명령이 같은 결과를 냅니다
-- 저장소는 **완성된 한 벌**입니다. 중간 버전을 오가지 않고 `main` 그대로 실행합니다
-
-</Slide>
-
-<Slide>
-
-### 랩 기동
-
-```bash
-git clone https://github.com/2026-ai-service-engineering-a/week05-agent-lab.git
-cd week05-agent-lab
-cp .env.sample .env        # 편집기로 열어 키 채우기 (셋 중 하나면 됨)
-docker compose up --build -d
-docker compose exec lab python check_env.py
-```
-
-- 3주차에 발급한 키를 그대로 씁니다
-- **로컬 Python 환경이 필요 없습니다**
-
-</Slide>
 
 
 
 
-<Slide>
 
-## check_env.py가 확인하는 것
 
-- **키 유효성**: 채워진 키로 실제 호출 1회
-- **사용 가능한 모델**
-- **컨테이너 내 패키지 버전**
 
-```text
-=== 패키지 버전 ===
-  python   3.13.15
-  litellm  1.96.2
-  pydantic 2.13.4
-  pytest   8.4.2
-```
 
-키가 하나도 없으면 해결 방법을 안내하고 종료 코드 1로 끝납니다.
-
-</Slide>
-
-<Slide>
-
-### 잘 안 될 때
-
-- `docker: command not found` → Docker Desktop이 실행 중인지 확인
-- 키 인증 실패 → `.env`의 키 앞뒤 공백·따옴표 확인, 충전 여부 확인
-- 그 외는 **지금 이 시간에 함께 해결합니다**
-
-키는 셋 중 하나만 있어도 모든 예제가 돕니다.
-임베딩 예제에는 Google 키가 필요합니다.
-
-</Slide>
-
-<Slide>
-
-### 예제 실행 방법
-::sub[전부 docker compose exec로 돕니다]
-
-```bash
-docker compose exec lab python examples/01_api/01_hello_completion.py
-```
-
-- **예제 31종을 전부 수업에서 실행합니다.**
-  교안에 실행 결과가 함께 실려 있어, 재현할 때 자기 출력과 대조할 수 있습니다
-- 키 없이 도는 것들: 토큰 세기, 단가표, 스키마 생성, 비용 계산
-- 유닛 테스트는 키도 네트워크도 없이 돕니다: `docker compose exec lab pytest`
-
-</Slide>
-
-<Slide>
-
-### 비용은 얼마나 드나
-
-| 하는 일 | 비용 |
-| --- | --- |
-| `check_env.py` 1회 (3사 각 1콜) | $0.0001 미만 |
-| 예제 하나 실행 (호출 1\~5회) | $0.001 \~ $0.01 수준 |
-| 여행 플래너 풀런 1회 (루프 + 도구 3종) | $0.003 \~ $0.010 |
-| 루프가 8스텝을 다 쓰는 최악 시나리오 | $0.007 \~ $0.033 |
-
-- 예제 31종을 전부 돌리고 에이전트를 여러 번 실행해도 **하루 $1 안쪽**
-- 유닛 테스트는 0원, 키 없이 도는 예제도 0원
-
-</Slide>
 
 <Slide>
 
