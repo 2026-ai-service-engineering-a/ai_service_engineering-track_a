@@ -1,6 +1,6 @@
 ---
 title: "5주차: API 해부와 tool calling"
-description: "5주차 라이브 세션 슬라이드: AI 모델과 AI 서비스의 구분과 도구의 정의, examples/01_api 11종으로 LLM API의 바닥, examples/02_litellm 10종으로 통합 레이어, examples/03_tools 10종으로 tool calling 심화, 그리고 에이전트가 처음으로 도구를 드는 지점까지"
+description: "5주차 라이브 세션 슬라이드: AI 모델과 AI 서비스의 구분과 도구의 정의, examples/01_api 11종으로 LLM API의 바닥, examples/02_litellm 10종으로 통합 레이어, examples/03_tools 11종으로 tool calling 심화, 그리고 에이전트가 처음으로 도구를 드는 지점까지"
 presenter: CodeCompose
 date: "2026-08-21"
 transition: none
@@ -42,7 +42,7 @@ import ModelVsService from '../../../../components/ModelVsService.astro';
 - **LLM API의 전부**: messages를 보내면 choices가 온다
 - **통합 레이어**: 교체·폴백·캐싱·라우터·비용 콜백
 - **tool calling**: 모델은 함수를 실행하지 못한다. 요청할 뿐이다
-- 예제 **31종을 전부 실행**하고, 끝에서 에이전트가 **처음으로 도구를 듭니다**
+- 예제 **32종을 전부 실행**하고, 끝에서 에이전트가 **처음으로 도구를 듭니다**
 
 </Slide>
 
@@ -1405,7 +1405,7 @@ docker compose exec lab python examples/02_litellm/10_embedding.py
 
 ## 6장 · Tool calling 심화
 
-`examples/03_tools/` 10종
+`examples/03_tools/` 11종
 
 *4장에서 비어 있던 tool_calls 자리가 채워집니다*
 
@@ -1417,7 +1417,7 @@ docker compose exec lab python examples/02_litellm/10_embedding.py
 ::sub[4장에서 비어 있던 tool_calls 자리가 채워집니다]
 
 - 도구 호출 왕복을 **JSON 원문으로 해부**합니다.
-- `examples/03_tools/` **10종을 전부 실행**합니다.
+- `examples/03_tools/` **11종을 전부 실행**합니다.
 - Pydantic 모델 하나가 스키마와 검증을 겸하는 구조를 익힙니다.
 - 세션 끝에서 에이전트가 **처음으로 도구를 듭니다**.
 
@@ -1456,8 +1456,9 @@ flowchart LR
 3. 스키마 (Pydantic, 병렬, 제약, tool_choice)
 4. 에러와 환각 (되먹임, 검증)
 5. 구조화 출력과 도구 선택
-6. 전체 그림
-7. 코드 포인트: 에이전트에 도구가 실린다
+6. 도구가 없다면? (같은 계산을 두 방식으로)
+7. 전체 그림
+8. 코드 포인트: 에이전트에 도구가 실린다
 
 </Slide>
 <Slide class="center">
@@ -2090,7 +2091,59 @@ docker compose exec lab python examples/03_tools/10_tool_selection.py
 </Slide>
 <Slide class="center">
 
-### Part 6. 전체 그림
+### Part 6. 도구가 없다면?
+
+3장의 그림을 이 장의 문법으로 다시 봅니다
+
+</Slide>
+<Slide>
+
+#### 같은 계산을 두 방식으로
+::sub[examples/03_tools/11_calc_with_without.py]
+
+```text
+=== 질문: 3+4+(5 곱하기 2) 를 계산해줘 ===   (정답 17)
+
+① 도구 없이   → "…괄호 안을 먼저: 5 × 2 = 10 … 계산 결과는 17입니다"   ○ 맞음
+
+② 계산기 있음 → 모델의 요청  calculator({"expression": "3+4+(5*2)"})
+                우리의 실행  {"result": 17}
+                최종 답      "계산 결과는 17입니다"                    ○ 맞음
+```
+
+**두 답이 같습니다.** 도구 없는 쪽은 풀이까지 단정하게 적었습니다.
+
+</Slide>
+<Slide>
+
+#### 자릿수를 키우면
+::sub[같은 코드, 같은 도구, 숫자만 크게]
+
+```text
+=== 질문: 48627 곱하기 9314에 1250을 더하면? ===   (정답 452,913,128)
+
+① 도구 없이   → "452,905,678"                                        ✗ 틀림
+② 계산기 있음 → calculator({"expression": "48627 * 9314 + 1250"})
+                → 452913128                                          ○ 맞음
+```
+
+- 형식은 여전히 단정하고 **"확실하지 않다"는 신호가 없습니다**
+- 다시 돌리면 **틀린 값 자체가 달라집니다** (준비 중 452,902,628도 나왔습니다)
+
+</Slide>
+<Slide class="center">
+
+#### 도구는 답을 바꾸는 장치가 아니라
+
+**답의 근거를 바꾸는 장치**입니다
+
+쉬운 질문에서 도구가 할 일이 없어 보였다면,
+아직 틀릴 만큼 어렵지 않았던 것입니다
+
+</Slide>
+<Slide class="center">
+
+### Part 7. 전체 그림
 
 요청에서 답까지, 한 바퀴
 
@@ -2180,7 +2233,7 @@ sequenceDiagram
 </Slide>
 <Slide class="center">
 
-### Part 7. 코드 포인트
+### Part 8. 코드 포인트
 
 에이전트에 도구가 실린다.
 
