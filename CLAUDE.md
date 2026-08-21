@@ -22,6 +22,16 @@ AI 서비스 엔지니어링 Track A: 14회차 실습 트랙의 강의 자료·�
   md/mdx 문서 변경이 있으면 `python3 scripts/check-style.py` 통과 필수.
   커밋 메시지 제목은 영어 명령형 한 줄
 
+## 배포 (상세: `docs/deployment.md`)
+
+- `main`에 push되면 `.github/workflows/deploy.yml`이 `site/`를 빌드해 GitHub
+  Pages에 올린다. `develop` 머지만으로는 공개 사이트가 바뀌지 않는다
+- 프로젝트 사이트라 base 경로가 `/ai_service_engineering-track_a`다. 로컬
+  개발 서버도 같은 경로로 접속한다. 저장소 이름을 바꾸면 `base`도 바꾼다
+- 본문의 내부 절대 링크(`[텍스트](/article/…)`)에는 base를 적지 않는다.
+  빌드가 붙여 준다
+- **저장소가 공개다.** private(수강생 전용) 콘텐츠·키·개인정보를 넣지 않는다
+
 ## 개발 명령
 
 ```sh

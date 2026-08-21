@@ -11,6 +11,8 @@
   규칙
 - [git-workflow.md](git-workflow.md): git flow 브랜치 모델과 커밋 규칙
   (커밋하면서 진행, 커밋 전 검증, 메시지 스타일)
+- [deployment.md](deployment.md): GitHub Pages 배포 (공개 주소, base 경로,
+  워크플로가 하는 일, 배포가 안 될 때)
 
 ## 주차별 강의 문서
 
