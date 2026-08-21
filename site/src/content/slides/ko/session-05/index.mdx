@@ -1,10 +1,10 @@
 ---
 title: "5주차: API 해부와 tool calling"
-description: "5주차 라이브 세션 슬라이드: 실습 랩 기동과 릴리즈 사다리, examples/01_api 11종으로 LLM API의 바닥, examples/02_litellm 10종으로 통합 레이어, examples/03_tools 10종으로 tool calling 심화, 그리고 에이전트가 도구를 드는 v0.2"
+description: "5주차 라이브 세션 슬라이드: 실습 랩 기동, examples/01_api 11종으로 LLM API의 바닥, examples/02_litellm 10종으로 통합 레이어, examples/03_tools 10종으로 tool calling 심화, 그리고 에이전트가 처음으로 도구를 드는 지점까지"
 presenter: CodeCompose
 date: "2026-08-21"
 transition: none
-toc_level: 3
+toc_level: 4
 toc_open: false
 ---
 
@@ -40,7 +40,7 @@ import Slide from 'stack-site-builder/components/Slide.astro';
 - **LLM API의 전부**: messages를 보내면 choices가 온다
 - **통합 레이어**: 교체·폴백·캐싱·라우터·비용 콜백
 - **tool calling**: 모델은 함수를 실행하지 못한다. 요청할 뿐이다
-- 예제 **31종을 전부 실행**하고, 끝에서 에이전트가 **v0.2**로 오릅니다
+- 예제 **31종을 전부 실행**하고, 끝에서 에이전트가 **처음으로 도구를 듭니다**
 
 </Slide>
 
@@ -53,6 +53,7 @@ import Slide from 'stack-site-builder/components/Slide.astro';
 - 각 파일 상단 docstring에 "무엇을 보는가"와 실행 명령이 있습니다
 - 코드는 전부 완성본. 세션은 강사 시연 + 코드 리딩
 - 재현은 각자의 속도로. 같은 명령이 같은 결과를 냅니다
+- 저장소는 **완성된 한 벌**입니다. 중간 버전을 오가지 않고 `main` 그대로 실행합니다
 
 </Slide>
 
@@ -73,44 +74,8 @@ docker compose exec lab python check_env.py
 
 </Slide>
 
-<Slide class="center">
 
-## 릴리즈 사다리
 
-**v0.1 뼈대 → v0.2 도구**
-
-그리고 6주차가 **v0.3 ReAct → v0.4 고급 루프 → v1.0 하네스**
-
-</Slide>
-
-<Slide>
-
-### 사다리 사용법
-::sub[태그 하나가 그 시점의 동작 전체를 재현합니다]
-
-```bash
-git checkout v0.1 && docker compose up --build -d   # 그 시점의 코드로 그 시점의 동작
-git diff v0.1 v0.2                                  # 이번 feature가 코드로는 무엇이었나
-docker compose exec lab pytest                      # 어느 태그에서든 그 시점의 테스트가 통과
-```
-
-"지금 우리는 v0.1에서 v0.2로 가는 중"이 늘 성립합니다.
-
-</Slide>
-
-<Slide>
-
-### 이번 주 사다리는 두 단
-
-| 릴리즈 | 상태 | 테스트 |
-| --- | --- | --- |
-| v0.1 | 예제 31종 + 에이전트 뼈대 (도구 없음) | 5개 통과 |
-| v0.2 | 도구 장착: 예산 계산 도구가 스키마로 실림 | 16개 통과 |
-
-6주차 랩은 이 v0.2에서 이어집니다.
-그래서 그쪽의 첫 태그가 v0.1이 아니라 **v0.2**입니다.
-
-</Slide>
 
 <Slide>
 
@@ -185,7 +150,7 @@ docker compose exec lab python examples/01_api/01_hello_completion.py
 flowchart LR
     A["3장<br/>LLM API의 본질<br/>01_api 11종"] --> B["4장<br/>LiteLLM 통합 레이어<br/>02_litellm 10종"]
     B --> C["5장<br/>Tool calling 심화<br/>03_tools 10종"]
-    C --> D["v0.2<br/>에이전트가<br/>도구를 든다"]
+    C --> D["에이전트가<br/>도구를 든다"]
 ```
 
 </Slide>
@@ -202,7 +167,7 @@ flowchart LR
 
 <Slide>
 
-## 3장이 하는 일
+### 3장이 하는 일
 ::sub[프레임워크를 걷어내고 API의 바닥을 봅니다]
 
 - `examples/01_api/` **11종을 전부 실행**합니다.
@@ -213,7 +178,7 @@ flowchart LR
 </Slide>
 <Slide class="center">
 
-## 핵심 문장
+### 핵심 문장
 
 **LLM API의 전부는 "messages 배열을 보내면 choices가 돌아온다"**
 
@@ -222,7 +187,7 @@ flowchart LR
 </Slide>
 <Slide>
 
-## 그림 한 장
+### 그림 한 장
 
 ```mermaid
 flowchart LR
@@ -238,7 +203,7 @@ flowchart LR
 </Slide>
 <Slide>
 
-## 오늘의 순서
+### 오늘의 순서
 ::sub[예제 11종을 다섯 묶음으로]
 
 1. 요청과 응답 (최소 호출, 역할)
@@ -250,14 +215,14 @@ flowchart LR
 </Slide>
 <Slide class="center">
 
-## Part 1. 요청과 응답
+### Part 1. 요청과 응답
 
 무엇을 보내고 무엇이 돌아오는가
 
 </Slide>
 <Slide>
 
-### 1. 최소 호출
+#### 1. 최소 호출
 ::sub[01_hello_completion.py · 요청·응답 JSON 원문을 그대로 본다]
 
 - 코드
@@ -280,7 +245,7 @@ docker compose exec lab python examples/01_api/01_hello_completion.py
 </Slide>
 <Slide>
 
-### 응답 원문: 모델이 돌려주는 것 전체
+#### 응답 원문: 모델이 돌려주는 것 전체
 
 ```text
 {
@@ -303,7 +268,7 @@ docker compose exec lab python examples/01_api/01_hello_completion.py
 </Slide>
 <Slide>
 
-### 실제로 쓰는 것은 두 곳뿐
+#### 실제로 쓰는 것은 두 곳뿐
 
 ```text
 choices[0].message.content = '안녕하세요! 만나서 반가운데, …'
@@ -318,7 +283,7 @@ usage = 입력 11 토큰 + 출력 16 토큰
 </Slide>
 <Slide class="center">
 
-### `"tool_calls": null`
+#### `"tool_calls": null`
 
 이 자리를 기억해 두세요.
 
@@ -327,7 +292,7 @@ usage = 입력 11 토큰 + 출력 16 토큰
 </Slide>
 <Slide>
 
-### 2. 역할: system이 내용과 형식을 정한다
+#### 2. 역할: system이 내용과 형식을 정한다
 ::sub[02_roles.py · 같은 질문에 system만 갈아 끼운다]
 
 ```python
@@ -348,7 +313,7 @@ docker compose exec lab python examples/01_api/02_roles.py
 </Slide>
 <Slide>
 
-### system만 바꿨을 뿐인데
+#### system만 바꿨을 뿐인데
 
 ```text
 === system = (system 없음) ===
@@ -367,7 +332,7 @@ docker compose exec lab python examples/01_api/02_roles.py
 </Slide>
 <Slide>
 
-### 결과 읽기: 내용도 형식도 system에서 갈렸다
+#### 결과 읽기: 내용도 형식도 system에서 갈렸다
 
 - 답의 **내용**: 갓포 요리 vs 타코야키
 - 답의 **형식**: 산문 vs JSON
@@ -377,14 +342,14 @@ docker compose exec lab python examples/01_api/02_roles.py
 </Slide>
 <Slide class="center">
 
-## Part 2. 토큰 · 한도 · 온도
+### Part 2. 토큰 · 한도 · 온도
 
 돈과 벽, 그리고 재현성
 
 </Slide>
 <Slide>
 
-### 3. 토큰: 한글이 더 비싼 이유
+#### 3. 토큰: 한글이 더 비싼 이유
 ::sub[03_tokens.py · API 호출 없이 토크나이저만으로 돈다. 키 불필요]
 
 - 실행
@@ -409,7 +374,7 @@ docker compose exec lab python examples/01_api/03_tokens.py
 </Slide>
 <Slide>
 
-### 4. 컨텍스트 한도: 넘치면 잘리는 게 아니라 거부된다
+#### 4. 컨텍스트 한도: 넘치면 잘리는 게 아니라 거부된다
 ::sub[04_context_limit.py · 한도가 가장 작은 모델에 한도의 1.5배를 보낸다]
 
 - 코드
@@ -431,7 +396,7 @@ docker compose exec lab python examples/01_api/04_context_limit.py
 </Slide>
 <Slide>
 
-### 에러 원문
+#### 에러 원문
 
 ```text
 === anthropic/claude-haiku-4-5의 입력 한도 ===
@@ -448,7 +413,7 @@ docker compose exec lab python examples/01_api/04_context_limit.py
 </Slide>
 <Slide>
 
-### 결과 읽기: 두 가지가 보인다
+#### 결과 읽기: 두 가지가 보인다
 
 - **① 초과분은 잘리는 게 아니라 요청 자체가 거부됩니다**.
 - **② 토큰 수는 세는 쪽마다 다릅니다**
@@ -459,7 +424,7 @@ docker compose exec lab python examples/01_api/04_context_limit.py
 </Slide>
 <Slide>
 
-### 5. temperature: 재현성과 다양성의 손잡이
+#### 5. temperature: 재현성과 다양성의 손잡이
 ::sub[05_temperature.py · 같은 질문을 0과 1로 5번씩]
 
 - 실행
@@ -485,7 +450,7 @@ docker compose exec lab python examples/01_api/05_temperature.py
 </Slide>
 <Slide>
 
-### 결과 읽기: 0을 쓰는 자리가 따로 있다
+#### 결과 읽기: 0을 쓰는 자리가 따로 있다
 
 - **0**: 도구 선택·채점·검증처럼 재현성이 필요한 자리
 - **높게**: 발상이 필요한 자리
@@ -496,14 +461,14 @@ docker compose exec lab python examples/01_api/05_temperature.py
 </Slide>
 <Slide class="center">
 
-## Part 3. 스트리밍과 병렬
+### Part 3. 스트리밍과 병렬
 
 기다림을 다루는 두 가지 방법
 
 </Slide>
 <Slide>
 
-### 6. 스트리밍: 답은 조각으로 온다
+#### 6. 스트리밍: 답은 조각으로 온다
 ::sub[06_streaming.py · 채팅 UI가 글자를 흘리는 것의 실체]
 
 - 실행
@@ -529,7 +494,7 @@ docker compose exec lab python examples/01_api/06_streaming.py
 </Slide>
 <Slide>
 
-### 7. 병렬 호출: 동시에 물으면 몇 배 빠른가
+#### 7. 병렬 호출: 동시에 물으면 몇 배 빠른가
 ::sub[07_async_parallel.py · 도시 5곳을 순차로, 그리고 동시에]
 
 - 코드
@@ -560,14 +525,14 @@ LLM 호출은 네트워크 대기가 대부분이라 병렬화 이득이 큽니�
 </Slide>
 <Slide class="center">
 
-## Part 4. 무상태와 기억
+### Part 4. 무상태와 기억
 
 서버는 아무것도 기억하지 않습니다.
 
 </Slide>
 <Slide>
 
-### 8. 무상태: 기억은 서버가 아니라 배열에 있다
+#### 8. 무상태: 기억은 서버가 아니라 배열에 있다
 ::sub[08_multiturn_stateless.py · 히스토리 없이, 그리고 실어서]
 
 - 실행
@@ -593,7 +558,7 @@ docker compose exec lab python examples/01_api/08_multiturn_stateless.py
 </Slide>
 <Slide>
 
-### 결과 읽기: "이어지는 대화"는 착시다
+#### 결과 읽기: "이어지는 대화"는 착시다
 
 - 서버는 아무것도 기억하지 않습니다.
 - 클라이언트가 **messages 배열 전체를 매번 다시 보내서** 만드는 착시입니다.
@@ -604,7 +569,7 @@ docker compose exec lab python examples/01_api/08_multiturn_stateless.py
 </Slide>
 <Slide>
 
-### 그런데 채팅은 분명히 나를 기억한다
+#### 그런데 채팅은 분명히 나를 기억한다
 ::sub[간극을 메우는 장치는 전부 배열 관리 기법입니다]
 
 - **같은 대화 안에서의 기억**: 방금 본 그대로. 클라이언트가 대화 전체를
@@ -617,7 +582,7 @@ docker compose exec lab python examples/01_api/08_multiturn_stateless.py
 </Slide>
 <Slide>
 
-### 그런데 배열은 자라기만 한다
+#### 그런데 배열은 자라기만 한다
 ::sub[방치하면 부딪히는 세 가지 벽]
 
 - **한도**: 4번에서 본 그대로, 넘치는 순간 요청 자체가 거부됩니다.
@@ -630,7 +595,7 @@ docker compose exec lab python examples/01_api/08_multiturn_stateless.py
 </Slide>
 <Slide>
 
-### compact가 배열을 바꾸는 모양
+#### compact가 배열을 바꾸는 모양
 
 ```mermaid
 flowchart LR
@@ -656,7 +621,7 @@ flowchart LR
 </Slide>
 <Slide>
 
-### 무엇이 남고 무엇이 치환되나
+#### 무엇이 남고 무엇이 치환되나
 
 - **유지**: system 메시지, 최근 왕복 몇 개의 원문, 방금 보낸 메시지
   진행 중인 작업의 세부(코드 조각, 직전 지시)가 요약으로 뭉개지면 안 됩니다.
@@ -668,7 +633,7 @@ flowchart LR
 </Slide>
 <Slide class="center">
 
-### 요약은 손실 압축이다
+#### 요약은 손실 압축이다
 
 compact 직후 "아까 그 함수 이름 뭐였지?"에 모델이 답하지 못하는 이유
 
@@ -677,14 +642,14 @@ compact 직후 "아까 그 함수 이름 뭐였지?"에 모델이 답하지 못�
 </Slide>
 <Slide class="center">
 
-## Part 5. 계약과 비용
+### Part 5. 계약과 비용
 
 형태를 강제하고, 값을 세어 본다.
 
 </Slide>
 <Slide>
 
-### 10. JSON 강제: 부탁이 아니라 계약으로
+#### 10. JSON 강제: 부탁이 아니라 계약으로
 ::sub[09_json_mode.py · 부탁한 버전과 강제한 버전을 json.loads에 통과시킨다]
 
 - 실행
@@ -711,7 +676,7 @@ docker compose exec lab python examples/01_api/09_json_mode.py
 </Slide>
 <Slide>
 
-### 결과 읽기: 형태의 계약일 뿐 값의 계약은 아니다
+#### 결과 읽기: 형태의 계약일 뿐 값의 계약은 아니다
 
 - 부탁하면 설명 문장과 코드펜스가 섞여 와서 파싱이 깨집니다.
 - 강제하면 파싱이 **계약**이 됩니다.
@@ -721,7 +686,7 @@ docker compose exec lab python examples/01_api/09_json_mode.py
 </Slide>
 <Slide>
 
-### 11. 이미지 입력: 멀티모달도 같은 구조
+#### 11. 이미지 입력: 멀티모달도 같은 구조
 ::sub[10_vision.py · 이미지를 직접 받아 base64 data URL로 싣는다]
 
 - 코드
@@ -751,7 +716,7 @@ docker compose exec lab python examples/01_api/10_vision.py
 </Slide>
 <Slide>
 
-### 결과 읽기: 구조는 그대로다
+#### 결과 읽기: 구조는 그대로다
 
 - `content`가 문자열에서 `[text 조각, image 조각]` 배열로 바뀌었을 뿐입니다.
 - 이 예제는 처음에 이미지 URL을 그대로 넘기다가
@@ -761,7 +726,7 @@ docker compose exec lab python examples/01_api/10_vision.py
 </Slide>
 <Slide>
 
-### 12. 비용 계산: 토큰 곱하기 단가
+#### 12. 비용 계산: 토큰 곱하기 단가
 ::sub[11_cost_calc.py · 키 없이 돈다]
 
 - 실행
@@ -785,7 +750,7 @@ docker compose exec lab python examples/01_api/11_cost_calc.py
 </Slide>
 <Slide class="center">
 
-### 호출 한 번은 티끌이지만
+#### 호출 한 번은 티끌이지만
 ## 에이전트는 루프입니다
 
 스텝 10번, 부푸는 히스토리, 멀티 에이전트 N명이면 자릿수가 달라집니다.
@@ -795,7 +760,7 @@ docker compose exec lab python examples/01_api/11_cost_calc.py
 </Slide>
 <Slide>
 
-## 3장이 남기는 것
+### 3장이 남기는 것
 
 - 응답에서 쓰는 곳은 `content`와 `usage`, 그리고 아직 비어 있는 `tool_calls`
 - 기억은 서버가 아니라 messages 배열에 있고, **그 배열이 비용이다**.
@@ -815,7 +780,7 @@ docker compose exec lab python examples/01_api/11_cost_calc.py
 
 <Slide>
 
-## 4장이 하는 일
+### 4장이 하는 일
 ::sub[3장이 이미 써 온 completion()의 정체를 밝힙니다]
 
 - 왜 공식 SDK 세 벌 대신 통합 레이어 한 벌인가, 그 **이득과 대가**
@@ -825,21 +790,21 @@ docker compose exec lab python examples/01_api/11_cost_calc.py
 </Slide>
 <Slide class="center">
 
-## 핵심 문장
+### 핵심 문장
 
 **LiteLLM에서 프로바이더 교체는 `model=` 문자열 한 줄이다**.
 
 </Slide>
 <Slide class="center">
 
-## Part 1. 왜 LiteLLM인가
+### Part 1. 왜 LiteLLM인가
 
 각 사가 공식 SDK를 주는데도 이 랩이 하나로 통일한 이유
 
 </Slide>
 <Slide>
 
-### 같은 일을 세 가지 문법으로
+#### 같은 일을 세 가지 문법으로
 
 ```python
 # 세 회사의 공식 SDK
@@ -857,7 +822,7 @@ LiteLLM은 그 셋을 OpenAI 호환 형태 하나로 통일합니다.
 </Slide>
 <Slide>
 
-### 장점: 왜 쓰는가
+#### 장점: 왜 쓰는가
 
 - **교체 비용이 문자열 한 줄**: 프로바이더 교체가 코드 수정이 아니라 설정 변경
 - **셋 중 어떤 키를 채워도 같은 코드**: 이 과정의 요구사항입니다.
@@ -869,7 +834,7 @@ LiteLLM은 그 셋을 OpenAI 호환 형태 하나로 통일합니다.
 </Slide>
 <Slide>
 
-### 단점: 무엇을 대가로 치르는가
+#### 단점: 무엇을 대가로 치르는가
 
 - **추상화 한 겹의 비용**: 에러가 litellm 예외로 감싸여 오고, 디버깅 시
   스택이 한 층 깊어집니다.
@@ -883,7 +848,7 @@ LiteLLM은 그 셋을 OpenAI 호환 형태 하나로 통일합니다.
 </Slide>
 <Slide>
 
-### 판단 기준
+#### 판단 기준
 
 - 프로바이더 하나를 확정했고 그 고유 기능을 깊이 쓴다면: **공식 SDK**
 - 멀티 프로바이더, 교체 가능성, 비용·품질 비교가 필요하다면: **통합 레이어**
@@ -892,7 +857,7 @@ LiteLLM은 그 셋을 OpenAI 호환 형태 하나로 통일합니다.
 </Slide>
 <Slide class="center">
 
-### 추상화를 고르는 일반 규칙
+#### 추상화를 고르는 일반 규칙
 
 **갈아끼울 계획이 없으면 추상화는 비용입니다**.
 
@@ -903,14 +868,14 @@ LiteLLM은 그 셋을 OpenAI 호환 형태 하나로 통일합니다.
 </Slide>
 <Slide class="center">
 
-## Part 2. 교체와 비교
+### Part 2. 교체와 비교
 
 같은 코드로 3사를 오간다.
 
 </Slide>
 <Slide>
 
-### 2. 프로바이더 교체는 문자열 한 줄
+#### 2. 프로바이더 교체는 문자열 한 줄
 ::sub[01_provider_swap.py · 호출 코드는 한 글자도 바뀌지 않는다]
 
 - 코드
@@ -942,7 +907,7 @@ docker compose exec lab python examples/02_litellm/01_provider_swap.py
 </Slide>
 <Slide>
 
-### 결과 읽기: 모델 이름은 한 곳에만
+#### 결과 읽기: 모델 이름은 한 곳에만
 
 - 세 회사의 세 모델이 같은 `completion()` 하나로 답했습니다.
 - 이 랩의 모델 문자열은 전부 `agent/config.py` **한 곳**에 있습니다.
@@ -952,7 +917,7 @@ docker compose exec lab python examples/02_litellm/01_provider_swap.py
 </Slide>
 <Slide>
 
-### 3. 3사 비교: 응답·지연·비용을 나란히
+#### 3. 3사 비교: 응답·지연·비용을 나란히
 ::sub[02_three_way_compare.py · "어느 모델을 쓸까"는 감이 아니라 측정의 문제]
 
 - 실행
@@ -978,7 +943,7 @@ docker compose exec lab python examples/02_litellm/02_three_way_compare.py
 </Slide>
 <Slide>
 
-### 모델 고를 때 보는 축
+#### 모델 고를 때 보는 축
 
 - **품질**: 우리 과제에서 도구 선택과 지시 준수가 얼마나 안정적인가
 - **지연**: 사용자가 기다리는 시간. 에이전트는 스텝마다 곱해집니다.
@@ -990,14 +955,14 @@ docker compose exec lab python examples/02_litellm/02_three_way_compare.py
 </Slide>
 <Slide class="center">
 
-## Part 3. 장애를 견디는 세 겹
+### Part 3. 장애를 견디는 세 겹
 
 재시도 · 폴백 · 백오프
 
 </Slide>
 <Slide>
 
-### 4. 폴백: 주 모델이 죽으면 이어받는다
+#### 4. 폴백: 주 모델이 죽으면 이어받는다
 ::sub[03_fallback.py · 존재하지 않는 모델을 1순위로 둔다]
 
 - 코드
@@ -1030,7 +995,7 @@ LiteLLM:ERROR: … Fallback attempt failed for model openai/gpt-없는-모델:
 </Slide>
 <Slide>
 
-### 결과 읽기: 폴백은 옵션이 아니라 기본 장비
+#### 결과 읽기: 폴백은 옵션이 아니라 기본 장비
 
 - 1순위의 실패 로그가 찍히고, **같은 `completion()` 한 번 안에서**
   폴백이 응답을 완성했습니다.
@@ -1039,7 +1004,7 @@ LiteLLM:ERROR: … Fallback attempt failed for model openai/gpt-없는-모델:
 </Slide>
 <Slide>
 
-### 5. 재시도와 타임아웃: 순간 장애의 방어
+#### 5. 재시도와 타임아웃: 순간 장애의 방어
 ::sub[04_retry_timeout.py · 불가능한 타임아웃 0.001초로 에러를 재현]
 
 - 실행
@@ -1065,7 +1030,7 @@ docker compose exec lab python examples/02_litellm/04_retry_timeout.py
 </Slide>
 <Slide>
 
-### 8. rate limit: 백오프로 살아남기
+#### 8. rate limit: 백오프로 살아남기
 ::sub[07_rate_limit.py · 429를 만나면 1초 → 2초 → 4초 기다렸다 재시도]
 
 - 실행
@@ -1092,7 +1057,7 @@ docker compose exec lab python examples/02_litellm/07_rate_limit.py
 </Slide>
 <Slide class="center">
 
-### 세 겹은 서로 다른 장애를 맡는다
+#### 세 겹은 서로 다른 장애를 맡는다
 
 **재시도**(순간 장애) · **폴백**(모델 장애) · **백오프**(한도)
 
@@ -1101,7 +1066,7 @@ docker compose exec lab python examples/02_litellm/07_rate_limit.py
 </Slide>
 <Slide>
 
-### 장애 종류별 처방
+#### 장애 종류별 처방
 
 | 증상 | 원인 | 처방 |
 | --- | --- | --- |
@@ -1115,14 +1080,14 @@ docker compose exec lab python examples/02_litellm/07_rate_limit.py
 </Slide>
 <Slide class="center">
 
-## Part 4. 돈과 속도
+### Part 4. 돈과 속도
 
 캐시와 장부
 
 </Slide>
 <Slide>
 
-### 6. 캐싱: 같은 질문 두 번째는 공짜·즉시
+#### 6. 캐싱: 같은 질문 두 번째는 공짜·즉시
 ::sub[05_cache.py · 인메모리 캐시를 켜고 같은 요청을 두 번]
 
 - 코드
@@ -1150,7 +1115,7 @@ docker compose exec lab python examples/02_litellm/05_cache.py
 </Slide>
 <Slide>
 
-### 결과 읽기: 1,000배 빠르고 비용은 0
+#### 결과 읽기: 1,000배 빠르고 비용은 0
 
 - FAQ·반복 질의가 많은 서비스의 기본 손잡이입니다.
 - 단, **같은 요청이어야 합니다**. messages가 1바이트라도 다르면 미스
@@ -1159,7 +1124,7 @@ docker compose exec lab python examples/02_litellm/05_cache.py
 </Slide>
 <Slide>
 
-### 7. 비용 콜백: 호출마다 장부에 쌓인다
+#### 7. 비용 콜백: 호출마다 장부에 쌓인다
 ::sub[06_cost_callback.py · 호출부에는 한 줄도 손대지 않는다]
 
 - 코드
@@ -1190,7 +1155,7 @@ docker compose exec lab python examples/02_litellm/06_cost_callback.py
 </Slide>
 <Slide>
 
-### 결과 읽기: 이 자리가 budget guard의 자리
+#### 결과 읽기: 이 자리가 budget guard의 자리
 
 - 호출부에는 비용 코드가 **한 줄도 없습니다**.
 - 콜백 하나 등록하면 모든 completion의 비용이 장부로 흘러듭니다.
@@ -1199,14 +1164,14 @@ docker compose exec lab python examples/02_litellm/06_cost_callback.py
 </Slide>
 <Slide class="center">
 
-## Part 5. 라우팅과 메타데이터
+### Part 5. 라우팅과 메타데이터
 
 별명 뒤에 배포 여러 개, 그리고 실행 전에 읽는 숫자
 
 </Slide>
 <Slide>
 
-### 9. 라우터: 별명 하나 뒤에 배포 여러 개
+#### 9. 라우터: 별명 하나 뒤에 배포 여러 개
 ::sub[08_router.py · 실모델 여러 개를 travel-llm 하나로 묶는다]
 
 - 코드
@@ -1229,7 +1194,7 @@ docker compose exec lab python examples/02_litellm/08_router.py
 </Slide>
 <Slide>
 
-### 요청 6건이 3사에 흩어진다
+#### 요청 6건이 3사에 흩어진다
 
 ```text
 === 배포 3개에 요청 6건 분산 ===
@@ -1248,7 +1213,7 @@ docker compose exec lab python examples/02_litellm/08_router.py
 </Slide>
 <Slide>
 
-### 10. 모델 메타데이터: 한도와 단가를 코드로 읽는다
+#### 10. 모델 메타데이터: 한도와 단가를 코드로 읽는다
 ::sub[09_model_info.py · 키 없이 돈다]
 
 - 실행
@@ -1275,7 +1240,7 @@ docker compose exec lab python examples/02_litellm/09_model_info.py
 </Slide>
 <Slide>
 
-### 11. 임베딩: 같은 인터페이스의 다른 출구
+#### 11. 임베딩: 같은 인터페이스의 다른 출구
 ::sub[10_embedding.py · completion은 문장을, embedding은 숫자 벡터를]
 
 - 실행
@@ -1303,7 +1268,7 @@ docker compose exec lab python examples/02_litellm/10_embedding.py
 </Slide>
 <Slide>
 
-### completion과 embedding의 자리
+#### completion과 embedding의 자리
 
 | | completion | embedding |
 | --- | --- | --- |
@@ -1318,28 +1283,28 @@ docker compose exec lab python examples/02_litellm/10_embedding.py
 </Slide>
 <Slide class="center">
 
-## Part 6. 사례
+### Part 6. 사례
 
 모델 교체가 실제로 일어났다.
 
 </Slide>
 <Slide>
 
-### 2026-08-14, 하루에 두 번
+#### 2026-08-14, 하루에 두 번
 
 - 이 랩의 Gemini 기본 모델은 원래 `gemini-2.5-flash`였는데,
   - 신규 발급 키에서 404가 나는 것이 확인되어 `gemini-3.5-flash-lite`로 교체.
-  - 단가는 동일하고, hotfix `v1.0.1`로 나갔습니다.
+  - 단가는 동일합니다.
 - 같은 날 OpenAI 쪽도 정렬했습니다. 
   - `gpt-5-mini`는 아직 돌지만 세 세대 뒤라
   같은 은퇴 리스크가 있어 `gpt-5.4-nano`로 바꿨습니다. 
-  - hotfix `v1.0.2`
+  - 현행 세대의 동급 티어로 정렬
 - Anthropic은 Claude 5 패밀리에 아직 haiku가 없어 `claude-haiku-4-5`가 현행
 
 </Slide>
 <Slide>
 
-### 고친 파일은 한 곳
+#### 고친 파일은 한 곳
 
 - 두 번 모두 고친 파일은 `agent/config.py` **한 곳**입니다.
   - 예제 전부와 에이전트 본체는 한 줄도 바뀌지 않았습니다.
@@ -1352,7 +1317,7 @@ docker compose exec lab python examples/02_litellm/10_embedding.py
 </Slide>
 <Slide>
 
-## 4장이 남기는 것
+### 4장이 남기는 것
 
 - 공식 SDK 세 벌 대신 통합 레이어 한 벌. **그 이득과 대가를 알고 쓴다**.
 - 프로바이더 교체는 문자열 한 줄, 모델 이름은 `agent/config.py` 한 곳
@@ -1364,7 +1329,7 @@ docker compose exec lab python examples/02_litellm/10_embedding.py
 
 ## 5장 · Tool calling 심화
 
-`examples/03_tools/` 10종 → **v0.2**
+`examples/03_tools/` 10종
 
 *3장에서 비어 있던 tool_calls 자리가 채워집니다*
 
@@ -1372,18 +1337,18 @@ docker compose exec lab python examples/02_litellm/10_embedding.py
 
 <Slide>
 
-## 5장이 하는 일
+### 5장이 하는 일
 ::sub[3장에서 비어 있던 tool_calls 자리가 채워집니다]
 
 - 도구 호출 왕복을 **JSON 원문으로 해부**합니다.
 - `examples/03_tools/` **10종을 전부 실행**합니다.
 - Pydantic 모델 하나가 스키마와 검증을 겸하는 구조를 익힙니다.
-- 세션 끝에서 에이전트가 **v0.2**로 오릅니다.
+- 세션 끝에서 에이전트가 **처음으로 도구를 듭니다**.
 
 </Slide>
 <Slide class="center">
 
-## 핵심 문장
+### 핵심 문장
 
 **모델은 함수를 실행하지 못한다**.
 
@@ -1392,7 +1357,7 @@ docker compose exec lab python examples/02_litellm/10_embedding.py
 </Slide>
 <Slide>
 
-## 왕복 한 번이 전부입니다
+### 왕복 한 번이 전부입니다
 
 ```mermaid
 flowchart LR
@@ -1408,7 +1373,7 @@ flowchart LR
 </Slide>
 <Slide>
 
-## 오늘의 순서
+### 오늘의 순서
 
 1. 왕복 한 번을 손으로 (최소 구성, 원문 해부)
 2. 도구란 무엇인가 (지도)
@@ -1416,19 +1381,19 @@ flowchart LR
 4. 에러와 환각 (되먹임, 검증)
 5. 구조화 출력과 도구 선택
 6. 전체 그림
-7. v0.2: 에이전트에 도구가 실린다
+7. 코드 포인트: 에이전트에 도구가 실린다
 
 </Slide>
 <Slide class="center">
 
-## Part 1. 왕복 한 번을 손으로
+### Part 1. 왕복 한 번을 손으로
 
 기계 장치를 먼저 봅니다.
 
 </Slide>
 <Slide>
 
-### 요청에 tools를 실으면 이렇게 생겼습니다
+#### 요청에 tools를 실으면 이렇게 생겼습니다
 
 ```json
 {
@@ -1450,7 +1415,7 @@ flowchart LR
 </Slide>
 <Slide class="center">
 
-### 모델에게 보이는 것은 이 JSON뿐입니다
+#### 모델에게 보이는 것은 이 JSON뿐입니다
 
 함수 본문도, 리턴 값도, 파일 이름도 보이지 않습니다.
 
@@ -1459,7 +1424,7 @@ flowchart LR
 </Slide>
 <Slide>
 
-### 1. 환율 도구 하나짜리 최소 구성
+#### 1. 환율 도구 하나짜리 최소 구성
 ::sub[01_single_tool.py]
 
 - 코드
@@ -1484,7 +1449,7 @@ docker compose exec lab python examples/03_tools/01_single_tool.py
 </Slide>
 <Slide>
 
-### 왕복 두 번, 그리고 답
+#### 왕복 두 번, 그리고 답
 
 ```text
 === 1왕복: 모델이 도구를 요청한다 ===
@@ -1504,7 +1469,7 @@ docker compose exec lab python examples/03_tools/01_single_tool.py
 </Slide>
 <Slide>
 
-### 세 줄로 요약하면
+#### 세 줄로 요약하면
 
 ```python
 call = resp.choices[0].message.tool_calls[0]   # ① 모델이 요청했다
@@ -1520,7 +1485,7 @@ messages.append({"role": "tool", "tool_call_id": call.id, …})  # ③ 우리가
 </Slide>
 <Slide>
 
-### 2. tool call의 실체: 메시지 필드 하나
+#### 2. tool call의 실체: 메시지 필드 하나
 ::sub[02_roundtrip_raw.py · 같은 왕복을 원문으로]
 
 - 실행
@@ -1549,7 +1514,7 @@ docker compose exec lab python examples/03_tools/02_roundtrip_raw.py
 </Slide>
 <Slide>
 
-### 이 시점의 messages 배열
+#### 이 시점의 messages 배열
 
 ```text
 === ③ 이 시점의 messages 배열 전체 구조 ===
@@ -1568,14 +1533,14 @@ docker compose exec lab python examples/03_tools/02_roundtrip_raw.py
 </Slide>
 <Slide class="center">
 
-### "모델이 함수를 호출한다"의 실체는
+#### "모델이 함수를 호출한다"의 실체는
 
 **assistant 메시지의 `tool_calls` 필드 하나**
 
 </Slide>
 <Slide>
 
-### 왜 `content`가 `null`인가
+#### 왜 `content`가 `null`인가
 
 - 그 턴에 모델은 **답을 쓰지 않았습니다**. 실행 요청만 보냈습니다.
 - 그래서 `content`는 비고, `tool_calls`만 채워집니다.
@@ -1585,14 +1550,14 @@ docker compose exec lab python examples/03_tools/02_roundtrip_raw.py
 </Slide>
 <Slide class="center">
 
-## Part 2. 도구란 무엇인가
+### Part 2. 도구란 무엇인가
 
 한 발 물러서서 보는 지도
 
 </Slide>
 <Slide>
 
-### 우리가 매일 만나는 도구들
+#### 우리가 매일 만나는 도구들
 ::sub[모델 자체는 텍스트 생성밖에 못 하는데, 제품들은 분명히 그 이상을 합니다]
 
 - ChatGPT가 "검색 중…"을 띄우는 순간: **웹 검색 도구**가 불린 것
@@ -1605,7 +1570,7 @@ docker compose exec lab python examples/03_tools/02_roundtrip_raw.py
 </Slide>
 <Slide class="center">
 
-### 같은 모델이라도
+#### 같은 모델이라도
 ## 쥐여준 도구 목록이 다르면 다른 제품입니다
 
 모델이 "할 수 있는 일"의 경계는
@@ -1614,7 +1579,7 @@ docker compose exec lab python examples/03_tools/02_roundtrip_raw.py
 </Slide>
 <Slide>
 
-### 도구가 메우는 세 가지 구멍
+#### 도구가 메우는 세 가지 구멍
 
 ```mermaid
 flowchart TD
@@ -1631,7 +1596,7 @@ flowchart TD
 </Slide>
 <Slide>
 
-### 세 구멍 읽기
+#### 세 구멍 읽기
 
 - **지식**: 모델은 학습 시점 이후를 모르고, 우리 회사 DB는 아예 모릅니다.
   검색·조회 도구가 그 구멍을 메웁니다.
@@ -1644,7 +1609,7 @@ flowchart TD
 </Slide>
 <Slide>
 
-### 만들 때 지켜야 하는 것
+#### 만들 때 지켜야 하는 것
 ::sub[남은 예제들이 하나씩 증명할 규율]
 
 - **모델에게 도구는 문자열이 전부다**: 코드가 아니라 이름·설명·스키마만
@@ -1658,14 +1623,14 @@ flowchart TD
 </Slide>
 <Slide class="center">
 
-## Part 3. 스키마
+### Part 3. 스키마
 
 명세와 검증을 한 몸으로
 
 </Slide>
 <Slide>
 
-### 4. Pydantic: 스키마와 검증이 한 몸
+#### 4. Pydantic: 스키마와 검증이 한 몸
 ::sub[03_pydantic_schema.py · 스키마 생성 부분은 키 없이 돈다]
 
 - 코드
@@ -1690,7 +1655,7 @@ docker compose exec lab python examples/03_tools/03_pydantic_schema.py
 </Slide>
 <Slide>
 
-### 파이썬 클래스에서 나온 JSON 스키마
+#### 파이썬 클래스에서 나온 JSON 스키마
 
 ```text
 === pydantic 모델에서 뽑은 JSON 스키마 ===
@@ -1713,7 +1678,7 @@ docker compose exec lab python examples/03_tools/03_pydantic_schema.py
 </Slide>
 <Slide>
 
-### Field가 스키마의 어디로 가나
+#### Field가 스키마의 어디로 가나
 
 | 파이썬 쪽 | JSON 스키마 쪽 | 모델에게 주는 정보 |
 | --- | --- | --- |
@@ -1728,7 +1693,7 @@ docker compose exec lab python examples/03_tools/03_pydantic_schema.py
 </Slide>
 <Slide>
 
-### 5. 병렬 도구 호출: 독립 조회는 한 턴에
+#### 5. 병렬 도구 호출: 독립 조회는 한 턴에
 ::sub[04_parallel_tools.py · 항공과 숙소, 서로 의존이 없는 조회 2건]
 
 - 실행
@@ -1756,7 +1721,7 @@ docker compose exec lab python examples/03_tools/04_parallel_tools.py
 </Slide>
 <Slide>
 
-### 병렬 요청을 처리할 때 주의
+#### 병렬 요청을 처리할 때 주의
 
 - 결과 메시지는 **요청마다 하나씩**, `tool_call_id`를 맞춰 넣습니다.
 - 하나라도 빠뜨리면 다음 호출에서 프로바이더가 거부합니다.
@@ -1767,7 +1732,7 @@ docker compose exec lab python examples/03_tools/04_parallel_tools.py
 </Slide>
 <Slide>
 
-### 6. 인자 제약: 스키마는 프롬프트보다 강하다
+#### 6. 인자 제약: 스키마는 프롬프트보다 강하다
 ::sub[05_arg_constraints.py · 키 없이 돈다]
 
 - 실행
@@ -1798,7 +1763,7 @@ docker compose exec lab python examples/03_tools/05_arg_constraints.py
 </Slide>
 <Slide>
 
-### 7. tool_choice: 쓸지 말지를 코드가 정한다
+#### 7. tool_choice: 쓸지 말지를 코드가 정한다
 ::sub[06_tool_choice.py · 도구가 전혀 필요 없는 인사말에 세 값을 시험]
 
 - 실행
@@ -1822,7 +1787,7 @@ docker compose exec lab python examples/03_tools/06_tool_choice.py
 </Slide>
 <Slide>
 
-### tool_choice 세 값 정리
+#### tool_choice 세 값 정리
 
 | 값 | 뜻 | 쓰는 자리 |
 | --- | --- | --- |
@@ -1834,14 +1799,14 @@ docker compose exec lab python examples/03_tools/06_tool_choice.py
 </Slide>
 <Slide class="center">
 
-## Part 4. 에러와 환각
+### Part 4. 에러와 환각
 
 모델이 만든 값을 그대로 믿지 않기
 
 </Slide>
 <Slide>
 
-### 8. 에러 되먹임: 실패를 알려주면 복구한다
+#### 8. 에러 되먹임: 실패를 알려주면 복구한다
 ::sub[07_tool_error.py · 도구는 THB(태국 바트)를 모른다]
 
 - 코드
@@ -1870,7 +1835,7 @@ docker compose exec lab python examples/03_tools/07_tool_error.py
 </Slide>
 <Slide>
 
-### 모델이 스스로 방법을 바꾼다
+#### 모델이 스스로 방법을 바꾼다
 
 ```text
 === [2] 최종 답 ===
@@ -1885,7 +1850,7 @@ docker compose exec lab python examples/03_tools/07_tool_error.py
 </Slide>
 <Slide>
 
-### 모델이 읽을 에러 메시지 쓰는 법
+#### 모델이 읽을 에러 메시지 쓰는 법
 
 - **무엇이 잘못됐는지**: "지원하지 않는 통화: THB"
 - **어떻게 고치면 되는지**: "지원 목록: ['JPY', 'USD']"
@@ -1895,7 +1860,7 @@ docker compose exec lab python examples/03_tools/07_tool_error.py
 </Slide>
 <Slide>
 
-### 9. 인자 환각: 스키마는 통과해도 값은 허구일 수 있다
+#### 9. 인자 환각: 스키마는 통과해도 값은 허구일 수 있다
 ::sub[08_hallucinated_args.py · 호텔 목록을 안 알려주고 예약을 시킨다]
 
 - 실행
@@ -1919,7 +1884,7 @@ docker compose exec lab python examples/03_tools/08_hallucinated_args.py
 </Slide>
 <Slide class="center">
 
-### 스키마는 형태만 안다
+#### 스키마는 형태만 안다
 
 '오사카 오션뷰 호텔'은 문자열 타입이라 스키마는 통과합니다.
 
@@ -1930,7 +1895,7 @@ docker compose exec lab python examples/03_tools/08_hallucinated_args.py
 </Slide>
 <Slide>
 
-### 검증은 두 층입니다
+#### 검증은 두 층입니다
 
 | 층 | 무엇을 보는가 | 누가 하는가 |
 | --- | --- | --- |
@@ -1944,14 +1909,14 @@ docker compose exec lab python examples/03_tools/08_hallucinated_args.py
 </Slide>
 <Slide class="center">
 
-## Part 5. 구조화 출력과 도구 선택
+### Part 5. 구조화 출력과 도구 선택
 
 도구 호출을 응용하는 법, 그리고 문자열의 힘
 
 </Slide>
 <Slide>
 
-### 10. 구조화 출력: LLM을 타입 있는 함수처럼
+#### 10. 구조화 출력: LLM을 타입 있는 함수처럼
 ::sub[09_structured_output.py · 실행할 생각이 없어도 스키마로 강제할 수 있다]
 
 - 코드
@@ -1975,7 +1940,7 @@ docker compose exec lab python examples/03_tools/09_structured_output.py
 </Slide>
 <Slide>
 
-### 자유 문장이 검증된 객체가 되는 순간
+#### 자유 문장이 검증된 객체가 되는 순간
 
 ```text
 === 검증까지 통과한 타입 있는 결과 ===
@@ -1991,7 +1956,7 @@ docker compose exec lab python examples/03_tools/09_structured_output.py
 </Slide>
 <Slide>
 
-### 세 가지 출력 강제 방식 비교
+#### 세 가지 출력 강제 방식 비교
 
 | 방식 | 보장하는 것 | 한계 |
 | --- | --- | --- |
@@ -2005,7 +1970,7 @@ docker compose exec lab python examples/03_tools/09_structured_output.py
 </Slide>
 <Slide>
 
-### 11. 도구 선택: 이름과 설명이 품질을 가른다
+#### 11. 도구 선택: 이름과 설명이 품질을 가른다
 ::sub[10_tool_selection.py · 같은 10개 도구를 두 벌로 등록]
 
 ```bash
@@ -2028,7 +1993,7 @@ docker compose exec lab python examples/03_tools/10_tool_selection.py
 </Slide>
 <Slide class="center">
 
-### 도구 설명은 곧 프롬프트입니다
+#### 도구 설명은 곧 프롬프트입니다
 
 실행 코드는 한 줄도 바뀌지 않았는데, 문자열을 지우자 선택이 틀렸습니다.
 
@@ -2037,7 +2002,7 @@ docker compose exec lab python examples/03_tools/10_tool_selection.py
 </Slide>
 <Slide>
 
-### 도구 설명 쓰는 법
+#### 도구 설명 쓰는 법
 ::sub[사람이 아니라 모델이 읽습니다]
 
 - **언제 쓰는 도구인지**를 씁니다. 무엇을 하는지만 쓰면 부족합니다.
@@ -2049,14 +2014,14 @@ docker compose exec lab python examples/03_tools/10_tool_selection.py
 </Slide>
 <Slide class="center">
 
-## Part 6. 전체 그림
+### Part 6. 전체 그림
 
 요청에서 답까지, 한 바퀴
 
 </Slide>
 <Slide>
 
-### 요청에 실려 가는 것
+#### 요청에 실려 가는 것
 
 - **messages**: 지금까지의 대화 전체.
   이전의 도구 요청과 결과도 여기 쌓여 있습니다.
@@ -2071,7 +2036,7 @@ docker compose exec lab python examples/03_tools/10_tool_selection.py
 </Slide>
 <Slide>
 
-### 구조도: 판단과 실행의 순환
+#### 구조도: 판단과 실행의 순환
 
 ```mermaid
 flowchart TD
@@ -2090,7 +2055,7 @@ flowchart TD
 </Slide>
 <Slide>
 
-### 역할별 흐름: 누가 무엇을 하는가
+#### 역할별 흐름: 누가 무엇을 하는가
 
 ```mermaid
 sequenceDiagram
@@ -2113,7 +2078,7 @@ sequenceDiagram
 </Slide>
 <Slide>
 
-### 세 주체의 책임
+#### 세 주체의 책임
 
 - **모델**: 판단만 합니다. 어떤 도구를 어떤 인자로 쓸지 정하고, 결과를 읽고,
   답을 씁니다. **실행 능력은 없습니다**.
@@ -2125,7 +2090,7 @@ sequenceDiagram
 </Slide>
 <Slide>
 
-### 이 구조가 알려주는 것
+#### 이 구조가 알려주는 것
 
 - **실행 주체는 항상 사용자 쪽입니다**
   - ChatGPT의 검색도, Claude Code의
@@ -2139,14 +2104,14 @@ sequenceDiagram
 </Slide>
 <Slide class="center">
 
-## Part 7. v0.2
+### Part 7. 코드 포인트
 
 에이전트에 도구가 실린다.
 
 </Slide>
 <Slide>
 
-### v0.2 코드 포인트: agent/tools.py
+#### 코드 포인트: agent/tools.py
 
 ```python
 class BudgetArgs(BaseModel):
@@ -2169,7 +2134,7 @@ def run_tool(name: str, raw_arguments: str) -> str:
 </Slide>
 <Slide>
 
-### 코드에서 보는 곳
+#### 코드에서 보는 곳
 
 - **docstring이 곧 도구 설명입니다**.
   11번 예제의 교훈이 구조로 박힌 자리입니다.
@@ -2180,36 +2145,20 @@ def run_tool(name: str, raw_arguments: str) -> str:
 </Slide>
 <Slide>
 
-### 확인
+#### 확인
 
 ```bash
-git checkout v0.2
 docker compose exec lab python -m agent.main "3박 4일 오사카 2명, 예산 얼마나 들까?"
-docker compose exec lab pytest        # 이 시점의 테스트 16개 통과
+docker compose exec lab pytest        # 유닛 테스트 16개 통과
 ```
 
-v0.2의 에이전트는 도구를 **딱 1왕복만** 씁니다.  
-여러 도구를 오가며 반복하는 루프는 6주차 랩의 v0.3에서 완성됩니다.
+이 랩의 에이전트는 도구를 **딱 1왕복만** 씁니다.  
+여러 도구를 오가며 반복하는 루프는 6주차 랩에서 완성됩니다.
 
 </Slide>
 <Slide>
 
-### v0.1에서 v0.2로, diff로 읽으면
-
-```bash
-git diff v0.1 v0.2
-```
-
-- `agent/tools.py`가 새로 생깁니다: 인자 모델 3개 + 함수 3개 + 레지스트리 + 관문
-- `agent/main.py`가 `tools=`를 실어 호출하고 결과를 되먹입니다.
-- 테스트 5개에서 16개로. 늘어난 11개가 전부 도구 쪽입니다.
-
-**릴리즈 하나 = feature 하나**라는 약속이 diff로 확인됩니다.
-
-</Slide>
-<Slide>
-
-## 5장이 남기는 것
+### 5장이 남기는 것
 
 - tool call의 실체는 메시지 필드 하나, 실행·회신은 전부 우리 코드
 - 모델의 능력 경계는 도구 목록이 긋는다.
@@ -2245,7 +2194,7 @@ git diff v0.1 v0.2
 
 ## 다음 주
 
-**에이전트 루프와 하네스** · `week06-agent-lab` → **v1.0**
+**에이전트 루프와 하네스** · `week06-agent-lab`
 
 오늘의 왕복을 루프에 넣고, 종료 조건과 방어선을 답니다
 

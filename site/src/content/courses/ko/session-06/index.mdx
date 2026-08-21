@@ -1,11 +1,11 @@
 ---
 title: "6주차: 에이전트 루프와 하네스"
-description: "6주차 라이브 세션 상세 교안: examples/04_react 4종으로 ReAct 루프와 트레이스, examples/05_loops 6종으로 Plan-Execute·재계획·Reflexion·ReWOO, examples/06_harness 10종으로 인젝션 방어와 budget guard, examples/07_mcp 4종으로 MCP, 그리고 v0.3에서 v1.2까지"
-summary: "라이브 세션의 상세 교안입니다. 5주차에서 도구를 든 에이전트에 루프를 달아 처음으로 동작시킵니다. 트레이스를 읽고, 스텝 한도가 무한 루프를 막는 것을 재현하고, 컨텍스트가 스텝마다 부푸는 것을 실측합니다. 그 비용 구조를 공격하는 루프들을 견준 뒤, 인젝션 사고를 재현하고 데이터 경계·권한 게이트·budget guard로 막아 에이전트를 v1.0으로 완성합니다. 마지막으로 도구를 표준 프로토콜로 주고받는 MCP를 맛봅니다."
+description: "6주차 라이브 세션 상세 교안: examples/04_react 4종으로 ReAct 루프와 트레이스, examples/05_loops 6종으로 Plan-Execute·재계획·Reflexion·ReWOO, examples/06_harness 10종으로 인젝션 방어와 budget guard, examples/07_mcp 4종으로 MCP까지"
+summary: "라이브 세션의 상세 교안입니다. 5주차에서 도구를 든 에이전트에 루프를 달아 처음으로 동작시킵니다. 트레이스를 읽고, 스텝 한도가 무한 루프를 막는 것을 재현하고, 컨텍스트가 스텝마다 부푸는 것을 실측합니다. 그 비용 구조를 공격하는 루프들을 견준 뒤, 인젝션 사고를 재현하고 데이터 경계·권한 게이트·budget guard로 막아 에이전트를 완성합니다. 마지막으로 도구를 표준 프로토콜로 주고받는 MCP를 맛봅니다."
 date: 2026-08-28
 category: foundation
 slides: ["session-06"]
-tags: ["ReAct", "트레이스", "스텝 한도", "Plan-and-Execute", "Reflexion", "ReWOO", "하네스", "프롬프트 인젝션", "budget guard", "MCP", "v1.0"]
+tags: ["ReAct", "트레이스", "스텝 한도", "Plan-and-Execute", "Reflexion", "ReWOO", "하네스", "프롬프트 인젝션", "budget guard", "MCP"]
 level: 2
 order: "06"
 ---
@@ -13,8 +13,8 @@ order: "06"
 import ContextGrowth from '../../../../components/ContextGrowth.astro';
 import HarnessGates from '../../../../components/HarnessGates.astro';
 
-> 라이브 세션의 상세 교안입니다. 5주차와 같은 실습 랩이고, 5주차가 끝난
-> 지점(v0.2)에서 이어집니다. 예제 24종을 하나씩 실행합니다.
+> 라이브 세션의 상세 교안입니다. 5주차와 같은 실습 랩이고, 그 랩에
+> 루프·하네스·MCP를 얹은 완성본입니다. 예제 24종을 하나씩 실행합니다.
 
 - **교재**: [week06-agent-lab](https://github.com/2026-ai-service-engineering-a/week06-agent-lab) 저장소
 - **형태**: compose 실습 랩. `lab` 컨테이너 하나를 띄우고 예제·에이전트를 전부 터미널에서 실행
@@ -26,22 +26,23 @@ import HarnessGates from '../../../../components/HarnessGates.astro';
 그 결핍부터 메우고, 루프가 생기면서 따라오는 문제들을 하나씩 막습니다.
 
 - **루프를 단다**: reasoning → action → observation의 반복. 에이전트가
-  처음으로 동작합니다(v0.3)
+  처음으로 동작합니다
 - **루프를 읽는다**: 트레이스를 읽을 줄 아는 것이 에이전트를 이해하는 것입니다
 - **루프를 견준다**: 한 스텝씩 더듬는 [[react|ReAct]]의 비용 구조를
   [[plan-execute|Plan-and-Execute]]·[[reflexion|Reflexion]]·[[rewoo|ReWOO]]가
-  각자 다른 방식으로 공격합니다(v0.4)
+  각자 다른 방식으로 공격합니다
 - **루프를 가둔다**: 도구가 물어온 것은 지시가 아니라 데이터입니다.
   [[prompt-injection|인젝션]] 사고를 재현하고 경계로 막습니다. 지갑에는
-  [[budget-guard|budget guard]]를 답니다(v1.0)
+  [[budget-guard|budget guard]]를 답니다
 - **도구를 표준으로 주고받는다**: [[mcp|MCP]] 시연 4종
 
 ## 2. 브리핑: 5주차가 끝난 지점에서 시작합니다
 
 ### 2-1. 랩 이어받기
 
-이번 주 저장소는 5주차 랩의 연장입니다. `agent/`와 `tests/`가 5주차의 v0.2와
-같고, `examples/`에는 이번 주 몫 24종이 더 들어 있습니다.
+이번 주 저장소는 5주차 랩의 연장입니다. 5주차의 예제 31종이 그대로 있고,
+`examples/`에 이번 주 몫 24종이 더 들어 있습니다. 에이전트는 루프·하네스까지
+실린 **완성본**이라 중간 버전을 오가지 않고 `main` 그대로 실행합니다.
 
 ```bash
 git clone https://github.com/2026-ai-service-engineering-a/week06-agent-lab.git
@@ -49,23 +50,10 @@ cd week06-agent-lab
 cp .env.sample .env        # 5주차에 쓰던 키를 그대로
 docker compose up --build -d
 docker compose exec lab python check_env.py
-docker compose exec lab pytest        # 시작 지점의 테스트 16개 통과
+docker compose exec lab pytest        # 유닛 테스트 33개 통과
 ```
 
-### 2-2. 이번 주 사다리는 네 단
-
-**첫 태그가 v0.1이 아니라 v0.2입니다.** 5주차가 끝난 지점이 여기의 출발점이라
-번호를 이어 받았습니다.
-
-| 릴리즈 | 상태 | 테스트 | 대응 |
-| --- | --- | --- | --- |
-| v0.2 | 5주차 종료 지점: 도구는 있고 루프는 없다 | 16개 | 시작점 |
-| v0.3 | [[react\|ReAct]] 루프 완성: 여행 플래너가 처음 동작 | 17개 | 3장 |
-| v0.4 | 고급 루프: [[reflexion\|Reflexion]] 재시도 장착 | 21개 | 4장 |
-| v1.0 | [[harness\|하네스]] 완성: 인젝션 방어 + budget guard | 33개 | 5장 |
-| v1.1\~v1.2 | [[mcp\|MCP]] 시연 4종 (stdio·HTTP 전송) | 33개 | 6장 |
-
-### 2-3. 오늘의 그림
+### 2-2. 오늘의 그림
 
 ```mermaid
 flowchart TD
@@ -86,15 +74,14 @@ flowchart TD
 
 ## 3. ReAct 루프
 
-교재는 `examples/04_react/` 4종이고, 이 장 끝에서 **v0.3**으로 오릅니다.
-이 4종은 에이전트 본체를 사용하므로 v0.3 이상에서 동작합니다. 이전 태그에서
-실행하면 checkout 안내가 나옵니다. 아래에는 4종 전부의 실제 실행 결과가
-실려 있습니다.
+교재는 `examples/04_react/` 4종입니다. 이 4종은 에이전트 본체를 사용하므로
+`agent/react.py`가 있어야 돕니다. **4종을 전부 실행합니다.** 아래에는 4종
+전부의 실제 실행 결과가 실려 있습니다.
 
 - **교재**: [examples/04_react](https://github.com/2026-ai-service-engineering-a/week06-agent-lab/tree/main/examples/04_react)
 - **핵심 문장**: 에이전트를 이해한다는 것은 트레이스를 읽을 줄 안다는 뜻이다
 
-### v0.3 코드 포인트: 루프의 전부
+### 코드 포인트: 루프의 전부
 
 루프 본체는
 [agent/react.py](https://github.com/2026-ai-service-engineering-a/week06-agent-lab/blob/main/agent/react.py)입니다.
@@ -324,15 +311,14 @@ assert "tools" not in llm.calls[2]     # 마무리 호출엔 도구가 없어야
 ### 3-6. 완성 확인
 
 ```bash
-git checkout v0.3
 docker compose exec lab python -m agent.main --verbose "3박 4일 오사카, 예산 80만원"
 docker compose exec lab python examples/04_react/01_react_trace.py
-docker compose exec lab pytest        # 이 시점의 테스트 17개 통과
+docker compose exec lab pytest        # 유닛 테스트 33개 통과
 ```
 
 ## 4. ReAct 너머의 루프들
 
-교재는 `examples/05_loops/` 6종이고, 이 장 끝에서 **v0.4**로 오릅니다.
+교재는 `examples/05_loops/` 6종입니다.
 **6종을 전부 실행합니다.** 아래에는 6종 전부의 실제 실행 결과가 실려
 있습니다. 도구 층은 결정적 목데이터라 루프 구조만 관찰됩니다.
 
@@ -600,7 +586,7 @@ ReAct도 2호출 만에 끝났고 비용 차이가 사실상 없습니다. Plan-
 나란히 놓고 보면, 루프 선택은 과제의 크기와 성격이 정하는 문제라는 것이
 보입니다. 작은 과제에 정교한 루프를 다는 것도 낭비입니다.
 
-### 4-7. v0.4 코드 포인트: 평가 → 재시도 분기
+### 4-7. 코드 포인트: 평가 → 재시도 분기
 
 에이전트 본체에 Reflexion이 실립니다. 코드에서 보는 곳은
 [agent/reflexion.py](https://github.com/2026-ai-service-engineering-a/week06-agent-lab/blob/main/agent/reflexion.py)입니다.
@@ -628,15 +614,13 @@ for attempt in range(1, max_retries + 2):   # 최초 1회 + 재시도 N회
   실리는지까지 박제합니다
 
 ```bash
-git checkout v0.4
 docker compose exec lab python -m agent.main --verbose "2박 3일 교토, 예산 50만원"
-docker compose exec lab pytest        # 이 시점의 테스트 21개 통과
+docker compose exec lab pytest        # 유닛 테스트 33개 통과
 ```
 
 ## 5. 하네스 엔지니어링
 
-교재는 `examples/06_harness/` 10종이고, 이 장 끝에서 **v1.0**, 완성된
-에이전트입니다. **10종을 전부 실행합니다.** 아래에는 10종 전부의 실제 실행
+교재는 `examples/06_harness/` 10종이고, 이 장이 끝나면 에이전트가 완성됩니다. **10종을 전부 실행합니다.** 아래에는 10종 전부의 실제 실행
 결과가 실려 있습니다. 절반은 키 없이도 돕니다.
 
 - **교재**: [examples/06_harness](https://github.com/2026-ai-service-engineering-a/week06-agent-lab/tree/main/examples/06_harness)
@@ -797,7 +781,7 @@ docker compose exec lab python examples/06_harness/04_boundary_wrap.py
 모델의 판단(확률)이고, 경계 있음의 방어는 "경계 안은 데이터"라는 구조적
 규칙입니다. 경계 쪽 답이 문서 내용(구로몬 시장 아침 방문)을 데이터로는 잘
 활용한 것도 보입니다. 지시는 무시하되 사실은 쓰는 것, 그것이 경계가 목표하는
-분리입니다. v1.0 에이전트는 모든 도구 결과에 이 wrap을 자동 적용합니다.
+분리입니다. 이 랩의 에이전트는 모든 도구 결과에 이 wrap을 자동 적용합니다.
 
 ### 5-5. 도구 권한: 위험한 도구엔 게이트
 
@@ -1021,7 +1005,7 @@ docker compose exec lab python examples/06_harness/10_trace_log.py
 스텝에서 비용이 튀었나, 어떤 도구가 무슨 인자로 불렸나, 인젝션 검사는
 통과했나에 답할 수 있습니다. 트레이스 없는 에이전트는 블랙박스입니다.
 
-### 5-12. v1.0 코드 포인트: 하네스가 루프에 물리는 지점
+### 5-12. 코드 포인트: 하네스가 루프에 물리는 지점
 
 코드에서 보는 곳은
 [agent/harness.py](https://github.com/2026-ai-service-engineering-a/week06-agent-lab/blob/main/agent/harness.py)와
@@ -1050,16 +1034,15 @@ if guard:
   $0.0026\~$0.0104였습니다. 상한 $0.20은 수십 번의 폭주를 견디는 여유입니다
 
 ```bash
-git checkout v1.0        # main과 같다
 docker compose exec lab python -m agent.main --max-cost 0.10 "3박 4일 오사카, 예산 80만원"
-docker compose exec lab pytest        # 최종 테스트 33개 통과
+docker compose exec lab pytest        # 유닛 테스트 33개 통과
 ```
 
 ## 6. MCP 맛보기
 
 이번 주의 마지막 장입니다. 교재는 `examples/07_mcp/` 시연 4종이고, 전부
-실행합니다. 아래에는 4종의 실제 실행 결과가 실려 있습니다. v1.1에 3종이,
-v1.2에 HTTP 전송 시연이 추가되었습니다.
+실행합니다. 아래에는 4종의 실제 실행 결과가 실려 있습니다. 셋은 stdio
+전송이고, 마지막 하나가 HTTP 전송입니다.
 
 - **교재**: [examples/07_mcp](https://github.com/2026-ai-service-engineering-a/week06-agent-lab/tree/main/examples/07_mcp)
 - **핵심 문장**: 도구를 손으로 정의하는 대신, 표준 프로토콜로 주고받는다
