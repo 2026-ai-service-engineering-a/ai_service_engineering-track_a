@@ -7,15 +7,20 @@ Astro 강의 사이트. 라우트·컴포넌트·스타일·마크다운 파이�
 - 언어: ko 단일 로케일 (루트에서 서빙)
 - 사용 섹션: **강의(courses) · 글(articles) · 슬라이드(slides) · 개념(concepts) · 용어집(glossary) · 소개(pages)**
 - 미사용: 샘플(samples, 꺼짐) · 논문(papers)/제품(products, 기본 꺼짐) · 도구 카탈로그(stacks, 콘텐츠 없이 cards 홈으로 대체)
+- 공개: GitHub Pages 프로젝트 사이트. base 경로는 `/ai_service_engineering-track_a`
+  (배포: [../docs/deployment.md](../docs/deployment.md))
 
 ## 개발
 
 ```sh
 pnpm install
-pnpm dev       # http://localhost:4321
+pnpm dev       # http://localhost:4321/ai_service_engineering-track_a/
 pnpm build     # dist/ 정적 빌드
 pnpm check     # astro check (타입 검사)
 ```
+
+`base` 경로가 있으므로 dev 서버에서도 루트가 아니라
+`/ai_service_engineering-track_a/`로 접속한다.
 
 Docker로 돌리려면 **repo 루트에서** (Node/pnpm 설치 불필요):
 
@@ -45,10 +50,14 @@ docker compose -f docker-compose.yml -f docker-compose.dev.yml up  # site/ 바�
 
 - `src/data/site.ts`: 사이트 이름, 로케일, 섹션 토글, cards 홈(히어로/카드/CTA), UI 문자열
 - `src/data/*-categories.ts`: 강의/개념/글 분류 트리 (id가 콘텐츠 `category` 값)
-- `astro.config.mjs`: 배포 도메인(`site`)은 확정 시 변경 (TODO 주석 참고)
+- `astro.config.mjs`: 배포 도메인(`site`)과 base 경로, 내부 절대 링크에 base를
+  붙이는 remark 플러그인
 
 ## 비공개(수강생 전용) 콘텐츠
 
 아무 문서나 프론트매터에 `private: true`(+`teaser`)를 붙이면 본문이 암호화되어
 로그인 후에만 보인다. 사용자/키는 `.env`의 `AAS_PRIVATE_*` 환경 변수로 관리.
 테마 저장소의 `playground/.env.sample`과 `docs/private-content-design.md` 참고
+
+**이 저장소는 공개다.** private 콘텐츠는 소스 저장소가 private일 때만 안전하므로,
+여기서는 쓰지 않는다.

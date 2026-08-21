@@ -3,14 +3,15 @@
 #
 #   docker compose up
 #
-# then open http://localhost:4321/ .
+# then open http://localhost:4321/ai_service_engineering-track_a/ (the site
+# carries a base path because it is published as a GitHub Pages project site).
 #
 # The site lives in site/ (this repo also carries the course's example code);
 # the build context and bind mounts point there. Self-contained: deps and
 # source are baked into the image (site/Dockerfile.dev), so this needs no other
 # files from your host and works on a fresh clone. It serves the Astro dev
-# server — the production site is the static `astro build` output (dist/), not
-# this image.
+# server — the public site is the static `astro build` output (dist/) deployed
+# by .github/workflows/deploy.yml, not this image.
 #
 # Editing content? Layer docker-compose.dev.yml on top — it bind-mounts site/
 # so edits hot-reload:

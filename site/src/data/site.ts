@@ -11,8 +11,8 @@ export const site = {
   repoUrl: 'https://github.com/2026-ai-service-engineering-a/ai_service_engineering-track_a',
   /** 빌드 시 GitHub API 호출(스타 수 등)에 쓰는 User-Agent. */
   buildUserAgent: 'aise-track-a-site',
-  /** 저장소가 private이므로 헤더의 GitHub 링크는 숨긴다. */
-  repoNav: false,
+  /** 저장소가 공개이므로 헤더에 GitHub 링크를 노출한다. */
+  repoNav: true,
   /**
    * 이 사이트가 제공하는 로케일. 강의 자료가 한국어뿐이라 ko 단일 로케일 —
    * astro.config의 `i18n.defaultLocale`과 첫 항목이 일치해야 한다.
