@@ -33,9 +33,9 @@ flowchart LR
 | 1 | AI 서비스 전주기 이해 | 과정 조망, 엔지니어링 사다리, 프로젝트 트랙 소개, 개인 repo 개설 | 학습 목표 + 개인 repo |
 | 2 | Python AI 개발환경 | 컨테이너 기반 개발환경 구동, uv/pip, GitHub 워크플로, Codex/Claude 활용 세팅 | 동작하는 개발 환경 |
 | 3 | LLM API와 프롬프트 | LiteLLM 멀티 프로바이더 호출, 프롬프트 패턴, structured output(instructor) | LLM 호출 실습 코드 |
-| 4 | 데이터 수집·정제 | CSV/PDF/웹/API 수집, pandas 정제, 한국어 PDF 함정 대응 | 정제 데이터셋 |
-| 5 | 임베딩·벡터DB | sentence-transformers(`bge-m3`), Chroma add/query, 유사도 검색 | 검색 실습 코드 |
-| 6 | RAG 기본 구현 | chunking → retrieval → generation → 출처 표시, 간단 검색 평가 | 미니 RAG |
+| 4 | 데이터 수집·정제와 RAG 검색 | 30만 건 정제, PostgreSQL 검색, 구글 임베딩 벡터 인덱스와 질의응답 | 정제 데이터셋 + RAG 검색 서비스 |
+| 5 | API 해부와 tool calling | LLM API의 바닥, LiteLLM 통합 레이어, 도구 스키마·검증 (예제 31종) | 도구를 든 에이전트 (v0.2) |
+| 6 | 에이전트 루프와 하네스 | ReAct와 고급 루프, 인젝션 방어·budget guard, MCP (예제 24종) | 완성된 에이전트 (v1.0) |
 | 7 | 자동화·분석·추천 패턴 | 트랙별 미니 실습 (에이전트/분석/추천·분류), 트랙 가결정 | 트랙별 실습 + 트랙 가결정 |
 | 8 | FastAPI 서비스화 | AI 기능 API화, 입력 검증·에러 처리·스트리밍 | AI API 서버 |
 | 9 | 자유 UI 구현 | Streamlit / Gradio / Next.js / Swagger UI 선택 (라이브 브리핑 제공) | 웹 데모 초안 |

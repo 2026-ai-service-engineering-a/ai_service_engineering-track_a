@@ -65,7 +65,7 @@ export const site = {
       {
         href: '/concept/',
         name: '개념',
-        description: 'LLM·프롬프트, 임베딩·벡터DB, RAG, 서비스화 등<br>과정을 관통하는 핵심 개념 정리',
+        description: 'LLM·프롬프트, 검색과 RAG, 에이전트 루프와 하네스,<br>서비스화 등 과정을 관통하는 핵심 개념 정리',
         tags: ['LLM', 'RAG', '서빙'],
       },
       {
