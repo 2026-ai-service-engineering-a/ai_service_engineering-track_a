@@ -2,7 +2,8 @@
 #
 #   docker compose -f docker-compose.yml -f docker-compose.dev.yml up
 #
-# then open http://localhost:4321/ . site/ is bind-mounted, so edits on the
+# then open http://localhost:4321/ai_service_engineering-track_a/ (the site has
+# a GitHub Pages base path). site/ is bind-mounted, so edits on the
 # host hot-reload in the container. Same site/Dockerfile.dev image as the
 # default compose, but source comes from the mount instead of the baked-in
 # copy. For the zero-setup, view-only mode, use `docker compose up`.
