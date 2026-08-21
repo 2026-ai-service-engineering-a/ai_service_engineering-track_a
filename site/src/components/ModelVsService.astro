@@ -1,0 +1,249 @@
+---
+/**
+ * 같은 질문을 두 번 — 도구 없이, 그리고 도구를 쥐여주고 (5주차 · 3장 2절).
+ *
+ * 지어낸 응답이 없다. `week05-agent-lab` 랩에서 질문 5개를 각각 두 방식으로
+ * 실제 호출하고, 모델이 돌려준 문장과 tool_calls를 그대로 받아 적었다.
+ * 도구 구현만 목데이터다(실제 기상청·시계를 부르지 않는다). 추출 절차는
+ * `docs/model-vs-service-data.md`.
+ *
+ * 산수 질문은 정답을 코드로 계산해 두 답을 각각 채점했다. 도구 없는 쪽이
+ * 자신 있게 틀린 숫자를 낸 기록이 이 데모의 핵심이다.
+ */
+import data from '../data/model-vs-service.json';
+
+const json = JSON.stringify(data).replace(/</g, '\\u003c');
+const holeCount = data.questions.filter((q) => q.hole !== '없음').length;
+---
+
+<figure class="mvs" data-mvs>
+  <script type="application/json" data-mvs-json is:inline set:html={json} />
+
+  <div class="mvs-head">
+    <strong>같은 질문을 두 번: 도구 없이, 그리고 도구를 쥐여주고</strong>
+    <span>
+      질문을 골라 보세요. 아래 두 응답은 지어낸 것이 아니라
+      <b>{data.model}</b>에 실제로 물어 받은 답입니다({data.measuredAt} 실측).
+      다섯 중 {holeCount}개는 도구 없이는 답이 나오지 않고, 하나는 도구 없이도
+      됩니다.
+    </span>
+  </div>
+
+  <nav class="mvs-tabs" data-mvs-tabs aria-label="질문 고르기"></nav>
+
+  <p class="mvs-q" data-mvs-q></p>
+
+  <div class="mvs-cols">
+    <section class="mvs-col" data-mvs-plain>
+      <header>
+        <span class="mvs-kicker">① 모델만</span>
+        <span class="mvs-sub">채팅 한 겹만 붙인 상태</span>
+      </header>
+      <div class="mvs-answer" data-mvs-plain-answer></div>
+      <div class="mvs-verdict" data-mvs-plain-verdict></div>
+    </section>
+
+    <section class="mvs-col" data-mvs-tooled>
+      <header>
+        <span class="mvs-kicker">② 서비스</span>
+        <span class="mvs-sub">같은 모델 + 도구 4개</span>
+      </header>
+      <ol class="mvs-steps" data-mvs-steps></ol>
+      <div class="mvs-answer" data-mvs-tooled-answer></div>
+      <div class="mvs-verdict" data-mvs-tooled-verdict></div>
+    </section>
+  </div>
+
+  <figcaption class="mvs-foot" data-mvs-foot></figcaption>
+</figure>
+
+<style>
+  .mvs {
+    margin: 2rem 0;
+    padding: 1.1rem 1.1rem 0.9rem;
+    border: 1px solid var(--aas-border);
+    border-radius: 14px;
+    background: var(--aas-panel);
+    box-shadow: var(--aas-shadow);
+    font-family: var(--aas-sans);
+
+    --mvs-ok: #0ca30c;
+    --mvs-no: #d03b3b;
+  }
+
+  .mvs-head { display: flex; flex-direction: column; gap: 0.3rem; }
+  .mvs-head strong { font-size: 1rem; color: var(--aas-text); }
+  .mvs-head span { font-size: 0.85rem; line-height: 1.65; color: var(--aas-muted); }
+
+  .mvs-tabs {
+    display: flex; flex-wrap: wrap; gap: 0.35rem;
+    margin: 0.9rem 0 0.8rem;
+    border-bottom: 1px solid var(--aas-border);
+    padding-bottom: 0.55rem;
+  }
+  .mvs-tabs :global(button) {
+    padding: 0.34rem 0.7rem; border-radius: 999px;
+    border: 1px solid var(--aas-border); background: var(--aas-bg);
+    color: var(--aas-muted); font-family: inherit; font-size: 0.8rem;
+    cursor: pointer; transition: background 0.15s ease;
+  }
+  .mvs-tabs :global(button:hover) { background: var(--aas-tint); }
+  .mvs-tabs :global(button[aria-selected='true']) {
+    border-color: var(--aas-accent); color: var(--aas-text); font-weight: 600;
+    background: var(--aas-tint);
+  }
+
+  .mvs-q {
+    margin: 0 0 0.9rem; padding: 0.55rem 0.7rem;
+    border-radius: 8px; border: 1px solid var(--aas-border);
+    background: var(--aas-bg);
+    font-size: 0.88rem; line-height: 1.6; color: var(--aas-text);
+  }
+  .mvs-q :global(b) { color: var(--aas-muted); font-weight: 600; }
+
+  .mvs-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 0.7rem; }
+  @media (max-width: 720px) { .mvs-cols { grid-template-columns: 1fr; } }
+
+  .mvs-col {
+    display: flex; flex-direction: column; gap: 0.5rem;
+    padding: 0.7rem 0.75rem;
+    border: 1px solid var(--aas-border); border-radius: 10px;
+    background: var(--aas-bg);
+  }
+  .mvs-col header { display: flex; align-items: baseline; gap: 0.4rem; flex-wrap: wrap; }
+  .mvs-kicker { font-size: 0.82rem; font-weight: 700; color: var(--aas-text); }
+  .mvs-sub { font-size: 0.75rem; color: var(--aas-muted); }
+
+  .mvs-answer {
+    font-size: 0.84rem; line-height: 1.7; color: var(--aas-text);
+    white-space: pre-wrap; word-break: break-word;
+    max-height: 14rem; overflow-y: auto;
+  }
+  .mvs-answer:empty::before { content: '—'; color: var(--aas-muted); }
+
+  .mvs-steps {
+    list-style: none; margin: 0; padding: 0;
+    display: flex; flex-direction: column; gap: 0.3rem;
+  }
+  .mvs-steps:empty { display: none; }
+  .mvs-steps :global(li) {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.73rem; line-height: 1.55; color: var(--aas-muted);
+    padding: 0.35rem 0.5rem; border-radius: 6px;
+    background: var(--aas-tint); overflow-x: auto; white-space: pre;
+  }
+  .mvs-steps :global(li b) { color: var(--aas-text); font-weight: 600; }
+
+  .mvs-verdict {
+    margin-top: auto; padding-top: 0.45rem;
+    border-top: 1px dashed var(--aas-border);
+    font-size: 0.78rem; line-height: 1.6; color: var(--aas-muted);
+  }
+  .mvs-verdict :global(.ok) { color: var(--mvs-ok); font-weight: 700; }
+  .mvs-verdict :global(.no) { color: var(--mvs-no); font-weight: 700; }
+
+  .mvs-foot {
+    margin-top: 0.85rem; padding-top: 0.55rem;
+    border-top: 1px solid var(--aas-border);
+    font-size: 0.74rem; line-height: 1.6; color: var(--aas-muted);
+  }
+  .mvs-foot :global(code) {
+    font-size: 0.72rem; background: var(--aas-tint);
+    padding: 0.05rem 0.28rem; border-radius: 4px;
+  }
+  .mvs-foot :global(b) { color: var(--aas-text); font-weight: 600; }
+</style>
+
+<script>
+  type Call = { name: string; args: Record<string, unknown>; result: Record<string, unknown> };
+  type Side = { answer: string; calls?: Call[]; correct?: boolean };
+  type Row = { id: string; hole: string; q: string; why: string; truth?: string; plain: Side; tooled: Side };
+  type Data = { model: string; measuredAt: string; mockNote: string; questions: Row[] };
+
+  const root = document.querySelector<HTMLElement>('[data-mvs]');
+  if (root) init(root);
+
+  function init(root: HTMLElement) {
+    const $ = <T extends HTMLElement>(s: string) => root.querySelector<T>(s)!;
+    const esc = (s: string) =>
+      s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+    const raw = $('[data-mvs-json]').textContent || '{}';
+    const data: Data = JSON.parse(raw);
+
+    const tabs = $('[data-mvs-tabs]');
+    const qEl = $('[data-mvs-q]');
+    const plainAnswer = $('[data-mvs-plain-answer]');
+    const plainVerdict = $('[data-mvs-plain-verdict]');
+    const steps = $('[data-mvs-steps]');
+    const tooledAnswer = $('[data-mvs-tooled-answer]');
+    const tooledVerdict = $('[data-mvs-tooled-verdict]');
+    const foot = $('[data-mvs-foot]');
+
+    const LABEL: Record<string, string> = {
+      weather: '오늘 날씨',
+      time: '지금 몇 시',
+      math: '큰 수 곱셈',
+      files: '이 폴더',
+      plan: '여행 추천',
+    };
+
+    data.questions.forEach((row, i) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.textContent = LABEL[row.id] || row.id;
+      b.setAttribute('aria-selected', String(i === 0));
+      b.addEventListener('click', () => select(i));
+      tabs.appendChild(b);
+    });
+
+    foot.innerHTML =
+      `모델 <code>${esc(data.model)}</code> · ${esc(data.measuredAt)} 실측 · ` +
+      `응답은 실제 호출 결과, 도구 구현은 목데이터입니다. ` +
+      `도구가 돌려준 <b>값</b>이 아니라 <b>구조</b>를 보는 데모입니다.`;
+
+    function select(idx: number) {
+      Array.from(tabs.children).forEach((el, i) =>
+        el.setAttribute('aria-selected', String(i === idx)),
+      );
+      render(data.questions[idx]);
+    }
+
+    function render(row: Row) {
+      const holeText =
+        row.hole === '없음'
+          ? '도구가 필요 없는 질문'
+          : `${row.hole}의 구멍`;
+      qEl.innerHTML = `<b>[${esc(holeText)}]</b> ${esc(row.q)}`;
+
+      plainAnswer.textContent = row.plain.answer;
+      tooledAnswer.textContent = row.tooled.answer;
+
+      steps.innerHTML = (row.tooled.calls || [])
+        .map(
+          (c) =>
+            `<li><b>모델의 요청</b> → ${esc(c.name)}(${esc(JSON.stringify(c.args))})\n` +
+            `<b>우리 코드의 실행 결과</b> → ${esc(JSON.stringify(c.result))}</li>`,
+        )
+        .join('');
+      if (!(row.tooled.calls || []).length) {
+        steps.innerHTML = '<li>도구를 쥐여줬지만 <b>모델이 부르지 않았습니다</b></li>';
+      }
+
+      if (row.truth) {
+        const mark = (ok?: boolean) =>
+          ok ? '<span class="ok">○ 정답</span>' : '<span class="no">✗ 오답</span>';
+        plainVerdict.innerHTML = `${mark(row.plain.correct)} — 정답은 ${esc(row.truth)}. ${esc(row.why)}`;
+        tooledVerdict.innerHTML = `${mark(row.tooled.correct)} — 계산은 코드가 했습니다`;
+      } else if (row.hole === '없음') {
+        plainVerdict.innerHTML = `<span class="ok">○ 답한다</span> — ${esc(row.why)}`;
+        tooledVerdict.innerHTML = `<span class="ok">○ 답한다</span> — 필요 없으면 부르지 않는 것도 판단입니다`;
+      } else {
+        plainVerdict.innerHTML = `<span class="no">✗ 못 한다</span> — ${esc(row.why)}`;
+        tooledVerdict.innerHTML = `<span class="ok">○ 한다</span> — 도구가 그 구멍을 메웠습니다`;
+      }
+    }
+
+    select(0);
+  }
+</script>

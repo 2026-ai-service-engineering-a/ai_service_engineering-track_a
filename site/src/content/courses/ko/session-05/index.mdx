@@ -1,14 +1,16 @@
 ---
 title: "5주차: API 해부와 tool calling"
-description: "5주차 라이브 세션 상세 교안: 실습 랩 기동, examples/01_api 11종으로 LLM API의 바닥, examples/02_litellm 10종으로 통합 레이어, examples/03_tools 10종으로 tool calling 심화, 그리고 에이전트가 처음으로 도구를 드는 지점까지"
-summary: "라이브 세션의 상세 교안입니다. 1~4주차에 프레임워크와 라이브러리 뒤에 가려 있던 것을 이번 주에 바닥부터 헤칩니다. 최소 호출의 요청·응답 JSON 원문에서 출발해 역할·토큰·무상태·비용을 잡고, 통합 레이어 위에서 교체·폴백·캐싱·라우팅을 쓰고, 도구 호출 왕복을 JSON 원문으로 해부합니다. 예제 31종을 전부 실행하며, 세션 끝에서 여행 플래너 에이전트가 처음으로 도구를 듭니다."
+description: "5주차 라이브 세션 상세 교안: AI 모델과 AI 서비스의 구분, 도구의 정의, examples/01_api 11종으로 LLM API의 바닥, examples/02_litellm 10종으로 통합 레이어, examples/03_tools 10종으로 tool calling 심화, 그리고 에이전트가 처음으로 도구를 드는 지점까지"
+summary: "라이브 세션의 상세 교안입니다. 1~4주차에 프레임워크와 라이브러리 뒤에 가려 있던 것을 이번 주에 바닥부터 헤칩니다. 먼저 AI 모델(뇌)과 AI 서비스(도구·루프를 둘러 붙인 제품)를 가르고, 같은 질문을 도구 없이·도구를 쥐여주고 두 번 물어 그 차이를 실측으로 봅니다. 이어서 최소 호출의 요청·응답 JSON 원문에서 출발해 역할·토큰·무상태·비용을 잡고, 통합 레이어 위에서 교체·폴백·캐싱·라우팅을 쓰고, 도구 호출 왕복을 JSON 원문으로 해부합니다. 예제 31종을 전부 실행하며, 세션 끝에서 여행 플래너 에이전트가 처음으로 도구를 듭니다."
 date: 2026-08-21
 category: foundation
 slides: ["session-05"]
-tags: ["LLM API", "토큰", "무상태", "LiteLLM", "폴백", "tool calling", "Pydantic", "구조화 출력"]
+tags: ["AI 서비스", "에이전트", "도구", "LLM API", "토큰", "무상태", "LiteLLM", "폴백", "tool calling", "Pydantic", "구조화 출력"]
 level: 2
 order: "05"
 ---
+
+import ModelVsService from '../../../../components/ModelVsService.astro';
 
 > 라이브 세션의 상세 교안입니다. 이번 주는 시연 저장소가 서비스가 아니라
 > **실습 랩**입니다. 예제 31종을 하나씩 실행하며 원리를 손으로 확인합니다.
@@ -24,6 +26,9 @@ order: "05"
 제어했고, 4주차의 RAG는 검색이 추린 것을 넘겼습니다. 그 사이 API 호출 자체는
 `instructor`와 LiteLLM 뒤에 가려 있었습니다. 이번 주는 그 가림막을 걷습니다.
 
+- **모델과 서비스를 가른다**: AI 모델은 텍스트를 넣으면 텍스트가 나오는
+  함수 하나이고, 우리가 쓰는 제품은 그 위에 도구·루프·방어선을 둘러 붙인
+  것입니다. 그 차이를 같은 질문 다섯 개로 직접 확인합니다
 - **LLM API의 전부를 본다**: messages 배열을 보내면 choices가 돌아온다.
   역할·토큰·무상태·비용이 전부 이 한 줄에서 파생됩니다
 - **통합 레이어를 제대로 쓴다**: 3주차에 이미 쓴 [[litellm|LiteLLM]]을
@@ -99,10 +104,132 @@ docker compose exec lab python check_env.py
 - 이 랩의 기본 모델 3종은 전부 각 사의 저가 티어입니다. 다만 프로바이더마다
   가격 하한이 달라 Anthropic이 상대적으로 비쌉니다
 
-비용을 직접 계산하는 법은 3장 12절에서, 모델별 단가표는 4장 10절에서
+비용을 직접 계산하는 법은 4장 12절에서, 모델별 단가표는 5장 10절에서
 다룹니다. 누적 비용에 상한을 거는 [[budget-guard|budget guard]]는 6주차입니다.
 
-## 3. LLM API의 본질
+## 3. AI 모델과 AI 서비스
+
+예제를 열기 전에 좌표를 하나 잡고 갑니다. 우리가 "AI"라고 뭉뚱그려 부르는
+것이 사실은 두 층이고, 그 사이를 잇는 것이 이번 주의 주제인 도구입니다.
+
+- **핵심 문장**: 모델은 뇌다. 뇌만으로는 오늘 날씨를 모른다
+
+### 3-1. 뇌와 몸: 모델과 서비스는 다른 물건이다
+
+한 줄로 가르면 이렇습니다.
+
+- **AI 모델**: Claude Opus·Fable, GPT, Gemini 같은 것들. **텍스트를 넣으면
+  텍스트가 나오는 함수 하나**입니다. 4장에서 그 함수의 요청·응답을 JSON
+  원문으로 뜯어봅니다
+- **AI 서비스**: ChatGPT, Claude Code, Codex, Cursor 같은 것들. 모델 하나를
+  가운데 두고 대화 화면·도구·실행 루프·방어선을 둘러 붙인 **제품**입니다.
+  [[agent|에이전트]]도 여기에 속합니다
+
+모델은 뇌고 서비스는 몸입니다. 뇌는 아는 것을 말할 수 있지만 창밖을 보거나
+손을 뻗지는 못합니다. 눈과 손에 해당하는 것이 도구이고, 그 손발을 언제 어떻게
+쓸지 정하며 반복하는 것이 [[react|루프]]입니다.
+
+```mermaid
+flowchart LR
+    subgraph S["AI 서비스 (제품)"]
+        direction TB
+        UI["대화 화면"] --> M["AI 모델<br/>텍스트 → 텍스트"]
+        M --> T["도구<br/>검색·파일·계산·예약"]
+        T --> M
+        M --> G["하네스<br/>권한·검증·비용 한도"]
+    end
+    W["바깥 세상<br/>웹·DB·파일·시계"] <--> T
+```
+
+모델 자리에 무엇을 꽂든 바깥 세상과 닿는 통로는 도구입니다. 그래서 **같은
+모델이라도 무엇을 둘러 붙였느냐에 따라 다른 제품**이 됩니다.
+
+| 제품 | 모델 위에 붙은 것 | 그래서 할 수 있는 일 |
+| --- | --- | --- |
+| 채팅 화면만 붙인 것 | 대화 UI + 히스토리 | 아는 것을 말한다 |
+| ChatGPT | + 웹 검색·코드 실행·이미지 | 오늘 뉴스를 찾아 요약한다 |
+| Claude Code | + 파일 읽기·쓰기·셸 + 루프 | 코드를 고치고 테스트를 돌린다 |
+| 이 랩의 여행 플래너 | + 검색·이동시간·예산 도구 | 예산을 계산해 일정을 짠다 |
+
+거꾸로도 성립합니다. 같은 제품에 더 좋은 모델을 꽂아도, 붙은 것이 없으면
+여전히 오늘 날씨를 모릅니다. **모델의 성능이 아니라 붙은 것이 능력의 경계를
+긋습니다.**
+
+### 3-2. 직접 확인: 채팅만 붙인 모델이 못 하는 일
+
+설명보다 물어보는 편이 빠릅니다. 아래는 질문 다섯 개를 같은 모델에 두 번씩
+물은 실제 기록입니다. 한 번은 도구 없이, 한 번은 도구 네 개를 쥐여주고.
+
+<ModelVsService />
+
+#### 결과 읽기
+
+- **모델은 대체로 모르는 것을 압니다**: 날씨·시각·파일 목록 질문에서는
+  "실시간 정보에 접근할 수 없다"고 스스로 밝히고 물러섰습니다. 이런 거절은
+  안전한 실패입니다
+- **위험한 쪽은 거절하지 않는 질문입니다**: `3847 × 29183`에 모델은 망설임
+  없이 **112,267,021**을 내놨습니다. 정답은 112,267,001입니다. 스무 개
+  차이라 눈으로는 그럴듯하고, 어디에도 "확실하지 않다"는 신호가 없습니다.
+  도구를 쥐여주자 계산은 코드가 했고 값이 맞았습니다
+- **도구를 붙였다고 매번 부르지는 않습니다**: 여행 추천 질문에서는 도구
+  네 개를 쥐여줬는데도 `tool_calls`가 비어 있었습니다. 학습된 지식으로 충분한
+  질문이라 모델이 부르지 않기로 판단한 것입니다. 도구는 능력의 확장이지
+  의무가 아닙니다
+
+세 줄로 줄이면 이렇습니다. **모델은 자기 안에 없는 것을 못 하고, 못 한다는
+것을 늘 알려주지는 않으며, 그 구멍을 메우는 것이 도구입니다.**
+
+### 3-3. 도구란 무엇인가
+
+정의부터 박아 둡니다. **도구는 모델이 이름으로 부를 수 있게 등록해 둔 우리
+코드의 함수**입니다. 등록에 필요한 것은 셋뿐입니다.
+
+- **이름**: `get_weather`
+- **설명**: "도시의 현재 날씨를 조회한다"
+- **입력 스키마**: `city`는 문자열이고 필수
+
+모델에게 보이는 것은 이 셋이 전부입니다. 함수 본문은 보이지 않습니다. 모델은
+"`get_weather`를 `{"city": "서울"}`로 실행해 달라"는 **요청**을 만들 뿐이고,
+실행은 우리 코드가 합니다. 그래서 이름과 설명을 어떻게 쓰느냐가 곧 품질이고,
+실행 앞에 무엇을 세우느냐가 곧 안전입니다. 앞의 것은 6장 11절에서 실측하고,
+뒤의 것은 6주차의 게이트에서 다룹니다.
+
+#### 우리가 매일 만나는 도구들
+
+모델 자체는 텍스트를 생성하는 것밖에 못 합니다. 그런데 우리가 쓰는 제품들은
+분명히 그 이상을 합니다.
+
+- ChatGPT가 "검색 중…"을 띄우는 순간: 웹 검색 도구가 불린 것입니다
+- Claude가 첨부 문서를 읽고 표를 고치는 순간: 파일 읽기·쓰기 도구입니다
+- Claude Code가 코드를 고치고 테스트를 돌리는 순간: Read·Edit·Bash 같은
+  도구들이고, 그것을 반복하는 루프가 6주차에서 만들 [[react|ReAct]]입니다
+
+전부 같은 구조입니다. 모델이 요청하고, 제품의 코드가 실행하고, 결과를
+되먹입니다. 6장 1절에서 이 왕복을 손으로 한 번 밟고, 2절에서 JSON 원문으로
+해부합니다.
+
+#### 도구가 아닌 것
+
+경계를 그어 두면 나중에 헷갈리지 않습니다.
+
+- **프롬프트에 적어 둔 지시**는 도구가 아닙니다. "계산은 정확히 해줘"는
+  부탁이고, 계산기 도구는 실행입니다. 부탁은 확률로 지켜지고 실행은 코드로
+  지켜집니다
+- **모델 안의 지식**도 도구가 아닙니다. 오사카 명소를 아는 것은 학습의
+  결과지 조회가 아닙니다
+- **[[rag|RAG]]로 미리 넣어 준 문서**는 경계에 있습니다. 4주차에서 검색이
+  추려 프롬프트에 넣어 준 것은 **우리가 넣어 준 것**이지 모델이 요청한 것이
+  아닙니다. 같은 검색이라도 모델이 필요하다고 판단해 부르면 그때부터 도구입니다
+
+#### 이 장이 남기는 것
+
+- 모델은 뇌, 서비스는 도구·루프·방어선을 둘러 붙인 제품이다
+- 도구는 이름·설명·입력 스키마로 등록한 우리 코드의 함수다
+- 모델은 실행하지 못한다. 요청할 뿐이고 실행은 우리 몫이다
+
+이 셋이 사실인지, 다음 세 장에서 원문과 실행 결과로 확인합니다.
+
+## 4. LLM API의 본질
 
 교재는 `examples/01_api/` 11종입니다. **11종을 전부 실행합니다.** 아래에는
 11종 전부의 실제 실행 결과가 실려 있습니다. 실측 환경은 litellm 1.96.2,
@@ -110,7 +237,7 @@ docker compose exec lab python check_env.py
 
 - **교재**: [examples/01_api](https://github.com/2026-ai-service-engineering-a/week05-agent-lab/tree/main/examples/01_api)
 - **핵심 문장**: [[llm|LLM]] API의 전부는 "messages 배열을 보내면 choices가 돌아온다"
-- **참고**: 예제의 `completion()`은 [[litellm|LiteLLM]]의 통일 인터페이스입니다. 공식 SDK 대신 이것을 쓰는 이유는 4장 1절에서 다룹니다
+- **참고**: 예제의 `completion()`은 [[litellm|LiteLLM]]의 통일 인터페이스입니다. 공식 SDK 대신 이것을 쓰는 이유는 5장 1절에서 다룹니다
 
 ```mermaid
 flowchart LR
@@ -123,7 +250,7 @@ flowchart LR
 (역할·이미지·히스토리), 무엇이 돌아오는가(문장·JSON·델타 청크), 그리고
 usage가 곧 돈이라는 것.
 
-### 3-1. 최소 호출: 요청과 응답의 전부
+### 4-1. 최소 호출: 요청과 응답의 전부
 
 코드: [`01_hello_completion.py`](https://github.com/2026-ai-service-engineering-a/week05-agent-lab/blob/main/examples/01_api/01_hello_completion.py)
 
@@ -176,11 +303,11 @@ docker compose exec lab python examples/01_api/01_hello_completion.py
 #### 결과 읽기
 
 쓰는 것은 `content`와 `usage` 두 곳뿐이지만, `tool_calls: null` 자리를
-기억해 두세요. 5장에서 저 자리가 채워지는 순간 에이전트가 시작됩니다.
+기억해 두세요. 6장에서 저 자리가 채워지는 순간 에이전트가 시작됩니다.
 `provider_specific_fields`처럼 프로바이더 고유 필드가 섞여 오는 것도
 실물에서만 보이는 부분입니다.
 
-### 3-2. 역할: system이 내용과 형식을 정한다
+### 4-2. 역할: system이 내용과 형식을 정한다
 
 코드: [`02_roles.py`](https://github.com/2026-ai-service-engineering-a/week05-agent-lab/blob/main/examples/01_api/02_roles.py)
 
@@ -228,7 +355,7 @@ docker compose exec lab python examples/01_api/02_roles.py
 갈렸습니다. 에이전트의 성격·규칙·말투가 실리는 자리이고, 6주차의 하네스에서
 이 자리가 방어선이 됩니다.
 
-### 3-3. 토큰: 한글이 더 비싼 이유
+### 4-3. 토큰: 한글이 더 비싼 이유
 
 코드: [`03_tokens.py`](https://github.com/2026-ai-service-engineering-a/week05-agent-lab/blob/main/examples/01_api/03_tokens.py)
 
@@ -258,7 +385,7 @@ docker compose exec lab python examples/01_api/03_tokens.py
 한국어로 쓰면 이 랩 기준 약 1.3배의 토큰을 쓰고, 세 번째 문장(19 vs 10)처럼
 2배 가까이 벌어지기도 합니다.
 
-### 3-4. 컨텍스트 한도: 넘치면 잘리는 게 아니라 거부된다
+### 4-4. 컨텍스트 한도: 넘치면 잘리는 게 아니라 거부된다
 
 코드: [`04_context_limit.py`](https://github.com/2026-ai-service-engineering-a/week05-agent-lab/blob/main/examples/01_api/04_context_limit.py)
 
@@ -302,7 +429,7 @@ docker compose exec lab python examples/01_api/04_context_limit.py
 토큰 수는 모델마다 다르게 세므로, 한도 근처의 계산은 항상 여유를 둬야 합니다.
 에이전트 루프에서 히스토리가 무한히 자라면 정확히 이 에러를 만납니다.
 
-### 3-5. temperature: 재현성과 다양성의 손잡이
+### 4-5. temperature: 재현성과 다양성의 손잡이
 
 코드: [`05_temperature.py`](https://github.com/2026-ai-service-engineering-a/week05-agent-lab/blob/main/examples/01_api/05_temperature.py)
 
@@ -345,7 +472,7 @@ docker compose exec lab python examples/01_api/05_temperature.py
 곁가지 발견 하나: Gemini 3+는 이 파라미터 자체를 은퇴시키는 중입니다.
 같은 파라미터도 프로바이더마다 지원 상태가 다르다는 실례입니다.
 
-### 3-6. 스트리밍: 답은 조각으로 온다
+### 4-6. 스트리밍: 답은 조각으로 온다
 
 코드: [`06_streaming.py`](https://github.com/2026-ai-service-engineering-a/week05-agent-lab/blob/main/examples/01_api/06_streaming.py)
 
@@ -380,7 +507,7 @@ docker compose exec lab python examples/01_api/06_streaming.py
 경계는 프로바이더 마음이라(청크 0은 `**` 두 글자, 청크 2는 한 구절), 이어붙이는
 쪽이 완성 텍스트를 책임집니다.
 
-### 3-7. 병렬 호출: 동시에 물으면 몇 배 빠른가
+### 4-7. 병렬 호출: 동시에 물으면 몇 배 빠른가
 
 코드: [`07_async_parallel.py`](https://github.com/2026-ai-service-engineering-a/week05-agent-lab/blob/main/examples/01_api/07_async_parallel.py)
 
@@ -415,7 +542,7 @@ LLM 호출은 네트워크 대기가 대부분이라 병렬화 이득이 큽니�
 `acompletion` + `gather` 패턴 하나면 충분합니다. 여러 곳을 동시에 물어보는
 에이전트라면 이 패턴이 그대로 확장판이 됩니다.
 
-### 3-8. 무상태: 기억은 서버가 아니라 배열에 있다
+### 4-8. 무상태: 기억은 서버가 아니라 배열에 있다
 
 코드: [`08_multiturn_stateless.py`](https://github.com/2026-ai-service-engineering-a/week05-agent-lab/blob/main/examples/01_api/08_multiturn_stateless.py)
 
@@ -451,7 +578,7 @@ messages 배열 전체를 매번 다시 보내서 만드는 착시입니다. 이
 부풀어 비싸지는 것이 에이전트 루프의 비용 구조이고(6주차에서 그래프로 봅니다),
 이 배열을 관리하는 일이 곧 컨텍스트 엔지니어링입니다.
 
-### 3-9. 기억의 정체: 채팅이 나를 기억하는 이유와 compact
+### 4-9. 기억의 정체: 채팅이 나를 기억하는 이유와 compact
 
 8번에서 서버가 아무것도 기억하지 않는 것을 확인했습니다. 그런데 우리가 쓰는
 채팅 서비스는 분명히 나를 기억합니다. 이 간극을 메우는 장치가 전부
@@ -519,7 +646,7 @@ compact 직후에 한참 전의 세부("아까 그 함수 이름 뭐였지?")를
 6주차에서 우리 에이전트의 컨텍스트가 스텝마다 부푸는 것을 실측하는데, 그
 곡선의 끝에서 만나는 해법이 바로 이 구조입니다.
 
-### 3-10. JSON 강제: 부탁이 아니라 계약으로
+### 4-10. JSON 강제: 부탁이 아니라 계약으로
 
 코드: [`09_json_mode.py`](https://github.com/2026-ai-service-engineering-a/week05-agent-lab/blob/main/examples/01_api/09_json_mode.py)
 
@@ -553,9 +680,9 @@ docker compose exec lab python examples/01_api/09_json_mode.py
 
 부탁하면 설명 문장과 코드펜스가 섞여 와서 파싱이 깨집니다. 강제하면
 파싱이 계약이 됩니다. 다만 형태의 계약일 뿐 값의 계약은 아니라서(fee가
-"600엔"이라는 문자열), 타입까지 묶는 방법은 5장의 구조화 출력에서 잇습니다.
+"600엔"이라는 문자열), 타입까지 묶는 방법은 6장의 구조화 출력에서 잇습니다.
 
-### 3-11. 이미지 입력: 멀티모달도 같은 구조
+### 4-11. 이미지 입력: 멀티모달도 같은 구조
 
 코드: [`10_vision.py`](https://github.com/2026-ai-service-engineering-a/week05-agent-lab/blob/main/examples/01_api/10_vision.py)
 
@@ -597,7 +724,7 @@ content가 문자열에서 [text 조각, image 조각] 배열로 바뀌었을 �
 User-Agent 차단과 썸네일 정책에 두 번 깨졌습니다. 이미지를 직접 받아 base64로
 싣는 지금 방식이 실전에서도 안전한 형태입니다.
 
-### 3-12. 비용 계산: 토큰 곱하기 단가
+### 4-12. 비용 계산: 토큰 곱하기 단가
 
 코드: [`11_cost_calc.py`](https://github.com/2026-ai-service-engineering-a/week05-agent-lab/blob/main/examples/01_api/11_cost_calc.py)
 
@@ -628,7 +755,7 @@ docker compose exec lab python examples/01_api/11_cost_calc.py
 에이전트 N명이면 자릿수가 달라집니다. 그래서 6주차에서
 [[budget-guard|budget guard]]를 답니다.
 
-## 4. LiteLLM 통합 레이어
+## 5. LiteLLM 통합 레이어
 
 교재는 `examples/02_litellm/` 10종입니다. **10종을 전부 실행합니다.** 아래에는
 10종 전부의 실제 실행 결과가 실려 있습니다. 3사 키를 전부 채운 상태에서
@@ -637,9 +764,9 @@ docker compose exec lab python examples/01_api/11_cost_calc.py
 - **교재**: [examples/02_litellm](https://github.com/2026-ai-service-engineering-a/week05-agent-lab/tree/main/examples/02_litellm)
 - **핵심 문장**: [[litellm|LiteLLM]]에서 프로바이더 교체는 model= 문자열 한 줄이다
 
-### 4-1. 왜 LiteLLM인가: 공식 SDK 대신 통합 레이어
+### 5-1. 왜 LiteLLM인가: 공식 SDK 대신 통합 레이어
 
-3장의 예제들이 이미 `from litellm import completion`을 썼습니다. 각 사가
+4장의 예제들이 이미 `from litellm import completion`을 썼습니다. 각 사가
 공식 SDK를 제공하는데도 이 랩이 LiteLLM 하나로 통일한 이유를, 장비 투어에
 들어가기 전에 정리하고 갑니다.
 
@@ -678,9 +805,9 @@ litellm.completion(model="<프로바이더/모델>", messages=[…])
 - **추상화 한 겹의 비용**: 에러가 litellm 예외로 감싸여 오고, 디버깅 시
   스택이 한 층 깊어집니다
 - **프로바이더 고유 기능의 지연·누수**: 새 기능은 litellm이 지원할 때까지
-  기다리거나, 3장 1절의 응답 원문에서 본 `provider_specific_fields`처럼
+  기다리거나, 4장 1절의 응답 원문에서 본 `provider_specific_fields`처럼
   표준 밖 필드로 새어 나옵니다. Gemini 3+의 temperature 은퇴를 경고로만
-  전달하던 3장의 temperature 예제도 같은 결입니다
+  전달하던 4장의 temperature 예제도 같은 결입니다
 - **라이브러리 자체에 의존**: 단가표의 최신성, 새 모델 등재 속도, 버그가
   전부 litellm 버전에 묶입니다. 이 랩이 버전을 고정한 이유입니다
 
@@ -691,7 +818,7 @@ litellm.completion(model="<프로바이더/모델>", messages=[…])
 - 이 과정은 3사를 오가며 비교하는 것 자체가 커리큘럼이므로 LiteLLM입니다.
   폴백·라우터·캐시 같은 실전 장비를 지금부터 하나씩 돌려 봅니다
 
-### 4-2. 프로바이더 교체는 문자열 한 줄
+### 5-2. 프로바이더 교체는 문자열 한 줄
 
 코드: [`01_provider_swap.py`](https://github.com/2026-ai-service-engineering-a/week05-agent-lab/blob/main/examples/02_litellm/01_provider_swap.py)
 
@@ -733,7 +860,7 @@ docker compose exec lab python examples/02_litellm/01_provider_swap.py
 모델 문자열은 전부 `agent/config.py` 한 곳에 있고, 예제 어디에도 하드코딩이
 없습니다. 이 통일이 이후 모든 것(폴백·라우팅·모델 배정)의 토대입니다.
 
-### 4-3. 3사 비교: 응답·지연·비용을 나란히
+### 5-3. 3사 비교: 응답·지연·비용을 나란히
 
 코드: [`02_three_way_compare.py`](https://github.com/2026-ai-service-engineering-a/week05-agent-lab/blob/main/examples/02_litellm/02_three_way_compare.py)
 
@@ -763,7 +890,7 @@ docker compose exec lab python examples/02_litellm/02_three_way_compare.py
 프로바이더마다 토크나이저와 내부 포장이 다르기 때문입니다. 품질은 눈으로
 (전체 로그에 세 답이 나란히 있습니다), 지연과 비용은 숫자로 비교합니다.
 
-### 4-4. 폴백: 주 모델이 죽으면 이어받는다
+### 5-4. 폴백: 주 모델이 죽으면 이어받는다
 
 코드: [`03_fallback.py`](https://github.com/2026-ai-service-engineering-a/week05-agent-lab/blob/main/examples/02_litellm/03_fallback.py)
 
@@ -804,7 +931,7 @@ LiteLLM:ERROR: … Fallback attempt failed for model openai/gpt-없는-모델:
 응답을 완성했습니다. 이 장 끝의 "모델 교체 사례"처럼 모델은 예고 없이
 은퇴합니다. 폴백은 옵션이 아니라 기본 장비입니다.
 
-### 4-5. 재시도와 타임아웃: 순간 장애의 방어
+### 5-5. 재시도와 타임아웃: 순간 장애의 방어
 
 코드: [`04_retry_timeout.py`](https://github.com/2026-ai-service-engineering-a/week05-agent-lab/blob/main/examples/02_litellm/04_retry_timeout.py)
 
@@ -836,7 +963,7 @@ timeout은 "이 시간 안에 답이 없으면 끊는다", num_retries는 "끊�
 다시"입니다. 폴백(모델 장애)과 재시도(순간 장애)와 백오프(rate limit)는 각각
 다른 종류의 장애를 맡는 세 겹의 방어입니다.
 
-### 4-6. 캐싱: 같은 질문 두 번째는 공짜·즉시
+### 5-6. 캐싱: 같은 질문 두 번째는 공짜·즉시
 
 코드: [`05_cache.py`](https://github.com/2026-ai-service-engineering-a/week05-agent-lab/blob/main/examples/02_litellm/05_cache.py)
 
@@ -873,7 +1000,7 @@ docker compose exec lab python examples/02_litellm/05_cache.py
 손잡이입니다. 단, 같은 요청이어야 하고(messages가 1바이트라도 다르면 미스),
 신선도가 중요한 질문에는 쓰지 않습니다.
 
-### 4-7. 비용 콜백: 호출마다 장부에 쌓인다
+### 5-7. 비용 콜백: 호출마다 장부에 쌓인다
 
 코드: [`06_cost_callback.py`](https://github.com/2026-ai-service-engineering-a/week05-agent-lab/blob/main/examples/02_litellm/06_cost_callback.py)
 
@@ -913,7 +1040,7 @@ docker compose exec lab python examples/02_litellm/06_cost_callback.py
 completion의 비용이 장부로 흘러듭니다. 6주차의 [[budget-guard|budget guard]]가
 정확히 이 자리에서 누적 비용을 지켜봅니다.
 
-### 4-8. rate limit: 백오프로 살아남기
+### 5-8. rate limit: 백오프로 살아남기
 
 코드: [`07_rate_limit.py`](https://github.com/2026-ai-service-engineering-a/week05-agent-lab/blob/main/examples/02_litellm/07_rate_limit.py)
 
@@ -945,7 +1072,7 @@ docker compose exec lab python examples/02_litellm/07_rate_limit.py
 `429! 1초 백오프 후 재시도` 줄이 등장합니다. 걸리든 안 걸리든 코드는 같아야
 한다는 것이 요점입니다.
 
-### 4-9. 라우터: 별명 하나 뒤에 배포 여러 개
+### 5-9. 라우터: 별명 하나 뒤에 배포 여러 개
 
 코드: [`08_router.py`](https://github.com/2026-ai-service-engineering-a/week05-agent-lab/blob/main/examples/02_litellm/08_router.py)
 
@@ -989,7 +1116,7 @@ docker compose exec lab python examples/02_litellm/08_router.py
 라우터의 일이고, 6건이 3사에 흩어졌습니다. 쉬운 질문은 싼 모델로, 어려운
 질문은 좋은 모델로 나누는 배정이 이 구조 위에 섭니다.
 
-### 4-10. 모델 메타데이터: 한도와 단가를 코드로 읽는다
+### 5-10. 모델 메타데이터: 한도와 단가를 코드로 읽는다
 
 코드: [`09_model_info.py`](https://github.com/2026-ai-service-engineering-a/week05-agent-lab/blob/main/examples/02_litellm/09_model_info.py)
 
@@ -1017,10 +1144,10 @@ docker compose exec lab python examples/02_litellm/09_model_info.py
 #### 결과 읽기
 
 "이 입력이 들어가는가"와 "이 호출은 얼마인가"를 코드가 실행 전에 판단할
-수 있다는 뜻입니다. 3장의 한도 초과 예제가 저 입력한도 열을 읽었고,
+수 있다는 뜻입니다. 4장의 한도 초과 예제가 저 입력한도 열을 읽었고,
 6주차의 사전 비용 추정이 저 단가 열을 읽습니다.
 
-### 4-11. 임베딩: 같은 인터페이스의 다른 출구
+### 5-11. 임베딩: 같은 인터페이스의 다른 출구
 
 코드: [`10_embedding.py`](https://github.com/2026-ai-service-engineering-a/week05-agent-lab/blob/main/examples/02_litellm/10_embedding.py)
 
@@ -1053,7 +1180,7 @@ docker compose exec lab python examples/02_litellm/10_embedding.py
 0.843으로 가깝게 잡혔습니다. 4주차의 의미 검색이 바로 이 [[embedding|임베딩]]
 벡터 위에 섰습니다.
 
-### 4-12. 사례: 모델 교체가 실제로 일어났다
+### 5-12. 사례: 모델 교체가 실제로 일어났다
 
 이 랩의 Gemini 기본 모델은 원래 `gemini-2.5-flash`였는데, 2026-08-14에
 신규 발급 키에서 404(NotFoundError)가 나는 것이 확인되어
@@ -1073,7 +1200,7 @@ docker compose exec lab python examples/02_litellm/10_embedding.py
 - 프로바이더 장애·모델 은퇴는 예외 상황이 아니라 일상입니다. 폴백과 통일
   인터페이스가 있는 이유입니다
 
-## 5. Tool calling 심화
+## 6. Tool calling 심화
 
 교재는 `examples/03_tools/` 10종이고, 이 장 끝에서 **에이전트가 도구를 듭니다**. **10종을 전부 실행합니다.** 아래에는 10종 전부의 실제 실행 결과가
 실려 있습니다.
@@ -1092,7 +1219,7 @@ flowchart LR
 [[tool-calling|tool calling]]의 전부가 이 왕복 한 번입니다. 모델이 보내는
 것도, 우리가 돌려주는 것도 결국 messages 배열에 쌓이는 평범한 메시지입니다.
 
-### 5-1. 왕복 한 번을 끝까지 손으로
+### 6-1. 왕복 한 번을 끝까지 손으로
 
 코드: [`01_single_tool.py`](https://github.com/2026-ai-service-engineering-a/week05-agent-lab/blob/main/examples/03_tools/01_single_tool.py)
 
@@ -1139,7 +1266,7 @@ docker compose exec lab python examples/03_tools/01_single_tool.py
 인자로 바뀌었습니다. 이 번역이 모델의 몫이고, 실행과 회신은 전부 우리 코드의
 몫입니다.
 
-### 5-2. tool call의 실체: 메시지 필드 하나
+### 6-2. tool call의 실체: 메시지 필드 하나
 
 코드: [`02_roundtrip_raw.py`](https://github.com/2026-ai-service-engineering-a/week05-agent-lab/blob/main/examples/03_tools/02_roundtrip_raw.py)
 
@@ -1186,27 +1313,12 @@ docker compose exec lab python examples/03_tools/02_roundtrip_raw.py
 보입니다. 프로바이더마다 이런 결이 다르고, 그것을 담요처럼 덮는 것이
 LiteLLM의 일입니다.
 
-### 5-3. 도구의 개요: AI는 도구로 세상과 닿는다
+### 6-3. 도구의 개요: AI는 도구로 세상과 닿는다
 
-1번과 2번이 왕복의 기계 장치를 보여줬으니, 한 발 물러서서 봅니다. 도구란
-무엇이고, 우리가 매일 쓰는 AI 제품 속에서 어떻게 일하고 있으며, 만들 때는
-무엇을 지켜야 하는가. 이 지도를 갖고 가면 뒤의 예제 여덟 개가 전부 이 지도의
-한 칸씩입니다.
-
-#### 우리가 매일 만나는 도구들
-
-모델 자체는 텍스트를 생성하는 것밖에 못 합니다. 그런데 우리가 쓰는 제품들은
-분명히 그 이상을 합니다.
-
-- ChatGPT가 "검색 중…"을 띄우는 순간: 웹 검색 도구가 불린 것입니다
-- Claude가 첨부 문서를 읽고 표를 고치는 순간: 파일 읽기·쓰기 도구입니다
-- Claude Code가 코드를 고치고 테스트를 돌리는 순간: Read·Edit·Bash 같은
-  도구들이고, 그것을 반복하는 루프가 6주차에서 만들 [[react|ReAct]]입니다
-
-전부 1번에서 손으로 밟은 왕복, 그대로입니다. 모델이 요청하고, 제품의 코드가
-실행하고, 결과를 되먹입니다. 그래서 **같은 모델이라도 쥐여준 도구 목록이
-다르면 다른 제품**이 됩니다. 모델이 "할 수 있는 일"의 경계는 모델이 아니라
-도구 목록이 긋습니다.
+1번과 2번이 왕복의 기계 장치를 보여줬으니, 한 발 물러서서 봅니다. 3장에서
+도구가 **무엇인지** 정의했다면, 여기서는 도구가 **무엇을 메우는지**와
+**만들 때 무엇을 지켜야 하는지**를 봅니다. 이 지도를 갖고 가면 뒤의 예제
+여덟 개가 전부 이 지도의 한 칸씩입니다.
 
 #### 도구가 메우는 세 가지 구멍
 
@@ -1243,7 +1355,7 @@ flowchart TD
 - **좁게 준다**: 필요한 최소 도구만 쥐여줍니다. 목록이 길수록 선택 품질이
   떨어지고, 위험 도구가 섞일수록 공격면이 넓어집니다 (11절과 6주차)
 
-### 5-4. Pydantic: 스키마와 검증이 한 몸
+### 6-4. Pydantic: 스키마와 검증이 한 몸
 
 코드: [`03_pydantic_schema.py`](https://github.com/2026-ai-service-engineering-a/week05-agent-lab/blob/main/examples/03_tools/03_pydantic_schema.py)
 
@@ -1294,7 +1406,7 @@ docker compose exec lab python examples/03_tools/03_pydantic_schema.py
 클래스가 도착한 인자를 검증합니다. 명세와 검증이 한 몸이라 어긋날 수가
 없습니다. 아래 코드 포인트에서 보듯 에이전트 본체의 도구가 전부 이 방식입니다.
 
-### 5-5. 병렬 도구 호출: 독립 조회는 한 턴에
+### 6-5. 병렬 도구 호출: 독립 조회는 한 턴에
 
 코드: [`04_parallel_tools.py`](https://github.com/2026-ai-service-engineering-a/week05-agent-lab/blob/main/examples/03_tools/04_parallel_tools.py)
 
@@ -1326,7 +1438,7 @@ docker compose exec lab python examples/03_tools/04_parallel_tools.py
 tool_calls는 배열입니다. 서로 의존이 없는 조회면 모델이 두 요청을 한
 턴에 실어 보내고, 왕복이 줄어든 만큼 싸고 빠릅니다.
 
-### 5-6. 인자 제약: 스키마는 프롬프트보다 강하다
+### 6-6. 인자 제약: 스키마는 프롬프트보다 강하다
 
 코드: [`05_arg_constraints.py`](https://github.com/2026-ai-service-engineering-a/week05-agent-lab/blob/main/examples/03_tools/05_arg_constraints.py)
 
@@ -1358,7 +1470,7 @@ enum은 "이 셋 중 하나만", default는 "안 주면 이 값", required 밖�
 줘도 됨"을 모델에게 선언합니다. "카테고리는 관광·식당·카페 중 하나로 해줘"라는
 프롬프트 문장보다, 스키마에 박힌 enum이 강합니다.
 
-### 5-7. tool_choice: 쓸지 말지를 코드가 정한다
+### 6-7. tool_choice: 쓸지 말지를 코드가 정한다
 
 코드: [`06_tool_choice.py`](https://github.com/2026-ai-service-engineering-a/week05-agent-lab/blob/main/examples/03_tools/06_tool_choice.py)
 
@@ -1386,7 +1498,7 @@ required가 인사에도 예산 도구를 부르게 만들었습니다. 강제�
 질문과 무관한 호출도 만듭니다. 구조화 출력(10번)처럼 제어권을 코드가 가져야
 하는 자리에 골라 씁니다.
 
-### 5-8. 에러 되먹임: 실패를 알려주면 복구한다
+### 6-8. 에러 되먹임: 실패를 알려주면 복구한다
 
 코드: [`07_tool_error.py`](https://github.com/2026-ai-service-engineering-a/week05-agent-lab/blob/main/examples/03_tools/07_tool_error.py)
 
@@ -1428,7 +1540,7 @@ docker compose exec lab python examples/03_tools/07_tool_error.py
 완성했습니다. 좋은 에러 메시지는 사람을 위한 것이기 전에 모델을 위한
 것입니다. 지원 목록을 에러에 담았기에 복구가 한 번에 됐습니다.
 
-### 5-9. 인자 환각: 스키마는 통과해도 값은 허구일 수 있다
+### 6-9. 인자 환각: 스키마는 통과해도 값은 허구일 수 있다
 
 코드: [`08_hallucinated_args.py`](https://github.com/2026-ai-service-engineering-a/week05-agent-lab/blob/main/examples/03_tools/08_hallucinated_args.py)
 
@@ -1461,7 +1573,7 @@ docker compose exec lab python examples/03_tools/08_hallucinated_args.py
 잡았습니다. LLM이 만든 값은 실행 직전에 코드로 검증한다, 예외 없이.
 3주차 식단 플래너의 검증자가 같은 규율의 다른 얼굴이었습니다.
 
-### 5-10. 구조화 출력: LLM을 타입 있는 함수처럼
+### 6-10. 구조화 출력: LLM을 타입 있는 함수처럼
 
 코드: [`09_structured_output.py`](https://github.com/2026-ai-service-engineering-a/week05-agent-lab/blob/main/examples/03_tools/09_structured_output.py)
 
@@ -1497,11 +1609,11 @@ docker compose exec lab python examples/03_tools/09_structured_output.py
 
 #### 결과 읽기
 
-3장의 JSON 모드가 형태만 보장했다면, 이것은 `plan.days[0].lunch`처럼
+4장의 JSON 모드가 형태만 보장했다면, 이것은 `plan.days[0].lunch`처럼
 타입까지 보장합니다. 자유 문장이 검증된 객체가 되는 순간이고, 문자열 파싱은
 없습니다.
 
-### 5-11. 도구 선택: 이름과 설명이 품질을 가른다
+### 6-11. 도구 선택: 이름과 설명이 품질을 가른다
 
 코드: [`10_tool_selection.py`](https://github.com/2026-ai-service-engineering-a/week05-agent-lab/blob/main/examples/03_tools/10_tool_selection.py)
 
@@ -1532,7 +1644,7 @@ docker compose exec lab python examples/03_tools/10_tool_selection.py
 틀렸습니다. tool_0은 장소 검색 자리입니다. 모델이 보는 것은 코드가 아니라
 이름과 설명 문자열뿐입니다. 도구 설명은 곧 프롬프트입니다.
 
-### 5-12. 전체 그림: 요청에서 답까지, 도구 호출의 한 바퀴
+### 6-12. 전체 그림: 요청에서 답까지, 도구 호출의 한 바퀴
 
 세션을 닫으며 전 과정을 한 장으로 정리합니다. 지금까지의 예제 열한 개가
 전부 이 그림 안의 어느 화살표였습니다.
@@ -1602,10 +1714,10 @@ sequenceDiagram
 - **도구 목록은 매 요청 반복 전송됩니다**: 도구 스키마도 토큰입니다. 도구가
   많을수록 매번 내는 비용이 커집니다. 3번에서 말한 "좁게 준다"의 이유가
   하나 더 늘었습니다
-- **결과도 그냥 메시지입니다**: 3장의 무상태 원칙이 여기서도 성립합니다.
+- **결과도 그냥 메시지입니다**: 4장의 무상태 원칙이 여기서도 성립합니다.
   왕복의 기억은 전부 배열에 있습니다
 
-### 5-13. 코드 포인트: 예산 계산 도구가 스키마로 실리는 지점
+### 6-13. 코드 포인트: 예산 계산 도구가 스키마로 실리는 지점
 
 에이전트 본체에 도구 3종(검색·이동시간·예산)이 실립니다. 코드에서 보는 곳은
 [agent/tools.py](https://github.com/2026-ai-service-engineering-a/week05-agent-lab/blob/main/agent/tools.py)입니다.
@@ -1641,22 +1753,29 @@ docker compose exec lab pytest        # 유닛 테스트 16개 통과
 이 랩의 에이전트는 도구를 딱 1왕복만 씁니다. 여러 도구를 오가며 반복하는
 루프는 6주차 랩에서 완성됩니다.
 
-## 6. 이 세션이 남기는 것
+## 7. 이 세션이 남기는 것
 
-**API의 바닥 (3장)**
+**모델과 서비스 (3장)**
+
+- 모델은 뇌다. 텍스트를 넣으면 텍스트가 나오는 함수 하나다
+- 서비스는 그 위에 도구·루프·방어선을 둘러 붙인 제품이고, 에이전트도 그중 하나다
+- 능력의 경계를 긋는 것은 모델의 성능이 아니라 붙어 있는 도구 목록이다
+- 모델은 모르는 것을 늘 알려주지는 않는다. 산수에서 자신 있게 틀린 기록을 봤다
+
+**API의 바닥 (4장)**
 
 - 응답에서 쓰는 곳은 `content`와 `usage`, 그리고 이번 주에 채워진 `tool_calls`
 - 기억은 서버가 아니라 messages 배열에 있고, 그 배열이 비용이다
 - 채팅의 기억도, compact도 전부 배열 관리 기법이다. 요약은 손실 압축이다
 
-**통합 레이어 (4장)**
+**통합 레이어 (5장)**
 
 - 공식 SDK 세 벌 대신 통합 레이어 한 벌. 그 이득과 대가를 알고 쓴다
 - 프로바이더 교체는 문자열 한 줄, 모델 이름은 `agent/config.py` 한 곳
 - 장애의 종류마다 다른 방어: 재시도(순간), 폴백(모델), 백오프(한도)
 - 비용은 콜백으로 집계하고, 한도·단가는 실행 전에 코드로 읽는다
 
-**tool calling (5장)**
+**tool calling (6장)**
 
 - tool call의 실체는 메시지 필드 하나, 실행·회신은 전부 우리 코드
 - 모델의 능력 경계는 도구 목록이 긋는다. 지식·정확성·행동의 구멍을 도구가 메운다
