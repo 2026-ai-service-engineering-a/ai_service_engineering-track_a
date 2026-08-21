@@ -65,6 +65,42 @@ export const glossary = {
     label: 'Docker Compose',
     def: '컨테이너 실행에 필요한 포트·볼륨·환경변수 설정을 compose.yml 파일 하나로 선언하고, docker compose up 한 번으로 띄우는 도구.',
   },
+  'tool-calling': {
+    label: 'Tool calling',
+    def: '모델이 "이 함수를 이런 인자로 실행해 달라"는 요청을 구조화된 JSON으로 내놓고, 실행 결과를 다시 받아 답을 잇는 방식. 에이전트가 바깥 세계와 닿는 유일한 통로다.',
+  },
+  react: {
+    label: 'ReAct',
+    def: 'reasoning(다음 행동 판단) → action(도구 호출) → observation(결과 관찰)을 종료 조건까지 반복하는 가장 기본적인 에이전트 루프.',
+  },
+  'plan-execute': {
+    label: 'Plan-and-Execute',
+    def: '한 스텝씩 더듬는 대신 계획을 먼저 세우고 순차 실행하는 루프. 매 스텝마다 전체 히스토리를 다시 싣지 않아 ReAct보다 싸고 빠르다.',
+  },
+  reflexion: {
+    label: 'Reflexion',
+    def: '생성 결과를 평가자가 채점하고, 기준에 미달하면 피드백과 함께 다시 생성하는 루프. 생성과 검증을 분리하는 규율의 기본형이다.',
+  },
+  rewoo: {
+    label: 'ReWOO',
+    def: '중간 관찰 없이 계획 한 번으로 도구를 병렬 실행하는 루프. 왕복 횟수를 줄여 토큰을 아끼는 데 특화되어 있다.',
+  },
+  harness: {
+    label: '하네스',
+    def: '모델을 감싸는 실행 환경 전체. 시스템 프롬프트, 도구 정의, 컨텍스트 관리, 가드레일, 로깅이 모두 여기 들어간다. 같은 모델도 하네스가 성능을 가른다. 이것을 설계하는 일이 하네스 엔지니어링이다.',
+  },
+  'budget-guard': {
+    label: 'Budget guard',
+    def: '실행 중 누적 토큰·비용이 상한을 넘으면 경고하거나 중단시키는 장치. 스텝 한도가 루프의 보험이라면 이쪽은 지갑의 보험이다.',
+  },
+  mcp: {
+    label: 'MCP',
+    def: 'Model Context Protocol. 도구와 데이터를 표준 프로토콜로 주고받는 규격. 손으로 정의하던 도구를 서버가 내어놓고, 클라이언트가 목록을 받아 그대로 쓴다.',
+  },
+  'release-ladder': {
+    label: '릴리즈 사다리',
+    def: '시연 저장소마다 v0.1에서 v1.0까지 태그를 밟아 올라가는 진행 방식. 태그 하나가 feature 하나의 완결이고, 어느 단이든 그 시점의 코드로 실행된다.',
+  },
   sse: {
     label: 'SSE',
     def: 'Server-Sent Events. HTTP 연결 하나를 열어둔 채 서버가 클라이언트로 이벤트를 단방향으로 흘려보내는 웹 표준(Content-Type: text/event-stream). 브라우저는 EventSource로 소비한다. LLM 토큰 스트리밍과 작업 진행 상황 전달에 흔히 쓰이며, WebSocket과 달리 일반 HTTP라 가볍다.',
