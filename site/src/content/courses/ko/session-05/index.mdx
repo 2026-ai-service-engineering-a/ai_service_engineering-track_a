@@ -1,11 +1,11 @@
 ---
 title: "5주차: API 해부와 tool calling"
-description: "5주차 라이브 세션 상세 교안: 실습 랩 기동, examples/01_api 11종으로 LLM API의 바닥, examples/02_litellm 10종으로 통합 레이어, examples/03_tools 10종으로 tool calling 심화, 세션 끝에서 에이전트가 도구를 드는 v0.2"
+description: "5주차 라이브 세션 상세 교안: 실습 랩 기동, examples/01_api 11종으로 LLM API의 바닥, examples/02_litellm 10종으로 통합 레이어, examples/03_tools 10종으로 tool calling 심화, 그리고 에이전트가 처음으로 도구를 드는 지점까지"
 summary: "라이브 세션의 상세 교안입니다. 1~4주차에 프레임워크와 라이브러리 뒤에 가려 있던 것을 이번 주에 바닥부터 헤칩니다. 최소 호출의 요청·응답 JSON 원문에서 출발해 역할·토큰·무상태·비용을 잡고, 통합 레이어 위에서 교체·폴백·캐싱·라우팅을 쓰고, 도구 호출 왕복을 JSON 원문으로 해부합니다. 예제 31종을 전부 실행하며, 세션 끝에서 여행 플래너 에이전트가 처음으로 도구를 듭니다."
 date: 2026-08-21
 category: foundation
 slides: ["session-05"]
-tags: ["LLM API", "토큰", "무상태", "LiteLLM", "폴백", "tool calling", "Pydantic", "구조화 출력", "v0.2"]
+tags: ["LLM API", "토큰", "무상태", "LiteLLM", "폴백", "tool calling", "Pydantic", "구조화 출력"]
 level: 2
 order: "05"
 ---
@@ -30,7 +30,7 @@ order: "05"
   이번엔 폴백·재시도·캐싱·라우터·비용 콜백까지 열어서 씁니다
 - **[[tool-calling|tool calling]]을 바닥까지 해부한다**: 모델은 함수를
   실행하지 못합니다. "실행해 달라"고 요청할 뿐이고, 실행은 우리 코드의 일입니다
-- **에이전트가 도구를 든다**: 세션 끝에서 여행 플래너가 v0.2로 오릅니다
+- **에이전트가 도구를 든다**: 세션 끝에서 여행 플래너가 처음으로 도구를 듭니다
 
 이번 주의 마지막 문장은 이것입니다. **도구를 들었지만 아직 루프가 없다.**
 그 결핍이 6주차의 출발점입니다.
@@ -47,27 +47,10 @@ order: "05"
 - 예제 31종 전부를 수업에서 실행합니다. 이 문서에 실행 결과가 함께 실려
   있어, 재현할 때 자기 출력과 대조할 수 있습니다
 - 유닛 테스트는 키·네트워크 없이 돕니다: `docker compose exec lab pytest`
+- 저장소는 **완성된 한 벌**입니다. 중간 버전을 오가지 않고 `main` 그대로
+  실행합니다. 이 랩의 에이전트는 도구까지 실린 상태이고, 루프는 6주차 몫입니다
 
-### 2-2. 릴리즈 사다리: 이번 주는 두 단
-
-[[release-ladder|릴리즈 사다리]]는 지금까지와 같습니다. 태그 하나가 그 시점의
-코드이고, 어느 단에서든 그 시점의 테스트가 통과합니다.
-
-```bash
-git checkout v0.1 && docker compose up --build -d   # 그 시점의 코드로 그 시점의 동작
-git diff v0.1 v0.2                                  # 이번 feature가 코드로는 무엇이었나
-docker compose exec lab pytest                      # 어느 태그에서든 그 시점의 테스트가 통과
-```
-
-| 릴리즈 | 상태 | 테스트 |
-| --- | --- | --- |
-| v0.1 | 예제 31종 + 에이전트 뼈대 (도구 없음) | 5개 통과 |
-| v0.2 | 도구 장착: 예산 계산 도구가 스키마로 실림 | 16개 통과 |
-
-6주차 랩은 이 v0.2에서 이어집니다. 그래서 그쪽의 첫 태그가 v0.1이 아니라
-**v0.2**입니다.
-
-### 2-3. 랩 기동과 환경 점검
+### 2-2. 랩 기동과 환경 점검
 
 ```bash
 git clone https://github.com/2026-ai-service-engineering-a/week05-agent-lab.git
@@ -97,7 +80,7 @@ docker compose exec lab python check_env.py
 키가 하나도 없으면 해결 방법을 안내하고 종료 코드 1로 끝납니다. 셋 중 하나만
 채워도 과정 전체가 돕니다.
 
-### 2-4. 비용은 얼마나 드나
+### 2-3. 비용은 얼마나 드나
 
 호출 한 번은 티끌이지만 에이전트는 루프라서, 비용 감각을 장비처럼 챙깁니다.
 아래는 이 랩의 실제 코드로 잰 값입니다.
@@ -1074,12 +1057,11 @@ docker compose exec lab python examples/02_litellm/10_embedding.py
 
 이 랩의 Gemini 기본 모델은 원래 `gemini-2.5-flash`였는데, 2026-08-14에
 신규 발급 키에서 404(NotFoundError)가 나는 것이 확인되어
-`gemini-3.5-flash-lite`로 교체했습니다. 단가는 동일하고, hotfix `v1.0.1`로
-나갔습니다.
+`gemini-3.5-flash-lite`로 교체했습니다. 단가는 동일합니다.
 
 - 같은 날 OpenAI 쪽도 정렬했습니다. `gpt-5-mini`(2025-08)는 아직 돌지만
   세 세대 뒤라 같은 은퇴 리스크가 있어, 현행 세대의 동급 티어인
-  `gpt-5.4-nano`(2026-03)로 바꿨습니다. 이쪽은 hotfix `v1.0.2`입니다.
+  `gpt-5.4-nano`(2026-03)로 바꿨습니다.
   Anthropic은 Claude 5 패밀리에 아직 haiku가 없어 `claude-haiku-4-5`가
   그대로 현행입니다
 - 두 번 모두 고친 파일은 `agent/config.py` **한 곳**입니다. 예제 전부와
@@ -1093,8 +1075,7 @@ docker compose exec lab python examples/02_litellm/10_embedding.py
 
 ## 5. Tool calling 심화
 
-교재는 `examples/03_tools/` 10종이고, 이 장 끝에서 릴리즈 사다리의 **v0.2**로
-오릅니다. **10종을 전부 실행합니다.** 아래에는 10종 전부의 실제 실행 결과가
+교재는 `examples/03_tools/` 10종이고, 이 장 끝에서 **에이전트가 도구를 듭니다**. **10종을 전부 실행합니다.** 아래에는 10종 전부의 실제 실행 결과가
 실려 있습니다.
 
 - **교재**: [examples/03_tools](https://github.com/2026-ai-service-engineering-a/week05-agent-lab/tree/main/examples/03_tools)
@@ -1311,7 +1292,7 @@ docker compose exec lab python examples/03_tools/03_pydantic_schema.py
 
 손으로 쓰던 JSON 스키마가 파이썬 클래스에서 자동으로 나오고, 같은
 클래스가 도착한 인자를 검증합니다. 명세와 검증이 한 몸이라 어긋날 수가
-없습니다. 아래 v0.2에서 보듯 에이전트 본체의 도구가 전부 이 방식입니다.
+없습니다. 아래 코드 포인트에서 보듯 에이전트 본체의 도구가 전부 이 방식입니다.
 
 ### 5-5. 병렬 도구 호출: 독립 조회는 한 턴에
 
@@ -1624,7 +1605,7 @@ sequenceDiagram
 - **결과도 그냥 메시지입니다**: 3장의 무상태 원칙이 여기서도 성립합니다.
   왕복의 기억은 전부 배열에 있습니다
 
-### 5-13. v0.2 코드 포인트: 예산 계산 도구가 스키마로 실리는 지점
+### 5-13. 코드 포인트: 예산 계산 도구가 스키마로 실리는 지점
 
 에이전트 본체에 도구 3종(검색·이동시간·예산)이 실립니다. 코드에서 보는 곳은
 [agent/tools.py](https://github.com/2026-ai-service-engineering-a/week05-agent-lab/blob/main/agent/tools.py)입니다.
@@ -1653,13 +1634,12 @@ def run_tool(name: str, raw_arguments: str) -> str:
 - 이 지점의 유닛 테스트 11개가 예산 산수·스키마 제약·관문의 방어를 박제합니다
 
 ```bash
-git checkout v0.2
 docker compose exec lab python -m agent.main "3박 4일 오사카 2명, 예산 얼마나 들까?"
-docker compose exec lab pytest        # 이 시점의 테스트 16개 통과
+docker compose exec lab pytest        # 유닛 테스트 16개 통과
 ```
 
-v0.2의 에이전트는 도구를 딱 1왕복만 씁니다. 여러 도구를 오가며 반복하는
-루프는 6주차 랩의 v0.3에서 완성됩니다.
+이 랩의 에이전트는 도구를 딱 1왕복만 씁니다. 여러 도구를 오가며 반복하는
+루프는 6주차 랩에서 완성됩니다.
 
 ## 6. 이 세션이 남기는 것
 
@@ -1686,6 +1666,6 @@ v0.2의 에이전트는 도구를 딱 1왕복만 씁니다. 여러 도구를 오
 
 **그리고 남은 결핍**
 
-v0.2의 에이전트는 도구를 딱 한 번 씁니다. 여러 도구를 오가며 반복하려면
+이 랩의 에이전트는 도구를 딱 한 번 씁니다. 여러 도구를 오가며 반복하려면
 루프가 필요하고, 루프가 생기면 멈출 조건이 필요하고, 도구가 물어온 것을
 믿어도 되는지 판단할 경계가 필요합니다. 그것이 [6주차](/course/session-06/)입니다.

@@ -1,10 +1,10 @@
 ---
 title: "6주차: 에이전트 루프와 하네스"
-description: "6주차 라이브 세션 슬라이드: ReAct 루프와 트레이스, 스텝 한도와 컨텍스트 팽창, Plan-Execute·재계획·Reflexion·ReWOO, 인젝션 방어와 데이터 경계, 권한·감금·필터, budget guard, MCP 시연 4종, v0.3에서 v1.2까지"
+description: "6주차 라이브 세션 슬라이드: ReAct 루프와 트레이스, 스텝 한도와 컨텍스트 팽창, Plan-Execute·재계획·Reflexion·ReWOO, 인젝션 방어와 데이터 경계, 권한·감금·필터, budget guard, MCP 시연 4종까지"
 presenter: CodeCompose
 date: "2026-08-28"
 transition: none
-toc_level: 3
+toc_level: 4
 toc_open: false
 ---
 
@@ -39,10 +39,10 @@ import HarnessGates from '../../../../components/HarnessGates.astro';
 ## 오늘 하는 일
 ::sub[루프를 달고, 견주고, 가둡니다]
 
-- **루프를 단다**: reasoning → action → observation (v0.3)
-- **루프를 견준다**: Plan-Execute · 재계획 · Reflexion · ReWOO (v0.4)
-- **루프를 가둔다**: 인젝션 방어 · 권한 · 감금 · budget guard (v1.0)
-- **도구를 표준으로**: MCP 시연 4종 (v1.1\~v1.2)
+- **루프를 단다**: reasoning → action → observation
+- **루프를 견준다**: Plan-Execute · 재계획 · Reflexion · ReWOO
+- **루프를 가둔다**: 인젝션 방어 · 권한 · 감금 · budget guard
+- **도구를 표준으로**: MCP 시연 4종
 
 예제 **24종을 전부 실행**합니다.
 
@@ -51,34 +51,21 @@ import HarnessGates from '../../../../components/HarnessGates.astro';
 <Slide>
 
 ### 랩 이어받기
-::sub[5주차 랩의 연장입니다. 첫 태그가 v0.2인 이유]
+::sub[5주차 랩에 루프·하네스·MCP를 얹은 완성본입니다]
 
 ```bash
 git clone https://github.com/2026-ai-service-engineering-a/week06-agent-lab.git
 cd week06-agent-lab
 cp .env.sample .env        # 5주차에 쓰던 키를 그대로
 docker compose up --build -d
-docker compose exec lab pytest        # 시작 지점의 테스트 16개 통과
+docker compose exec lab pytest        # 유닛 테스트 33개 통과
 ```
 
-`agent/`와 `tests/`는 5주차의 v0.2와 같고,
-`examples/`에 이번 주 몫 24종이 더 들어 있습니다.
+5주차의 예제 31종이 그대로 있고, `examples/`에 이번 주 몫 24종이 더 있습니다.
+에이전트는 루프·하네스까지 실린 **완성본**입니다.
 
 </Slide>
 
-<Slide>
-
-### 이번 주 사다리는 네 단
-
-| 릴리즈 | 상태 | 테스트 | 대응 |
-| --- | --- | --- | --- |
-| v0.2 | 5주차 종료 지점: 도구는 있고 루프는 없다 | 16개 | 시작점 |
-| v0.3 | ReAct 루프 완성: 여행 플래너가 처음 동작 | 17개 | 3장 |
-| v0.4 | 고급 루프: Reflexion 재시도 장착 | 21개 | 4장 |
-| v1.0 | 하네스 완성: 인젝션 방어 + budget guard | 33개 | 5장 |
-| v1.1\~v1.2 | MCP 시연 4종 (stdio·HTTP 전송) | 33개 | 6장 |
-
-</Slide>
 
 <Slide>
 
@@ -113,7 +100,7 @@ flowchart TD
 
 ## 3장 · ReAct 루프
 
-`examples/04_react/` 4종 → **v0.3**
+`examples/04_react/` 4종
 
 *5주차의 왕복이 드디어 루프가 됩니다*
 
@@ -121,25 +108,25 @@ flowchart TD
 
 <Slide>
 
-## 3장이 하는 일
+### 3장이 하는 일
 ::sub[5주차의 왕복이 드디어 루프가 됩니다]
 
 - 완성본 여행 플래너를 돌리며 **트레이스를 읽습니다**.
 - `examples/04_react/` **4종을 전부 실행**합니다.
 - 스텝 한도가 어떻게 보험으로 동작하는지, 컨텍스트가 어떻게 부푸는지 실측
-- 장 끝에서 에이전트가 **v0.3**, 처음으로 제대로 동작합니다.
+- 이 장에서 에이전트가 **처음으로 제대로 동작**합니다.
 
 </Slide>
 <Slide class="center">
 
-## 핵심 문장
+### 핵심 문장
 
 **에이전트를 이해한다는 것은 트레이스를 읽을 줄 안다는 뜻이다**.
 
 </Slide>
 <Slide>
 
-## ReAct: reasoning → action → observation
+### ReAct: reasoning → action → observation
 
 ```mermaid
 flowchart TD
@@ -155,7 +142,7 @@ flowchart TD
 </Slide>
 <Slide class="center">
 
-## ReAct의 실체
+### ReAct의 실체
 
 **5주차의 왕복 + for 루프 + 종료 조건 둘**
 
@@ -164,23 +151,23 @@ flowchart TD
 </Slide>
 <Slide>
 
-## 오늘의 순서
+### 오늘의 순서
 
-1. 루프의 전부 (v0.3 코드 포인트)
+1. 루프의 전부 (코드 포인트)
 2. 트레이스 읽기
 3. 스텝 한도: 1, 3, 10
 4. 프롬프트 절제: 문단을 빼면 무엇이 달라지나
 5. 컨텍스트 팽창: 우상향 계단
 6. 실패 재현: 무한 루프
-7. v0.3 완성 확인
+7. 완성 확인
 
 </Slide>
 <Slide>
 
-## v0.2는 무엇이 부족했나
+### 5주차의 에이전트는 무엇이 부족했나
 ::sub[도구는 실렸지만, 한 번 쓰고 끝났습니다]
 
-- v0.2의 에이전트는 도구를 **딱 1왕복만** 씁니다.
+- 5주차의 에이전트는 도구를 **딱 1왕복만** 썼습니다.
 - "예산을 계산해 보니 초과다. 그럼 다른 조건으로 다시" 같은 행동이 불가능합니다.
 - 도구 결과를 보고 **다음 행동을 정하는 자리**가 없기 때문입니다.
 
@@ -189,14 +176,14 @@ flowchart TD
 </Slide>
 <Slide class="center">
 
-## Part 1. 루프의 전부
+### Part 1. 루프의 전부
 
 `agent/react.py`, 뼈대만 추리면 이것이 전부입니다.
 
 </Slide>
 <Slide>
 
-### 먼저 의사코드로
+#### 먼저 의사코드로
 
 ```plaintext
 messages = [system, user]
@@ -215,7 +202,7 @@ messages = [system, user]
 </Slide>
 <Slide>
 
-### v0.3 코드 포인트
+#### 코드 포인트: 루프의 전부
 
 ```python
 for step_no in range(1, max_steps + 1):
@@ -239,7 +226,7 @@ response = completion(model=model, messages=messages)
 </Slide>
 <Slide>
 
-### 분기 조건은 하나뿐
+#### 분기 조건은 하나뿐
 
 ```python
 if not message.tool_calls:
@@ -253,7 +240,7 @@ if not message.tool_calls:
 </Slide>
 <Slide>
 
-### 종료 조건 ②: 한도 도달
+#### 종료 조건 ②: 한도 도달
 
 ```python
 # 한도 도달 후의 마무리 호출
@@ -268,7 +255,7 @@ response = completion(model=model, messages=messages)   # tools 없음
 </Slide>
 <Slide>
 
-### 매 스텝 messages 배열은 이렇게 쌓인다
+#### 매 스텝 messages 배열은 이렇게 쌓인다
 
 ```plaintext
 [system] 여행 상담원 지침
@@ -286,7 +273,7 @@ response = completion(model=model, messages=messages)   # tools 없음
 </Slide>
 <Slide>
 
-### 도구 목록도 매 스텝 다시 실린다
+#### 도구 목록도 매 스텝 다시 실린다
 
 ```python
 response = completion(model=model, messages=messages, tools=tool_schemas())
@@ -299,7 +286,7 @@ response = completion(model=model, messages=messages, tools=tool_schemas())
 </Slide>
 <Slide>
 
-### 매 스텝은 데이터로 남는다
+#### 매 스텝은 데이터로 남는다
 
 - 매 스텝이 `StepRecord`(도구·인자·결과·토큰)로 기록됩니다.
 - 오늘 볼 예제 4종이 전부 **이 데이터를 읽어서** 만들어집니다.
@@ -309,7 +296,7 @@ response = completion(model=model, messages=messages, tools=tool_schemas())
 </Slide>
 <Slide class="center">
 
-### 루프를 만드는 데 필요한 것은
+#### 루프를 만드는 데 필요한 것은
 
 ## 새로운 개념이 아니라 종료 조건입니다
 
@@ -319,14 +306,14 @@ response = completion(model=model, messages=messages, tools=tool_schemas())
 </Slide>
 <Slide class="center">
 
-## Part 2. 트레이스 읽기
+### Part 2. 트레이스 읽기
 
 에이전트의 사고 과정
 
 </Slide>
 <Slide>
 
-### 1. 트레이스 읽기
+#### 1. 트레이스 읽기
 ::sub[01_react_trace.py · "3박 4일 오사카, 예산 80만원"을 verbose로]
 
 ```bash
@@ -339,7 +326,7 @@ docker compose exec lab python examples/04_react/01_react_trace.py
 </Slide>
 <Slide>
 
-### 트레이스를 읽을 때 보는 것
+#### 트레이스를 읽을 때 보는 것
 ::sub[네 가지만 보면 됩니다]
 
 - **어떤 도구**를 불렀나 (도구 선택이 맞았나)
@@ -350,7 +337,7 @@ docker compose exec lab python examples/04_react/01_react_trace.py
 </Slide>
 <Slide>
 
-### 앞의 두 스텝: 예산을 두 번 계산했다
+#### 앞의 두 스텝: 예산을 두 번 계산했다
 
 ```text
 [step 1] calc_budget({"people": 1, "nights": 3, "style": "보통"})
@@ -365,7 +352,7 @@ docker compose exec lab python examples/04_react/01_react_trace.py
 </Slide>
 <Slide>
 
-### 두 인자를 나란히 놓고 보세요
+#### 두 인자를 나란히 놓고 보세요
 
 ```text
 step 1: {"people": 1, "nights": 3, "style": "보통"}
@@ -380,7 +367,7 @@ step 2: {"people": 1, "nights": 3, "style": "절약"}
 </Slide>
 <Slide>
 
-### 그다음에야 장소를 검색했다
+#### 그다음에야 장소를 검색했다
 
 ```text
 [step 3] search_places({"category": "관광", "city": "오사카"}) …  (1045tk)
@@ -395,7 +382,7 @@ step 2: {"people": 1, "nights": 3, "style": "절약"}
 </Slide>
 <Slide>
 
-### 최종 답
+#### 최종 답
 
 ```text
 === 최종 답 (앞부분) ===
@@ -409,7 +396,7 @@ step 2: {"people": 1, "nights": 3, "style": "절약"}
 </Slide>
 <Slide class="center">
 
-### 시키지 않은 일이 일어났습니다
+#### 시키지 않은 일이 일어났습니다
 
 "예산을 초과하면 다시 계산하라"고 쓴 적이 없습니다.
 
@@ -418,7 +405,7 @@ step 2: {"people": 1, "nights": 3, "style": "절약"}
 </Slide>
 <Slide>
 
-### 트레이스가 말해 주는 것
+#### 트레이스가 말해 주는 것
 
 - 어떤 도구를, 어떤 인자로, 어떤 순서로 불렀나
 - 각 스텝의 컨텍스트가 얼마나 컸나 (799 → 1,673토큰)
@@ -428,7 +415,7 @@ step 2: {"people": 1, "nights": 3, "style": "절약"}
 </Slide>
 <Slide>
 
-### 종료 사유 두 가지를 구분하세요
+#### 종료 사유 두 가지를 구분하세요
 
 | 종료 사유 | 무슨 뜻인가 | 어떻게 읽나 |
 | --- | --- | --- |
@@ -441,7 +428,7 @@ step 2: {"people": 1, "nights": 3, "style": "절약"}
 </Slide>
 <Slide class="center">
 
-### 트레이스는 print가 아니라 데이터입니다
+#### 트레이스는 print가 아니라 데이터입니다
 
 스텝·인자·결과·토큰이 구조로 남아야 읽을 수 있습니다.
 
@@ -450,14 +437,14 @@ step 2: {"people": 1, "nights": 3, "style": "절약"}
 </Slide>
 <Slide class="center">
 
-## Part 3. 스텝 한도
+### Part 3. 스텝 한도
 
 1, 3, 10으로 바꿔 보면
 
 </Slide>
 <Slide>
 
-### 2. 같은 질문, 세 가지 한도
+#### 2. 같은 질문, 세 가지 한도
 ::sub[02_max_steps.py · 한도가 도구 사용량과 근거의 두께를 어떻게 바꾸나]
 
 - 실행
@@ -481,7 +468,7 @@ docker compose exec lab python examples/04_react/02_max_steps.py
 </Slide>
 <Slide>
 
-### 한도 3과 10
+#### 한도 3과 10
 
 ```text
 === max_steps = 3 ===
@@ -499,7 +486,7 @@ docker compose exec lab python examples/04_react/02_max_steps.py
 </Slide>
 <Slide>
 
-### 결과 읽기
+#### 결과 읽기
 
 - 한도가 낮으면 답이 안 나오는 게 아니라 **근거가 얇아집니다**.
 - 한도 10에서는 한도가 쓰이지도 않았습니다.
@@ -509,7 +496,7 @@ docker compose exec lab python examples/04_react/02_max_steps.py
 </Slide>
 <Slide>
 
-### 세 실행을 표로
+#### 세 실행을 표로
 
 | 한도 | 사용한 스텝 | 종료 | 쓴 도구 수 | 답 길이 |
 | --- | --- | --- | --- | --- |
@@ -523,7 +510,7 @@ docker compose exec lab python examples/04_react/02_max_steps.py
 </Slide>
 <Slide>
 
-### 그럼 한도를 얼마로 둘 것인가
+#### 그럼 한도를 얼마로 둘 것인가
 
 - 너무 낮으면: 근거가 얇은 답이 나옵니다. 그래도 답은 나옵니다.
 - 너무 높으면: 폭주 시 비용이 커집니다. 정상 실행에는 영향이 없습니다.
@@ -534,7 +521,7 @@ docker compose exec lab python examples/04_react/02_max_steps.py
 </Slide>
 <Slide class="center">
 
-### 스텝 한도는 품질 설정이 아니라
+#### 스텝 한도는 품질 설정이 아니라
 
 ## 폭주에 대한 보험입니다
 
@@ -543,14 +530,14 @@ docker compose exec lab python examples/04_react/02_max_steps.py
 </Slide>
 <Slide class="center">
 
-## Part 4. 프롬프트 절제
+### Part 4. 프롬프트 절제
 
 문단을 빼면 무엇이 달라지나
 
 </Slide>
 <Slide>
 
-### 3. 세 가지 프롬프트
+#### 3. 세 가지 프롬프트
 ::sub[03_prompt_ablation.py · 같은 질문을 세 조건으로]
 
 - **①** 온전한 프롬프트
@@ -564,7 +551,7 @@ docker compose exec lab python examples/04_react/03_prompt_ablation.py
 </Slide>
 <Slide>
 
-### 무엇을 빼는가
+#### 무엇을 빼는가
 
 에이전트의 시스템 프롬프트는 대략 이런 문단들로 되어 있습니다.
 
@@ -578,7 +565,7 @@ docker compose exec lab python examples/04_react/03_prompt_ablation.py
 </Slide>
 <Slide>
 
-### ① 온전한 프롬프트
+#### ① 온전한 프롬프트
 
 ```text
   스텝 8, 도구 사용 7회
@@ -591,7 +578,7 @@ docker compose exec lab python examples/04_react/03_prompt_ablation.py
 </Slide>
 <Slide>
 
-### ② 도구 지침 제거 · ③ 빈 프롬프트
+#### ② 도구 지침 제거 · ③ 빈 프롬프트
 
 ```text
 === ② 도구 지침 문단 제거 ===
@@ -606,7 +593,7 @@ docker compose exec lab python examples/04_react/03_prompt_ablation.py
 </Slide>
 <Slide>
 
-### 정직하게 읽어야 하는 결과입니다
+#### 정직하게 읽어야 하는 결과입니다
 
 - **빈 프롬프트에서도 도구는 쓰였습니다**.
 - 요즘 모델은 도구 사용 자체를 훈련으로 익히고 있어서,
@@ -616,7 +603,7 @@ docker compose exec lab python examples/04_react/03_prompt_ablation.py
 </Slide>
 <Slide>
 
-### 차이는 꼼꼼함에서 난다
+#### 차이는 꼼꼼함에서 난다
 
 - **온전한 프롬프트**: "근거를 도구로 확인하라"는 지침 때문에
   도구를 7회 쓰며 검증했습니다.
@@ -626,14 +613,14 @@ docker compose exec lab python examples/04_react/03_prompt_ablation.py
 </Slide>
 <Slide class="center">
 
-### 프롬프트의 각 문단은
+#### 프롬프트의 각 문단은
 
 ## 루프의 생사가 아니라 일하는 기준을 바꿉니다
 
 </Slide>
 <Slide>
 
-### 이 실험을 읽을 때의 주의
+#### 이 실험을 읽을 때의 주의
 
 - 각 조건을 **1회씩** 돌린 결과입니다. 모델은 비결정적입니다.
 - 숫자(스텝 8 vs 4)를 성능 지표로 받아들이면 안 됩니다.
@@ -645,14 +632,14 @@ docker compose exec lab python examples/04_react/03_prompt_ablation.py
 </Slide>
 <Slide class="center">
 
-## Part 5. 컨텍스트 팽창
+### Part 5. 컨텍스트 팽창
 
 ReAct의 비용 구조
 
 </Slide>
 <Slide>
 
-### 4. 스텝별 입력 토큰
+#### 4. 스텝별 입력 토큰
 ::sub[04_context_growth.py · 스텝마다 얼마가 실려 가는가]
 
 - 실행
@@ -676,7 +663,7 @@ docker compose exec lab python examples/04_react/04_context_growth.py
 </Slide>
 <Slide>
 
-### 합계
+#### 합계
 
 ```text
 === 합계 ===
@@ -689,7 +676,7 @@ docker compose exec lab python examples/04_react/04_context_growth.py
 </Slide>
 <Slide>
 
-### 왜 우상향 계단인가
+#### 왜 우상향 계단인가
 
 - 5주차 3장에서 본 **무상태**의 대가입니다.
 - 서버는 아무것도 기억하지 않으므로,
@@ -700,7 +687,7 @@ docker compose exec lab python examples/04_react/04_context_growth.py
 </Slide>
 <Slide class="center">
 
-### 막대만으로는 "무엇이 다시 가는가"가 안 보입니다
+#### 막대만으로는 "무엇이 다시 가는가"가 안 보입니다
 
 같은 질문을 한 번 더 돌리면서
 **매 호출에 실려 간 messages 배열을 통째로** 떠 왔습니다.
@@ -710,14 +697,14 @@ docker compose exec lab python examples/04_react/04_context_growth.py
 </Slide>
 <Slide>
 
-### 직접 넘겨 보기: 배열이 자라고, compact가 접는다
+#### 직접 넘겨 보기: 배열이 자라고, compact가 접는다
 
 <ContextGrowth />
 
 </Slide>
 <Slide>
 
-### 넘겨 보면 걸리는 두 가지
+#### 넘겨 보면 걸리는 두 가지
 
 - **새로 붙는 것은 매 스텝 메시지 두 개뿐인데**,
   청구서는 직전 호출분을 통째로 다시 냅니다.
@@ -729,7 +716,7 @@ docker compose exec lab python examples/04_react/04_context_growth.py
 </Slide>
 <Slide>
 
-### 접어 보기: compact도 실측입니다
+#### 접어 보기: compact도 실측입니다
 
 - 접어 보기를 누르면 5주차 3장 9절의 compact가 **이 배열에 실제로** 적용됩니다.
 - 요약문은 손으로 쓴 것이 아니라 **LLM에 접기를 시켜 받은 것**이고,
@@ -740,7 +727,7 @@ docker compose exec lab python examples/04_react/04_context_growth.py
 </Slide>
 <Slide>
 
-### 곡선을 공격하는 세 가지 방향
+#### 곡선을 공격하는 세 가지 방향
 
 - **재전송을 줄인다**: 오래된 구간을 요약으로 갈아끼운다 (5주차 3장의 compact)
 - **LLM 호출 자체를 줄인다**: 계획을 먼저 세우고 도구는 LLM 없이 돌린다
@@ -751,7 +738,7 @@ docker compose exec lab python examples/04_react/04_context_growth.py
 </Slide>
 <Slide class="center">
 
-### 루프 설계가 곧 비용 설계입니다
+#### 루프 설계가 곧 비용 설계입니다
 
 이 곡선이 ReAct의 비용 구조이고,
 
@@ -760,14 +747,14 @@ docker compose exec lab python examples/04_react/04_context_growth.py
 </Slide>
 <Slide class="center">
 
-## Part 6. 실패 재현
+### Part 6. 실패 재현
 
 종료 조건이 없다면
 
 </Slide>
 <Slide>
 
-### 무한 루프의 조건
+#### 무한 루프의 조건
 
 - 모델이 도구만 계속 요청하면 루프가 영원히 돕니다.
 - 실제 모델로 재현하면 비결정적이고 돈이 나가므로,
@@ -777,7 +764,7 @@ docker compose exec lab python examples/04_react/04_context_growth.py
 </Slide>
 <Slide>
 
-### 각본 LLM이란
+#### 각본 LLM이란
 ::sub[비결정적인 것을 결정적으로 만드는 테스트 기법]
 
 - 실제 API 대신 **미리 정해 둔 응답을 순서대로 돌려주는** 가짜 LLM
@@ -788,7 +775,7 @@ docker compose exec lab python examples/04_react/04_context_growth.py
 </Slide>
 <Slide>
 
-### 각본 LLM 테스트
+#### 각본 LLM 테스트
 
 ```python
 # tests/test_react.py — 모델이 영원히 도구만 요청하는 각본
@@ -805,7 +792,7 @@ assert "tools" not in llm.calls[2]     # 마무리 호출엔 도구가 없어야
 </Slide>
 <Slide class="center">
 
-### 세 번째 단언이 핵심입니다
+#### 세 번째 단언이 핵심입니다
 
 한도에 걸린 뒤의 마무리 호출에 tools가 실렸다면
 
@@ -814,7 +801,7 @@ assert "tools" not in llm.calls[2]     # 마무리 호출엔 도구가 없어야
 </Slide>
 <Slide>
 
-### 테스트가 박제하는 세 가지
+#### 테스트가 박제하는 세 가지
 
 - `stopped_by == "max_steps"`: 한도가 실제로 걸렸는가
 - 답이 비어 있지 않은가: 마무리 호출이 답을 만들어 냈는가
@@ -826,41 +813,40 @@ assert "tools" not in llm.calls[2]     # 마무리 호출엔 도구가 없어야
 </Slide>
 <Slide class="center">
 
-## Part 7. v0.3 완성
+### Part 7. 완성 확인
 
 여행 플래너가 처음 동작합니다.
 
 </Slide>
 <Slide>
 
-### 완성 확인
+#### 완성 확인
 
 ```bash
-git checkout v0.3
 docker compose exec lab python -m agent.main --verbose "3박 4일 오사카, 예산 80만원"
 docker compose exec lab python examples/04_react/01_react_trace.py
-docker compose exec lab pytest        # 이 시점의 테스트 17개 통과
+docker compose exec lab pytest        # 유닛 테스트 33개 통과
 ```
 
-v0.2는 도구를 1왕복만 썼습니다.  
-v0.3부터는 **여러 도구를 오가며 스스로 멈출 때까지 반복**합니다.
+5주차의 에이전트는 도구를 1왕복만 썼습니다.  
+이제는 **여러 도구를 오가며 스스로 멈출 때까지 반복**합니다.
 
 </Slide>
 <Slide>
 
-### v0.3에서 새로 생긴 것
+#### 루프가 새로 만든 것
 
 - `agent/react.py`: 루프 본체와 종료 조건 둘
 - `StepRecord`: 스텝마다 도구·인자·결과·토큰을 남기는 자료구조
 - `--verbose` 플래그: 그 기록을 사람이 읽을 수 있게 출력
-- 테스트 1개 추가 (16개 → 17개): 무한 루프 방어
+- 무한 루프 방어를 박제하는 유닛 테스트
 
 **루프보다 기록이 먼저입니다.** 기록이 없으면 루프를 고칠 수 없습니다.
 
 </Slide>
 <Slide class="center">
 
-### 여기까지가 "에이전트"의 최소 정의입니다
+#### 여기까지가 "에이전트"의 최소 정의입니다
 
 도구를 부를지, 몇 번 부를지, 언제 멈출지를
 
@@ -869,7 +855,7 @@ v0.3부터는 **여러 도구를 오가며 스스로 멈출 때까지 반복**�
 </Slide>
 <Slide>
 
-## 3장이 남기는 것
+### 3장이 남기는 것
 
 - ReAct는 5주차의 왕복 + for 루프 + 종료 조건 둘. **그 이상이 아니다**.
 - 트레이스는 print가 아니라 데이터다.
@@ -882,7 +868,7 @@ v0.3부터는 **여러 도구를 오가며 스스로 멈출 때까지 반복**�
 
 ## 4장 · ReAct 너머의 루프들
 
-`examples/05_loops/` 6종 → **v0.4**
+`examples/05_loops/` 6종
 
 *한 스텝씩 더듬는 비용 구조를 공격합니다*
 
@@ -890,18 +876,18 @@ v0.3부터는 **여러 도구를 오가며 스스로 멈출 때까지 반복**�
 
 <Slide>
 
-## 4장이 하는 일
+### 4장이 하는 일
 ::sub[방금 본 우상향 계단을 공격합니다]
 
 - `examples/05_loops/` **6종을 전부 실행**합니다.
 - 계획·재계획·평가·병렬이라는 네 가지 다른 전략을 봅니다.
-- 장 끝에서 에이전트에 Reflexion 재시도가 실려 **v0.4**가 됩니다.
+- 장 끝에서 에이전트에 Reflexion 재시도가 실립니다.
 - 도구 층은 결정적 목데이터라 **루프 구조만** 관찰됩니다.
 
 </Slide>
 <Slide class="center">
 
-## 출발점: ReAct의 한계
+### 출발점: ReAct의 한계
 
 한 스텝씩 더듬어 가느라 **느리고**,
 
@@ -910,7 +896,7 @@ v0.3부터는 **여러 도구를 오가며 스스로 멈출 때까지 반복**�
 </Slide>
 <Slide>
 
-## 한계를 다시 숫자로
+### 한계를 다시 숫자로
 
 - 3장 실측: 6스텝에 입력 토큰 **7,400개**,
   마지막 한 스텝만 1,552토큰
@@ -920,7 +906,7 @@ v0.3부터는 **여러 도구를 오가며 스스로 멈출 때까지 반복**�
 </Slide>
 <Slide>
 
-## 세 루프 한눈에
+### 세 루프 한눈에
 
 ```mermaid
 flowchart LR
@@ -943,7 +929,7 @@ flowchart LR
 </Slide>
 <Slide>
 
-## 오늘의 순서
+### 오늘의 순서
 
 1. Plan-and-Execute: 계획 먼저
 2. 재계획: 막히면 계획으로 되돌린다
@@ -951,19 +937,19 @@ flowchart LR
 4. 루브릭 실험: 기준이 품질을 정의한다
 5. ReWOO: 변수로 미리 배선
 6. 계산서: 같은 과제의 두 청구서
-7. v0.4: 평가와 재시도가 실린다
+7. 코드 포인트: 평가와 재시도가 실린다
 
 </Slide>
 <Slide class="center">
 
-## Part 1. Plan-and-Execute
+### Part 1. Plan-and-Execute
 
 계획 먼저, 실행은 LLM 없이
 
 </Slide>
 <Slide>
 
-### 발상의 전환
+#### 발상의 전환
 
 - ReAct: **한 스텝 하고 → 결과 보고 → 다음 스텝 정하고**
 - Plan-and-Execute: **할 일을 먼저 다 정하고 → 그냥 실행**
@@ -973,7 +959,7 @@ flowchart LR
 </Slide>
 <Slide>
 
-### 1. 세 단계로 나눈다
+#### 1. 세 단계로 나눈다
 ::sub[01_plan_execute.py]
 
 - 코드
@@ -996,7 +982,7 @@ docker compose exec lab python examples/05_loops/01_plan_execute.py
 </Slide>
 <Slide>
 
-### ① 계획 (LLM 호출 1번)
+#### ① 계획 (LLM 호출 1번)
 
 ```text
 === ① 계획 (LLM 호출 1번) ===
@@ -1010,7 +996,7 @@ ReAct처럼 하나 해 보고 다음을 정하는 방식이 아닙니다.
 </Slide>
 <Slide>
 
-### 계획을 JSON으로 받는 이유
+#### 계획을 JSON으로 받는 이유
 
 ```python
 completion(…, response_format={"type": "json_object"})
@@ -1023,7 +1009,7 @@ completion(…, response_format={"type": "json_object"})
 </Slide>
 <Slide class="center">
 
-### 실행 단계에 LLM이 없습니다
+#### 실행 단계에 LLM이 없습니다
 
 `observations = [run(step) for step in plan]`
 
@@ -1032,7 +1018,7 @@ completion(…, response_format={"type": "json_object"})
 </Slide>
 <Slide>
 
-### ② 실행 (LLM 호출 0번) · ③ 종합 (1번)
+#### ② 실행 (LLM 호출 0번) · ③ 종합 (1번)
 
 ```text
 === ② 실행 (LLM 호출 0번) ===
@@ -1050,7 +1036,7 @@ completion(…, response_format={"type": "json_object"})
 </Slide>
 <Slide>
 
-### 결과 읽기: 팽창 계단이 아예 생기지 않는다
+#### 결과 읽기: 팽창 계단이 아예 생기지 않는다
 
 - 호출 횟수가 **계획 1 + 종합 1로 고정**입니다.
 - 도구 실행 사이에 LLM이 없으니, 3장의 우상향 계단이 만들어지지 않습니다.
@@ -1059,7 +1045,7 @@ completion(…, response_format={"type": "json_object"})
 </Slide>
 <Slide class="center">
 
-### 대신, 계획이 틀리면 그대로 틀립니다
+#### 대신, 계획이 틀리면 그대로 틀립니다
 
 중간 결과를 보고 방향을 트는 능력이 없습니다.
 
@@ -1068,14 +1054,14 @@ completion(…, response_format={"type": "json_object"})
 </Slide>
 <Slide class="center">
 
-## Part 2. 재계획
+### Part 2. 재계획
 
 막히면 실패를 들고 계획으로
 
 </Slide>
 <Slide>
 
-### 2. 실패 경로를 확실히 밟는다
+#### 2. 실패 경로를 확실히 밟는다
 ::sub[02_replan.py · 목DB에 없는 도시(나라)를 묻는다]
 
 - 코드
@@ -1097,7 +1083,7 @@ docker compose exec lab python examples/05_loops/02_replan.py
 </Slide>
 <Slide>
 
-### 재계획 프롬프트에 담아야 하는 것
+#### 재계획 프롬프트에 담아야 하는 것
 
 - **무엇을 시도했는가**: 직전 계획의 어느 단계였나
 - **어떻게 실패했는가**: 빈 결과인가, 에러인가, 조건 미달인가
@@ -1109,7 +1095,7 @@ docker compose exec lab python examples/05_loops/02_replan.py
 </Slide>
 <Slide>
 
-### 계획이 옮겨 간다
+#### 계획이 옮겨 간다
 
 ```text
 === 계획 시도 1 ===
@@ -1126,7 +1112,7 @@ docker compose exec lab python examples/05_loops/02_replan.py
 </Slide>
 <Slide>
 
-### 결과 읽기
+#### 결과 읽기
 
 - 실패를 예외로 던지지 않고 **계획 단계로 되돌립니다**.
 - 재계획에도 **한도가 있습니다**. 기본 3회
@@ -1135,7 +1121,7 @@ docker compose exec lab python examples/05_loops/02_replan.py
 </Slide>
 <Slide class="center">
 
-### 한도 없는 재계획은 무한 루프의 다른 이름입니다
+#### 한도 없는 재계획은 무한 루프의 다른 이름입니다
 
 계획을 다시 세운다는 것은 **LLM 호출이 또 늘어난다**는 뜻입니다.
 
@@ -1144,7 +1130,7 @@ docker compose exec lab python examples/05_loops/02_replan.py
 </Slide>
 <Slide class="center">
 
-### "계획 → 실행 → 막히면 재계획"
+#### "계획 → 실행 → 막히면 재계획"
 
 **실패를 되먹이는 모든 복구 루프의 원형입니다**.
 
@@ -1154,14 +1140,14 @@ docker compose exec lab python examples/05_loops/02_replan.py
 </Slide>
 <Slide class="center">
 
-## Part 3. Reflexion
+### Part 3. Reflexion
 
 생성과 평가의 분리
 
 </Slide>
 <Slide>
 
-### Reflexion의 세 부품
+#### Reflexion의 세 부품
 
 - **생성자**: 답을 만든다. 지금까지 본 루프 아무거나 써도 됩니다.
 - **평가자**: 루브릭으로 채점하고 부족한 점을 한 줄로 돌려준다.
@@ -1173,7 +1159,7 @@ Reflexion은 "잘했는지 누가 판단할까"입니다.
 </Slide>
 <Slide>
 
-### 3. 채점자를 따로 둔다
+#### 3. 채점자를 따로 둔다
 ::sub[03_reflexion.py · 가족 단톡방 후기 3문장을 쓰고 채점한다]
 
 - 코드
@@ -1199,7 +1185,7 @@ docker compose exec lab python examples/05_loops/03_reflexion.py
 </Slide>
 <Slide>
 
-### 실행 결과
+#### 실행 결과
 
 ```text
 === 시도 1 — 평가 28/30 ===
@@ -1217,7 +1203,7 @@ docker compose exec lab python examples/05_loops/03_reflexion.py
 </Slide>
 <Slide>
 
-### 결과 읽기: 구조가 하는 일
+#### 결과 읽기: 구조가 하는 일
 
 - 평가자는 점수와 함께 **"무엇이 부족한가"를 한 줄로** 돌려줍니다.
 - 미달이면 그 피드백이 **다음 생성 프롬프트에 박힙니다**.
@@ -1226,7 +1212,7 @@ docker compose exec lab python examples/05_loops/03_reflexion.py
 </Slide>
 <Slide>
 
-### 평가자도 LLM이라는 점을 잊지 않습니다
+#### 평가자도 LLM이라는 점을 잊지 않습니다
 
 - 평가자가 틀리면 **좋은 답을 버리고 나쁜 답을 통과**시킵니다.
 - 그래서 채점 기준은 **가능한 한 기계적으로** 씁니다.
@@ -1237,7 +1223,7 @@ docker compose exec lab python examples/05_loops/03_reflexion.py
 </Slide>
 <Slide class="center">
 
-### "한 번에 잘 쓰기"보다
+#### "한 번에 잘 쓰기"보다
 
 ## "고칠 점을 알고 다시 쓰기"가 쉽다
 
@@ -1246,7 +1232,7 @@ docker compose exec lab python examples/05_loops/03_reflexion.py
 </Slide>
 <Slide>
 
-### 4. 루브릭 실험: 기준을 바꾸면 승자가 뒤집힌다
+#### 4. 루브릭 실험: 기준을 바꾸면 승자가 뒤집힌다
 ::sub[04_eval_rubric.py · 같은 초안 2개를 두 루브릭으로 채점]
 
 ```bash
@@ -1261,7 +1247,7 @@ docker compose exec lab python examples/05_loops/04_eval_rubric.py
 </Slide>
 <Slide>
 
-### 같은 글, 다른 점수
+#### 같은 글, 다른 점수
 
 ```text
 === 루브릭 ①: 정보 밀도 ===
@@ -1278,7 +1264,7 @@ docker compose exec lab python examples/05_loops/04_eval_rubric.py
 </Slide>
 <Slide class="center">
 
-### Reflexion의 품질은
+#### Reflexion의 품질은
 
 ## 생성자가 아니라 루브릭 설계에서 나옵니다
 
@@ -1288,7 +1274,7 @@ docker compose exec lab python examples/05_loops/04_eval_rubric.py
 </Slide>
 <Slide>
 
-### 루브릭 쓸 때
+#### 루브릭 쓸 때
 ::sub[좋은 루브릭의 조건]
 
 - **항목을 쪼갭니다**: 한 항목에 한 가지만. 총점만 받으면 고칠 곳을 모릅니다.
@@ -1299,14 +1285,14 @@ docker compose exec lab python examples/05_loops/04_eval_rubric.py
 </Slide>
 <Slide class="center">
 
-## Part 4. ReWOO
+### Part 4. ReWOO
 
 관찰 없이 플랜 한 번, 도구는 병렬
 
 </Slide>
 <Slide>
 
-### 5. 결과 자리를 변수로 비워 둔다
+#### 5. 결과 자리를 변수로 비워 둔다
 ::sub[05_rewoo.py]
 
 - 실행
@@ -1329,7 +1315,7 @@ docker compose exec lab python examples/05_loops/05_rewoo.py
 </Slide>
 <Slide>
 
-### 변수 배선이 왜 병렬을 가능하게 하나
+#### 변수 배선이 왜 병렬을 가능하게 하나
 
 - Plan-and-Execute의 계획은 "① 검색하고 ② 예산 계산" 같은 **순서**입니다.
 - ReWOO의 플랜은 "`#E1`은 검색 결과, `#E2`는 예산" 같은 **자리**입니다.
@@ -1339,7 +1325,7 @@ docker compose exec lab python examples/05_loops/05_rewoo.py
 </Slide>
 <Slide>
 
-### 실행과 풀기
+#### 실행과 풀기
 
 ```text
 === ② 도구 일괄 실행 (서로 의존이 없으니 병렬 가능) ===
@@ -1354,7 +1340,7 @@ docker compose exec lab python examples/05_loops/05_rewoo.py
 </Slide>
 <Slide>
 
-### 결과 읽기: 대가는 적응력
+#### 결과 읽기: 대가는 적응력
 
 - ReWOO도 LLM 호출 **2번 고정**입니다.
 - Plan-and-Execute와 다른 점: 변수로 미리 배선해 두므로
@@ -1366,14 +1352,14 @@ docker compose exec lab python examples/05_loops/05_rewoo.py
 </Slide>
 <Slide class="center">
 
-## Part 5. 계산서
+### Part 5. 계산서
 
 같은 과제의 두 청구서
 
 </Slide>
 <Slide>
 
-### 6. 루프 비용 비교
+#### 6. 루프 비용 비교
 ::sub[06_loop_cost_compare.py · 같은 과제를 미니 ReAct와 Plan-and-Execute로]
 
 - 실행
@@ -1394,7 +1380,7 @@ docker compose exec lab python examples/05_loops/06_loop_cost_compare.py
 </Slide>
 <Slide>
 
-### 정직하게 읽어야 하는 결과입니다
+#### 정직하게 읽어야 하는 결과입니다
 
 - 이 과제는 도구 2개짜리로 작아서, ReAct도 2호출 만에 끝났습니다.
 - **비용 차이가 사실상 없습니다**.
@@ -1404,14 +1390,14 @@ docker compose exec lab python examples/05_loops/06_loop_cost_compare.py
 </Slide>
 <Slide class="center">
 
-### 작은 과제에 정교한 루프를 다는 것도 낭비입니다
+#### 작은 과제에 정교한 루프를 다는 것도 낭비입니다
 
 **루프 선택은 과제의 크기와 성격이 정하는 문제입니다**.
 
 </Slide>
 <Slide>
 
-### 루프의 스펙트럼
+#### 루프의 스펙트럼
 
 | 루프 | 강점 | 대가 | 어울리는 과제 |
 | --- | --- | --- | --- |
@@ -1424,7 +1410,7 @@ docker compose exec lab python examples/05_loops/06_loop_cost_compare.py
 </Slide>
 <Slide>
 
-### 어느 루프를 고를까
+#### 어느 루프를 고를까
 
 ```mermaid
 flowchart TD
@@ -1442,23 +1428,23 @@ flowchart TD
 </Slide>
 <Slide class="center">
 
-### Reflexion은 다른 루프와 배타적이지 않습니다
+#### Reflexion은 다른 루프와 배타적이지 않습니다
 
 생성자 자리에 ReAct도, Plan-and-Execute도 들어갑니다.
 
-**v0.4가 정확히 그 구조입니다.** 생성자 = 3장의 ReAct 루프
+**이 랩의 에이전트가 정확히 그 구조입니다.** 생성자 = 3장의 ReAct 루프
 
 </Slide>
 <Slide class="center">
 
-## Part 6. v0.4
+### Part 6. 코드 포인트
 
 에이전트에 Reflexion이 실린다.
 
 </Slide>
 <Slide>
 
-### v0.4 코드 포인트: agent/reflexion.py
+#### 코드 포인트: agent/reflexion.py
 
 ```python
 RUBRIC = """… (각 0~10)
@@ -1479,7 +1465,7 @@ for attempt in range(1, max_retries + 2):   # 최초 1회 + 재시도 N회
 </Slide>
 <Slide>
 
-### 코드에서 보는 곳
+#### 코드에서 보는 곳
 
 - **채점은 temperature 0입니다**. 채점이 흔들리면 재시도가 도박이 됩니다.
 - **재시도 상한**(기본 2회)이 있고, 소진되면 마지막 답과 평가 이력을
@@ -1490,12 +1476,11 @@ for attempt in range(1, max_retries + 2):   # 최초 1회 + 재시도 N회
 </Slide>
 <Slide>
 
-### 확인
+#### 확인
 
 ```bash
-git checkout v0.4
 docker compose exec lab python -m agent.main --verbose "2박 3일 교토, 예산 50만원"
-docker compose exec lab pytest        # 이 시점의 테스트 21개 통과
+docker compose exec lab pytest        # 유닛 테스트 33개 통과
 ```
 
 생성자는 3장의 ReAct 루프 그대로입니다.  
@@ -1504,7 +1489,7 @@ docker compose exec lab pytest        # 이 시점의 테스트 21개 통과
 </Slide>
 <Slide>
 
-## 4장이 남기는 것
+### 4장이 남기는 것
 
 - 루프의 스펙트럼: 적응력(ReAct)에서 비용(ReWOO)까지,
   그 사이의 Plan-and-Execute
@@ -1518,7 +1503,7 @@ docker compose exec lab pytest        # 이 시점의 테스트 21개 통과
 
 ## 5장 · 하네스 엔지니어링
 
-`examples/06_harness/` 10종 → **v1.0**
+`examples/06_harness/` 10종
 
 *같은 모델도 하네스가 성능을 가릅니다*
 
@@ -1526,18 +1511,18 @@ docker compose exec lab pytest        # 이 시점의 테스트 21개 통과
 
 <Slide>
 
-## 5장이 하는 일
+### 5장이 하는 일
 ::sub[루프를 감싸는 실행 환경 전체를 짓습니다]
 
 - `examples/06_harness/` **10종을 전부 실행**합니다. 절반은 키 없이도 돕니다.
 - 하네스 요소를 끄면 무너지는 것을 실측으로 봅니다.
 - 인젝션 사고를 재현하고, 프롬프트가 아닌 **코드로** 막습니다.
-- 장 끝에서 **v1.0**, 완성된 에이전트입니다.
+- 이 장이 끝나면 **에이전트가 완성**됩니다.
 
 </Slide>
 <Slide class="center">
 
-## 핵심 문장
+### 핵심 문장
 
 **하네스는 모델을 감싸는 실행 환경 전체다**.
 
@@ -1546,7 +1531,7 @@ docker compose exec lab pytest        # 이 시점의 테스트 21개 통과
 </Slide>
 <Slide>
 
-## 하네스에 들어가는 것
+### 하네스에 들어가는 것
 
 - 시스템 프롬프트
 - 도구 정의 (이름·설명·스키마)
@@ -1559,7 +1544,7 @@ docker compose exec lab pytest        # 이 시점의 테스트 21개 통과
 </Slide>
 <Slide>
 
-## 방어는 겹입니다
+### 방어는 겹입니다
 
 ```mermaid
 flowchart LR
@@ -1577,14 +1562,14 @@ flowchart LR
 </Slide>
 <Slide class="center">
 
-## 프롬프트는 부탁이고
+### 프롬프트는 부탁이고
 
 ## 이 그림의 상자들은 코드입니다
 
 </Slide>
 <Slide>
 
-## 확률적 방어와 결정적 방어
+### 확률적 방어와 결정적 방어
 
 | | 확률적 방어 | 결정적 방어 |
 | --- | --- | --- |
@@ -1598,26 +1583,26 @@ flowchart LR
 </Slide>
 <Slide>
 
-## 오늘의 순서
+### 오늘의 순서
 
 1. 하네스가 성능을 가른다 (절제 실험)
 2. 인젝션: 직접·간접, 그리고 데이터 경계
 3. 권한·감금·필터
 4. 비용: 실행 전 추정과 실행 중 장부
 5. 트레이스
-6. v1.0: 하네스가 루프에 물린다
+6. 코드 포인트: 하네스가 루프에 물린다
 
 </Slide>
 <Slide class="center">
 
-## Part 1. 하네스가 성능을 가른다
+### Part 1. 하네스가 성능을 가른다
 
 요소를 하나씩 꺼 봅니다.
 
 </Slide>
 <Slide>
 
-### 실험 설계
+#### 실험 설계
 
 같은 질문 하나를 네 조건으로 돌립니다.
 
@@ -1631,7 +1616,7 @@ flowchart LR
 </Slide>
 <Slide>
 
-### 1. 절제 실험
+#### 1. 절제 실험
 ::sub[01_harness_onoff.py · 축제 질문 하나에 요소를 하나씩 끈다]
 
 - 실행
@@ -1654,7 +1639,7 @@ docker compose exec lab python examples/06_harness/01_harness_onoff.py
 </Slide>
 <Slide>
 
-### 결과 읽기
+#### 결과 읽기
 
 - 도구 이름·설명을 지우는 순간 선택이 틀렸습니다. `tool_0`은 날씨 자리입니다.
 - 이 과제에서는 그 요소가 성패를 갈랐습니다.
@@ -1663,7 +1648,7 @@ docker compose exec lab python examples/06_harness/01_harness_onoff.py
 </Slide>
 <Slide class="center">
 
-### 잘 도는 에이전트와 헤매는 에이전트의 차이는
+#### 잘 도는 에이전트와 헤매는 에이전트의 차이는
 
 ## 모델이 아니라 하네스에 있습니다
 
@@ -1672,14 +1657,14 @@ docker compose exec lab python examples/06_harness/01_harness_onoff.py
 </Slide>
 <Slide class="center">
 
-## Part 2. 인젝션
+### Part 2. 인젝션
 
 공격은 어디서 오는가
 
 </Slide>
 <Slide>
 
-### 인젝션이란
+#### 인젝션이란
 
 - 입력이나 **도구가 물어온 문서**에 지시를 심어,
   모델이 원래 지시를 어기게 만드는 공격입니다.
@@ -1690,7 +1675,7 @@ docker compose exec lab python examples/06_harness/01_harness_onoff.py
 </Slide>
 <Slide>
 
-### 두 갈래
+#### 두 갈래
 
 ```mermaid
 flowchart LR
@@ -1704,7 +1689,7 @@ flowchart LR
 </Slide>
 <Slide>
 
-### 2. 직접 인젝션: 정면 공격
+#### 2. 직접 인젝션: 정면 공격
 ::sub[02_injection_direct.py · 사용자 입력에 실린 공격 3종]
 
 - 실행
@@ -1727,7 +1712,7 @@ docker compose exec lab python examples/06_harness/02_injection_direct.py
 </Slide>
 <Slide>
 
-### 결과 읽기: 이 방어는 확률적입니다
+#### 결과 읽기: 이 방어는 확률적입니다
 
 - 이번 실측에서는 세 공격 모두 막혔습니다.
 - 그러나 이것은 **모델의 정렬(훈련)에 기댄 확률적 방어**입니다.
@@ -1738,7 +1723,7 @@ docker compose exec lab python examples/06_harness/02_injection_direct.py
 </Slide>
 <Slide>
 
-### 3. 간접 인젝션: 공격자는 데이터 안에 있다
+#### 3. 간접 인젝션: 공격자는 데이터 안에 있다
 ::sub[03_injection_indirect.py · 검색 도구가 물어온 웹 문서에 지시가 심겨 있다]
 
 - 실행
@@ -1759,7 +1744,7 @@ docker compose exec lab python examples/06_harness/03_injection_indirect.py
 </Slide>
 <Slide>
 
-### 이번엔 무시했다, 그러나
+#### 이번엔 무시했다, 그러나
 
 ```text
 === ③ 최종 답 ===
@@ -1776,7 +1761,7 @@ docker compose exec lab python examples/06_harness/03_injection_indirect.py
 </Slide>
 <Slide class="center">
 
-### 인젝션의 핵심 위협 모델은
+#### 인젝션의 핵심 위협 모델은
 
 ## 이 간접 경로입니다
 
@@ -1785,7 +1770,7 @@ docker compose exec lab python examples/06_harness/03_injection_indirect.py
 </Slide>
 <Slide>
 
-### 4. 데이터 경계: 구조로 막는다
+#### 4. 데이터 경계: 구조로 막는다
 ::sub[04_boundary_wrap.py · 같은 오염 문서를 경계 마커로 감싼다]
 
 - 코드
@@ -1808,7 +1793,7 @@ docker compose exec lab python examples/06_harness/04_boundary_wrap.py
 </Slide>
 <Slide>
 
-### 양쪽 다 막았지만 성격이 다르다
+#### 양쪽 다 막았지만 성격이 다르다
 
 ```text
 === 경계 없음 → ○ 방어 ===
@@ -1825,7 +1810,7 @@ docker compose exec lab python examples/06_harness/04_boundary_wrap.py
 </Slide>
 <Slide>
 
-### 경계를 설계할 때 주의할 것
+#### 경계를 설계할 때 주의할 것
 
 - **마커는 데이터에 나올 수 없는 문자열**이어야 합니다.
   공격자가 `<<<END_TOOL_RESULT>>>`를 문서에 심어 경계를 닫아 버릴 수 있습니다.
@@ -1837,24 +1822,24 @@ docker compose exec lab python examples/06_harness/04_boundary_wrap.py
 </Slide>
 <Slide class="center">
 
-### 지시는 무시하되 사실은 쓴다
+#### 지시는 무시하되 사실은 쓴다
 
 경계 쪽 답은 문서 내용(구로몬 시장 아침 방문)을 **데이터로는 잘 활용**했습니다.
 
 그것이 경계가 목표하는 분리입니다.  
-v1.0 에이전트는 모든 도구 결과에 이 wrap을 자동 적용합니다.
+이 랩의 에이전트는 모든 도구 결과에 이 wrap을 자동 적용합니다.
 
 </Slide>
 <Slide class="center">
 
-## Part 3. 권한 · 감금 · 필터
+### Part 3. 권한 · 감금 · 필터
 
 코드로 긋는 세 개의 선
 
 </Slide>
 <Slide>
 
-### 5. 도구 권한: 위험한 도구엔 게이트
+#### 5. 도구 권한: 위험한 도구엔 게이트
 ::sub[05_tool_permission.py · 키 없이 돈다]
 
 - 코드
@@ -1886,7 +1871,7 @@ docker compose exec lab python examples/06_harness/05_tool_permission.py
 </Slide>
 <Slide class="center">
 
-### "결제 전에 꼭 물어봐"는 부탁이고
+#### "결제 전에 꼭 물어봐"는 부탁이고
 
 ## 게이트는 물리 법칙입니다
 
@@ -1897,7 +1882,7 @@ docker compose exec lab python examples/06_harness/05_tool_permission.py
 </Slide>
 <Slide>
 
-### 도구에 위험 등급을 붙인다
+#### 도구에 위험 등급을 붙인다
 
 | 등급 | 예 | 처리 |
 | --- | --- | --- |
@@ -1912,7 +1897,7 @@ docker compose exec lab python examples/06_harness/05_tool_permission.py
 </Slide>
 <Slide>
 
-### 6. 출력 필터: 마지막 관문의 정규식
+#### 6. 출력 필터: 마지막 관문의 정규식
 ::sub[06_output_filter.py · 응답이 나가기 직전 비밀 패턴을 검사한다]
 
 - 실행
@@ -1937,7 +1922,7 @@ docker compose exec lab python examples/06_harness/06_output_filter.py
 </Slide>
 <Slide>
 
-### 결과 읽기: 앞의 모든 방어가 뚫렸다고 가정한 선
+#### 결과 읽기: 앞의 모든 방어가 뚫렸다고 가정한 선
 
 - 인젝션이 모델을 넘어뜨렸어도 **유출은 여기서 멈춥니다**.
 - 마지막 관문은 확률이 아니라 정규식, **결정적이어야 합니다**.
@@ -1945,7 +1930,7 @@ docker compose exec lab python examples/06_harness/06_output_filter.py
 </Slide>
 <Slide>
 
-### 필터의 한계도 알고 씁니다
+#### 필터의 한계도 알고 씁니다
 
 - **미탐**: 패턴에 없는 형태의 비밀은 못 잡습니다.
   그래서 필터는 마지막 겹이지 유일한 방어가 아닙니다.
@@ -1956,7 +1941,7 @@ docker compose exec lab python examples/06_harness/06_output_filter.py
 </Slide>
 <Slide>
 
-### 7. 경로 감금: 파일 도구를 가둔다
+#### 7. 경로 감금: 파일 도구를 가둔다
 ::sub[07_path_jail.py · 키 없이 돈다]
 
 - 코드
@@ -1988,7 +1973,7 @@ docker compose exec lab python examples/06_harness/07_path_jail.py
 </Slide>
 <Slide class="center">
 
-### 두 줄의 결정적 코드가
+#### 두 줄의 결정적 코드가
 
 ## 프롬프트 백 줄보다 셉니다
 
@@ -1998,7 +1983,7 @@ docker compose exec lab python examples/06_harness/07_path_jail.py
 </Slide>
 <Slide>
 
-### 흔한 실수: 문자열로 검사하기
+#### 흔한 실수: 문자열로 검사하기
 
 ```python
 if ".." in requested:        # 이걸로는 부족합니다
@@ -2012,14 +1997,14 @@ if ".." in requested:        # 이걸로는 부족합니다
 </Slide>
 <Slide class="center">
 
-## Part 4. 비용
+### Part 4. 비용
 
 실행 전 추정과 실행 중 장부
 
 </Slide>
 <Slide>
 
-### 8. 사전 추정: 실행 전에 상한을 계산한다
+#### 8. 사전 추정: 실행 전에 상한을 계산한다
 ::sub[08_budget_estimate.py · 키 없이 돈다]
 
 - 실행
@@ -2043,7 +2028,7 @@ docker compose exec lab python examples/06_harness/08_budget_estimate.py
 </Slide>
 <Slide>
 
-### 상한을 만드는 산수
+#### 상한을 만드는 산수
 
 ```plaintext
 입력 누적 = Σ (스텝 k까지의 컨텍스트)     ← 3장의 계단을 최악으로 가정
@@ -2058,7 +2043,7 @@ docker compose exec lab python examples/06_harness/08_budget_estimate.py
 </Slide>
 <Slide>
 
-### 결과 읽기: 예측이 아니라 최악
+#### 결과 읽기: 예측이 아니라 최악
 
 - 3장 실측(7,400토큰)보다 훨씬 큰 숫자입니다.
 - 이것은 예측이 아니라 **"최악에 얼마까지 나가는가"** 입니다.
@@ -2069,7 +2054,7 @@ docker compose exec lab python examples/06_harness/08_budget_estimate.py
 </Slide>
 <Slide>
 
-### 9. budget guard: 실행 중의 2단 임계
+#### 9. budget guard: 실행 중의 2단 임계
 ::sub[09_budget_guard.py · 키 없이 도는 예제라 비용은 시뮬레이션]
 
 - 실행
@@ -2093,7 +2078,7 @@ docker compose exec lab python examples/06_harness/09_budget_guard.py
 </Slide>
 <Slide>
 
-### 결과 읽기: 임계가 둘인 이유
+#### 결과 읽기: 임계가 둘인 이유
 
 - **경고**는 사람이 개입할 기회입니다.
 - **중단**은 최후의 방어선입니다.
@@ -2103,14 +2088,14 @@ docker compose exec lab python examples/06_harness/09_budget_guard.py
 </Slide>
 <Slide class="center">
 
-### 스텝 한도가 "루프의 보험"이라면
+#### 스텝 한도가 "루프의 보험"이라면
 
 ## budget guard는 "지갑의 보험"입니다
 
 </Slide>
 <Slide>
 
-### 임계는 어떻게 정하나
+#### 임계는 어떻게 정하나
 
 - **정상 실행 비용을 먼저 잽니다.** 이 랩은 풀런 1회에 $0.0026\~$0.0104
 - **경고 임계**: 정상값의 몇 배. 사람이 볼 기회를 만듭니다.
@@ -2121,7 +2106,7 @@ docker compose exec lab python examples/06_harness/09_budget_guard.py
 </Slide>
 <Slide class="center">
 
-### 10. 직접 두드려 보기
+#### 10. 직접 두드려 보기
 
 앞의 네 방어는 전부 **결정적 코드**입니다.
 
@@ -2131,14 +2116,14 @@ docker compose exec lab python examples/06_harness/09_budget_guard.py
 </Slide>
 <Slide>
 
-### 게이트는 설득되지 않는다
+#### 게이트는 설득되지 않는다
 
 <HarnessGates />
 
 </Slide>
 <Slide>
 
-### 읽는 것과 뚫어 보는 것은 다릅니다
+#### 읽는 것과 뚫어 보는 것은 다릅니다
 
 - `plans/../../secret.txt`가 왜 막히는지는 **정규화 결과를 보면** 한 줄로 납득됩니다.
 - 중단 임계를 낮추면 루프가 **몇 스텝에서 죽는지**가 바로 보입니다.
@@ -2150,14 +2135,14 @@ docker compose exec lab python examples/06_harness/09_budget_guard.py
 </Slide>
 <Slide class="center">
 
-## Part 5. 트레이스
+### Part 5. 트레이스
 
 사고 후에 답할 수 있어야 합니다.
 
 </Slide>
 <Slide>
 
-### 11. 한 줄이 한 이벤트
+#### 11. 한 줄이 한 이벤트
 ::sub[10_trace_log.py · 모든 호출·도구 실행·가드 판정을 JSONL로]
 
 - 실행
@@ -2179,7 +2164,7 @@ docker compose exec lab python examples/06_harness/10_trace_log.py
 </Slide>
 <Slide>
 
-### 결과 읽기: 기계가 다시 읽는 로그
+#### 결과 읽기: 기계가 다시 읽는 로그
 
 사람이 읽는 print가 아니라 구조화 로그입니다.  
 이런 질문에 답할 수 있습니다.
@@ -2193,7 +2178,7 @@ docker compose exec lab python examples/06_harness/10_trace_log.py
 </Slide>
 <Slide>
 
-### 트레이스에 남길 최소 필드
+#### 트레이스에 남길 최소 필드
 
 - `seq`: 순서. 이벤트를 시간순으로 잇습니다.
 - `kind`: `llm_call` · `tool_call` · `guard` · `final`
@@ -2206,14 +2191,14 @@ docker compose exec lab python examples/06_harness/10_trace_log.py
 </Slide>
 <Slide class="center">
 
-## Part 6. v1.0
+### Part 6. 코드 포인트
 
 하네스가 루프에 물리는 지점
 
 </Slide>
 <Slide>
 
-### v1.0 코드 포인트: react.py의 결합부
+#### 코드 포인트: react.py의 결합부
 
 ```python
 # 모든 observation이 경계를 지나고, 가드가 호출마다 판정한다
@@ -2232,7 +2217,7 @@ if guard:
 </Slide>
 <Slide>
 
-### 코드에서 보는 곳
+#### 코드에서 보는 곳
 
 - **경계는 마커와 규칙의 짝입니다**. 
   - `wrap`과 `BOUNDARY_RULES` 중 한쪽만
@@ -2243,22 +2228,21 @@ if guard:
 </Slide>
 <Slide>
 
-### 상한은 얼마로 잡았나
+#### 상한은 얼마로 잡았나
 
-- 5주차 4장의 수용 테스트에서 이 가드로 실측한 에이전트 풀런 비용이
+- 5주차 브리핑의 비용표에 실린 에이전트 풀런 비용이
   $0.0026\~$0.0104였습니다.
 - 상한 $0.20은 **수십 번의 폭주를 견디는 여유**입니다.
 
 ```bash
-git checkout v1.0        # main과 같다
 docker compose exec lab python -m agent.main --max-cost 0.10 "3박 4일 오사카, 예산 80만원"
-docker compose exec lab pytest        # 최종 테스트 33개 통과
+docker compose exec lab pytest        # 유닛 테스트 33개 통과
 ```
 
 </Slide>
 <Slide>
 
-### 완성된 에이전트의 전체 그림
+#### 완성된 에이전트의 전체 그림
 
 ```mermaid
 flowchart TD
@@ -2276,7 +2260,7 @@ flowchart TD
 </Slide>
 <Slide>
 
-### 하네스 체크리스트
+#### 하네스 체크리스트
 ::sub[새 에이전트를 만들 때 이 순서로 점검합니다]
 
 - 도구 이름·설명이 충분한가 (01)
@@ -2290,7 +2274,7 @@ flowchart TD
 </Slide>
 <Slide>
 
-### 이 하네스는 어디서 다시 만나나
+#### 이 하네스는 어디서 다시 만나나
 
 - **생성과 검증의 분리** → 3주차 식단 플래너의 검증자가 이미 그 구조였습니다
 - **권한 게이트·출력 필터** → 8주차에 FastAPI로 서비스화할 때 그대로 들어갑니다
@@ -2301,7 +2285,7 @@ flowchart TD
 </Slide>
 <Slide>
 
-## 5장이 남기는 것
+### 5장이 남기는 것
 
 - 하네스 요소 하나가 성패를 가른다. **모델 탓 전에 하네스를 본다**.
 - 인젝션 방어의 본체는 프롬프트가 아니라
@@ -2315,7 +2299,7 @@ flowchart TD
 
 ## 6장 · MCP 맛보기
 
-`examples/07_mcp/` 시연 4종 → **v1.2**
+`examples/07_mcp/` 시연 4종
 
 *손으로 정의하던 도구를 표준 프로토콜로*
 
@@ -2323,7 +2307,7 @@ flowchart TD
 
 <Slide>
 
-## 6장이 하는 일
+### 6장이 하는 일
 ::sub[이번 주의 마지막 장입니다]
 
 - 오늘 하루 종일 도구는 **우리가 손으로** 정의했습니다.
@@ -2333,14 +2317,14 @@ flowchart TD
 </Slide>
 <Slide class="center">
 
-## 핵심 문장
+### 핵심 문장
 
 **도구를 손으로 정의하는 대신, 표준 프로토콜로 주고받는다**.
 
 </Slide>
 <Slide>
 
-## 무엇이 달라지는가
+### 무엇이 달라지는가
 
 - 도구 제공자가 MCP 서버를 열면,
   클라이언트는 **도구 목록을 프로토콜로 받아옵니다**.
@@ -2352,7 +2336,7 @@ flowchart TD
 </Slide>
 <Slide>
 
-## 구조
+### 구조
 
 ```mermaid
 flowchart LR
@@ -2376,12 +2360,12 @@ flowchart LR
 </Slide>
 <Slide class="center">
 
-## Part 1. 도구를 서버로 내어놓는다
+### Part 1. 도구를 서버로 내어놓는다
 
 </Slide>
 <Slide>
 
-### 1. 데코레이터 하나
+#### 1. 데코레이터 하나
 ::sub[01_mcp_server.py · 평범한 함수 2개를 MCP 서버에 싣는다]
 
 - 코드
@@ -2412,7 +2396,7 @@ docker compose exec lab python examples/07_mcp/01_mcp_server.py
 </Slide>
 <Slide>
 
-### 실행하면 침묵합니다
+#### 실행하면 침묵합니다
 
 - 기본(stdio)으로 단독 실행하면 아무 출력 없이 침묵하고, Ctrl+C로 종료합니다.
 - 더 이상한 것: 이 상태에서 다른 터미널로 2번 클라이언트를 돌려도
@@ -2422,7 +2406,7 @@ docker compose exec lab python examples/07_mcp/01_mcp_server.py
 </Slide>
 <Slide>
 
-### 이상한 게 아니라 stdio 전송의 본질입니다
+#### 이상한 게 아니라 stdio 전송의 본질입니다
 
 - stdio에서는 **클라이언트가 서버를 자기 하위 프로세스로 직접 띄워**
   표준입출력으로 대화합니다.
@@ -2433,7 +2417,7 @@ docker compose exec lab python examples/07_mcp/01_mcp_server.py
 </Slide>
 <Slide>
 
-### 스키마를 손으로 쓴 곳이 없습니다
+#### 스키마를 손으로 쓴 곳이 없습니다
 
 - 함수 시그니처와 docstring이 **그대로 프로토콜의 도구 명세**가 됩니다.
   타입 힌트에서 자동 생성됩니다.
@@ -2444,12 +2428,12 @@ docker compose exec lab python examples/07_mcp/01_mcp_server.py
 </Slide>
 <Slide class="center">
 
-## Part 2. 도구 목록이 프로토콜로 배달된다
+### Part 2. 도구 목록이 프로토콜로 배달된다
 
 </Slide>
 <Slide>
 
-### 2. 클라이언트
+#### 2. 클라이언트
 ::sub[02_list_tools.py · 키 없이 돌고, 서버를 미리 띄울 필요도 없다]
 
 - 코드
@@ -2474,7 +2458,7 @@ docker compose exec lab python examples/07_mcp/02_list_tools.py
 </Slide>
 <Slide>
 
-### 받은 도구 목록
+#### 받은 도구 목록
 
 ```text
 === 서버가 내어놓은 도구 목록 (프로토콜로 수신) ===
@@ -2490,7 +2474,7 @@ docker compose exec lab python examples/07_mcp/02_list_tools.py
 </Slide>
 <Slide>
 
-### 결과 읽기: 구현이 한 줄도 없는데 돕니다
+#### 결과 읽기: 구현이 한 줄도 없는데 돕니다
 
 - 수신된 입력 스키마를 보세요.
   **5주차에서 pydantic으로 뽑던 것과 같은 JSON 스키마**입니다.
@@ -2500,12 +2484,12 @@ docker compose exec lab python examples/07_mcp/02_list_tools.py
 </Slide>
 <Slide class="center">
 
-## Part 3. 받은 도구를 루프에 꽂는다
+### Part 3. 받은 도구를 루프에 꽂는다
 
 </Slide>
 <Slide>
 
-### 3. 변환 함수 하나
+#### 3. 변환 함수 하나
 ::sub[03_mcp_to_agent.py · 루프는 도구가 어디서 왔는지 모른다]
 
 - 코드
@@ -2533,7 +2517,7 @@ docker compose exec lab python examples/07_mcp/03_mcp_to_agent.py
 </Slide>
 <Slide>
 
-### 실행 결과
+#### 실행 결과
 
 ```text
 === 프로토콜로 받은 도구 2개를 루프에 장착 ===
@@ -2550,7 +2534,7 @@ docker compose exec lab python examples/07_mcp/03_mcp_to_agent.py
 </Slide>
 <Slide class="center">
 
-### 변환 함수가 하는 일은 필드 1:1 복사뿐입니다
+#### 변환 함수가 하는 일은 필드 1:1 복사뿐입니다
 
 MCP의 도구 명세와 5주차의 도구 명세는 사실상 같은 물건이고,
 
@@ -2559,14 +2543,14 @@ MCP의 도구 명세와 5주차의 도구 명세는 사실상 같은 물건이�
 </Slide>
 <Slide class="center">
 
-## Part 4. 상주 서버
+### Part 4. 상주 서버
 
 서버 먼저, 접속은 나중
 
 </Slide>
 <Slide>
 
-### 4. HTTP 전송
+#### 4. HTTP 전송
 ::sub[04_http_client.py · 2번과 똑같은 일을 익숙한 그림으로]
 
 - 코드
@@ -2593,7 +2577,7 @@ docker compose exec lab python examples/07_mcp/04_http_client.py
 </Slide>
 <Slide>
 
-### 이번에는 서버 쪽에 로그가 흐릅니다
+#### 이번에는 서버 쪽에 로그가 흐릅니다
 
 ```text
 INFO:     Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
@@ -2610,7 +2594,7 @@ Terminating session: e92899507abc46a1a04022cc5edfa050
 </Slide>
 <Slide>
 
-### 두 전송의 차이
+#### 두 전송의 차이
 
 | | stdio (2번) | HTTP (4번) |
 | --- | --- | --- |
@@ -2624,7 +2608,7 @@ Terminating session: e92899507abc46a1a04022cc5edfa050
 </Slide>
 <Slide class="center">
 
-### 역방향: 내어주기
+#### 역방향: 내어주기
 
 오늘은 도구를 **가져오는** 쪽이었습니다.
 
@@ -2634,15 +2618,15 @@ Terminating session: e92899507abc46a1a04022cc5edfa050
 </Slide>
 <Slide>
 
-## 이번 주가 오른 사다리
+## 이번 주가 얹은 것
 
-| 릴리즈 | 얻은 것 |
+| 장 | 에이전트에 더해진 것 |
 | --- | --- |
-| v0.2 | (5주차) 도구: 스키마와 검증, 실행 관문 |
-| v0.3 | ReAct 루프와 트레이스 |
-| v0.4 | Reflexion 평가·재시도 |
-| v1.0 | 하네스: 경계 방어와 budget guard |
-| v1.1\~v1.2 | MCP: 도구를 프로토콜로, stdio와 HTTP 두 전송 |
+| (5주차) | 도구: 스키마와 검증, 실행 관문 |
+| 3장 | ReAct 루프와 트레이스 |
+| 4장 | Reflexion 평가·재시도 |
+| 5장 | 하네스: 경계 방어와 budget guard |
+| 6장 | MCP: 도구를 프로토콜로, stdio와 HTTP 두 전송 |
 
 </Slide>
 
