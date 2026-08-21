@@ -1,6 +1,6 @@
 ---
 title: "5주차: API 해부와 tool calling"
-description: "5주차 라이브 세션 슬라이드: 실습 랩 기동, examples/01_api 11종으로 LLM API의 바닥, examples/02_litellm 10종으로 통합 레이어, examples/03_tools 10종으로 tool calling 심화, 그리고 에이전트가 처음으로 도구를 드는 지점까지"
+description: "5주차 라이브 세션 슬라이드: AI 모델과 AI 서비스의 구분과 도구의 정의, examples/01_api 11종으로 LLM API의 바닥, examples/02_litellm 10종으로 통합 레이어, examples/03_tools 10종으로 tool calling 심화, 그리고 에이전트가 처음으로 도구를 드는 지점까지"
 presenter: CodeCompose
 date: "2026-08-21"
 transition: none
@@ -9,6 +9,7 @@ toc_open: false
 ---
 
 import Slide from 'stack-site-builder/components/Slide.astro';
+import ModelVsService from '../../../../components/ModelVsService.astro';
 
 {/* 슬라이드 작성 규칙은 docs/writing-rules.md의 "슬라이드 규칙"을 따릅니다. */}
 
@@ -37,6 +38,7 @@ import Slide from 'stack-site-builder/components/Slide.astro';
 ## 오늘 하는 일
 ::sub[가림막을 걷고 바닥까지 내려갑니다]
 
+- **모델과 서비스를 가른다**: 같은 질문 다섯 개를 도구 없이·도구를 쥐여주고
 - **LLM API의 전부**: messages를 보내면 choices가 온다
 - **통합 레이어**: 교체·폴백·캐싱·라우터·비용 콜백
 - **tool calling**: 모델은 함수를 실행하지 못한다. 요청할 뿐이다
@@ -148,8 +150,9 @@ docker compose exec lab python examples/01_api/01_hello_completion.py
 
 ```mermaid
 flowchart LR
-    A["3장<br/>LLM API의 본질<br/>01_api 11종"] --> B["4장<br/>LiteLLM 통합 레이어<br/>02_litellm 10종"]
-    B --> C["5장<br/>Tool calling 심화<br/>03_tools 10종"]
+    Z["3장<br/>모델과 서비스<br/>도구란 무엇인가"] --> A["4장<br/>LLM API의 본질<br/>01_api 11종"]
+    A --> B["5장<br/>LiteLLM 통합 레이어<br/>02_litellm 10종"]
+    B --> C["6장<br/>Tool calling 심화<br/>03_tools 10종"]
     C --> D["에이전트가<br/>도구를 든다"]
 ```
 
@@ -157,7 +160,149 @@ flowchart LR
 
 <Slide class="cover">
 
-## 3장 · LLM API의 본질
+## 3장 · AI 모델과 AI 서비스
+
+도구란 무엇인가
+
+*모델은 뇌다. 뇌만으로는 오늘 날씨를 모른다*
+
+</Slide>
+<Slide>
+
+### 3장이 하는 일
+::sub[예제를 열기 전에 좌표부터 잡습니다]
+
+- 우리가 "AI"라고 뭉뚱그려 부르는 것은 **두 층**입니다
+- 같은 질문 다섯 개를 **도구 없이 한 번, 도구를 쥐여주고 한 번** 물어 봅니다
+- 그 차이를 메우는 것이 **도구**입니다. 정의를 여기서 박아 둡니다
+
+</Slide>
+<Slide>
+
+### 모델과 서비스는 다른 물건입니다
+
+- **AI 모델**: Claude Opus·Fable, GPT, Gemini.
+  **텍스트를 넣으면 텍스트가 나오는 함수 하나**
+- **AI 서비스**: ChatGPT, Claude Code, Codex, Cursor.
+  모델 하나를 가운데 두고 **대화 화면·도구·루프·방어선**을 둘러 붙인 제품
+
+에이전트도 서비스 쪽입니다.
+
+</Slide>
+<Slide>
+
+#### 뇌와 몸
+
+```mermaid
+flowchart LR
+    subgraph S["AI 서비스 (제품)"]
+        direction TB
+        UI["대화 화면"] --> M["AI 모델<br/>텍스트 → 텍스트"]
+        M --> T["도구<br/>검색·파일·계산·예약"]
+        T --> M
+        M --> G["하네스<br/>권한·검증·비용 한도"]
+    end
+    W["바깥 세상<br/>웹·DB·파일·시계"] <--> T
+```
+
+뇌는 아는 것을 말할 수 있지만 **창밖을 보거나 손을 뻗지는 못합니다**.
+
+</Slide>
+<Slide>
+
+#### 같은 모델, 다른 제품
+
+| 제품 | 모델 위에 붙은 것 | 그래서 할 수 있는 일 |
+| --- | --- | --- |
+| 채팅 화면만 붙인 것 | 대화 UI + 히스토리 | 아는 것을 말한다 |
+| ChatGPT | + 웹 검색·코드 실행·이미지 | 오늘 뉴스를 찾아 요약한다 |
+| Claude Code | + 파일 읽기·쓰기·셸 + 루프 | 코드를 고치고 테스트를 돌린다 |
+| 이 랩의 여행 플래너 | + 검색·이동시간·예산 도구 | 예산을 계산해 일정을 짠다 |
+
+**능력의 경계를 긋는 것은 모델의 성능이 아니라 붙어 있는 도구 목록입니다**.
+
+</Slide>
+<Slide>
+
+### 직접 확인: 같은 질문을 두 번
+
+<ModelVsService />
+
+</Slide>
+<Slide>
+
+#### 여기서 읽을 것
+
+- **모델은 대체로 모르는 것을 압니다**: 날씨·시각·파일 목록에는
+  "접근할 수 없다"고 물러섭니다. 안전한 실패입니다
+- **위험한 쪽은 거절하지 않는 질문입니다**: `3847 × 29183`에
+  **112,267,021**을 망설임 없이 내놨습니다. 정답은 112,267,001입니다
+- **도구를 붙였다고 매번 부르지는 않습니다**: 여행 추천에서는
+  `tool_calls`가 비어 있었습니다
+
+</Slide>
+<Slide class="center">
+
+### 세 줄로 줄이면
+
+모델은 **자기 안에 없는 것을 못 하고**,
+
+**못 한다는 것을 늘 알려주지는 않으며**,
+
+그 구멍을 메우는 것이 **도구**입니다.
+
+</Slide>
+<Slide>
+
+### 도구란 무엇인가
+::sub[모델이 이름으로 부를 수 있게 등록해 둔 우리 코드의 함수]
+
+등록에 필요한 것은 셋뿐입니다.
+
+- **이름**: `get_weather`
+- **설명**: "도시의 현재 날씨를 조회한다"
+- **입력 스키마**: `city`는 문자열이고 필수
+
+모델에게 보이는 것은 이 셋이 전부입니다. **함수 본문은 보이지 않습니다**.
+
+</Slide>
+<Slide>
+
+#### 우리가 매일 만나는 도구들
+
+- ChatGPT가 "검색 중…"을 띄우는 순간: **웹 검색 도구**가 불린 것입니다
+- Claude가 첨부 문서를 읽고 표를 고치는 순간: **파일 읽기·쓰기 도구**입니다
+- Claude Code가 코드를 고치고 테스트를 돌리는 순간: Read·Edit·Bash이고,
+  그것을 반복하는 루프가 6주차의 **ReAct**입니다
+
+전부 같은 구조입니다. 모델이 요청하고, 제품의 코드가 실행하고, 되먹입니다.
+
+</Slide>
+<Slide>
+
+#### 도구가 아닌 것
+
+- **프롬프트에 적어 둔 지시**: "계산은 정확히 해줘"는 **부탁**이고,
+  계산기 도구는 **실행**입니다. 부탁은 확률로, 실행은 코드로 지켜집니다
+- **모델 안의 지식**: 오사카 명소를 아는 것은 학습의 결과지 조회가 아닙니다
+- **RAG로 미리 넣어 준 문서**: 경계에 있습니다. 4주차에서 검색이 추려 넣어 준
+  것은 **우리가** 넣어 준 것이지 모델이 요청한 것이 아닙니다
+
+</Slide>
+<Slide>
+
+### 3장이 남기는 것
+
+- 모델은 뇌, 서비스는 도구·루프·방어선을 둘러 붙인 제품이다
+- 도구는 **이름·설명·입력 스키마**로 등록한 우리 코드의 함수다
+- 모델은 실행하지 못한다. **요청할 뿐이고 실행은 우리 몫**이다
+
+이 셋이 사실인지, 다음 세 장에서 원문과 실행 결과로 확인합니다.
+
+</Slide>
+<Slide class="cover">
+
+## 4장 · LLM API의 본질
 
 `examples/01_api/` 11종
 
@@ -167,7 +312,7 @@ flowchart LR
 
 <Slide>
 
-### 3장이 하는 일
+### 4장이 하는 일
 ::sub[프레임워크를 걷어내고 API의 바닥을 봅니다]
 
 - `examples/01_api/` **11종을 전부 실행**합니다.
@@ -287,7 +432,7 @@ usage = 입력 11 토큰 + 출력 16 토큰
 
 이 자리를 기억해 두세요.
 
-**5장에서 저 자리가 채워지는 순간 에이전트가 시작됩니다**.
+**6장에서 저 자리가 채워지는 순간 에이전트가 시작됩니다**.
 
 </Slide>
 <Slide>
@@ -681,7 +826,7 @@ docker compose exec lab python examples/01_api/09_json_mode.py
 - 부탁하면 설명 문장과 코드펜스가 섞여 와서 파싱이 깨집니다.
 - 강제하면 파싱이 **계약**이 됩니다.
 - 다만 `fee`가 `"600엔"`이라는 문자열입니다. 형태는 맞지만 타입은 아닙니다.
-- 타입까지 묶는 방법은 **5장의 구조화 출력**에서 잇습니다.
+- 타입까지 묶는 방법은 **6장의 구조화 출력**에서 잇습니다.
 
 </Slide>
 <Slide>
@@ -760,7 +905,7 @@ docker compose exec lab python examples/01_api/11_cost_calc.py
 </Slide>
 <Slide>
 
-### 3장이 남기는 것
+### 4장이 남기는 것
 
 - 응답에서 쓰는 곳은 `content`와 `usage`, 그리고 아직 비어 있는 `tool_calls`
 - 기억은 서버가 아니라 messages 배열에 있고, **그 배열이 비용이다**.
@@ -770,18 +915,18 @@ docker compose exec lab python examples/01_api/11_cost_calc.py
 </Slide>
 <Slide class="cover">
 
-## 4장 · LiteLLM 통합 레이어
+## 5장 · LiteLLM 통합 레이어
 
 `examples/02_litellm/` 10종
 
-*3장이 써 온 completion()의 정체를 밝힙니다*
+*4장이 써 온 completion()의 정체를 밝힙니다*
 
 </Slide>
 
 <Slide>
 
-### 4장이 하는 일
-::sub[3장이 이미 써 온 completion()의 정체를 밝힙니다]
+### 5장이 하는 일
+::sub[4장이 이미 써 온 completion()의 정체를 밝힙니다]
 
 - 왜 공식 SDK 세 벌 대신 통합 레이어 한 벌인가, 그 **이득과 대가**
 - `examples/02_litellm/` **10종을 전부 실행**합니다.
@@ -1234,7 +1379,7 @@ docker compose exec lab python examples/02_litellm/09_model_info.py
 ```
 
 "이 입력이 들어가는가"와 "이 호출은 얼마인가"를 **실행 전에** 코드가 판단합니다.  
-3장의 한도 초과 예제가 입력한도 열을,
+4장의 한도 초과 예제가 입력한도 열을,
 6주차의 사전 비용 추정이 단가 열을 읽습니다.
 
 </Slide>
@@ -1317,7 +1462,7 @@ docker compose exec lab python examples/02_litellm/10_embedding.py
 </Slide>
 <Slide>
 
-### 4장이 남기는 것
+### 5장이 남기는 것
 
 - 공식 SDK 세 벌 대신 통합 레이어 한 벌. **그 이득과 대가를 알고 쓴다**.
 - 프로바이더 교체는 문자열 한 줄, 모델 이름은 `agent/config.py` 한 곳
@@ -1327,18 +1472,18 @@ docker compose exec lab python examples/02_litellm/10_embedding.py
 </Slide>
 <Slide class="cover">
 
-## 5장 · Tool calling 심화
+## 6장 · Tool calling 심화
 
 `examples/03_tools/` 10종
 
-*3장에서 비어 있던 tool_calls 자리가 채워집니다*
+*4장에서 비어 있던 tool_calls 자리가 채워집니다*
 
 </Slide>
 
 <Slide>
 
-### 5장이 하는 일
-::sub[3장에서 비어 있던 tool_calls 자리가 채워집니다]
+### 6장이 하는 일
+::sub[4장에서 비어 있던 tool_calls 자리가 채워집니다]
 
 - 도구 호출 왕복을 **JSON 원문으로 해부**합니다.
 - `examples/03_tools/` **10종을 전부 실행**합니다.
@@ -1949,7 +2094,7 @@ docker compose exec lab python examples/03_tools/09_structured_output.py
   2일차: 아침 후시미이나리 신사 … / 저녁 기요미즈데라 야간개장 …
 ```
 
-- 3장의 JSON 모드가 **형태만** 보장했다면,
+- 4장의 JSON 모드가 **형태만** 보장했다면,
   이것은 `plan.days[0].lunch`처럼 **타입까지** 보장합니다.
 - 문자열 파싱은 없습니다.
 
@@ -2098,7 +2243,7 @@ sequenceDiagram
   - 모델은 끝까지 텍스트(요청)만 보냅니다.
 - **도구 목록은 매 요청 반복 전송됩니다**: 도구 스키마도 토큰입니다.
   "좁게 준다"의 이유가 하나 더 늘었습니다.
-- **결과도 그냥 메시지입니다**: 3장의 무상태 원칙이 여기서도 성립합니다.
+- **결과도 그냥 메시지입니다**: 4장의 무상태 원칙이 여기서도 성립합니다.
   왕복의 기억은 전부 배열에 있습니다.
 
 </Slide>
@@ -2158,7 +2303,7 @@ docker compose exec lab pytest        # 유닛 테스트 16개 통과
 </Slide>
 <Slide>
 
-### 5장이 남기는 것
+### 6장이 남기는 것
 
 - tool call의 실체는 메시지 필드 하나, 실행·회신은 전부 우리 코드
 - 모델의 능력 경계는 도구 목록이 긋는다.
