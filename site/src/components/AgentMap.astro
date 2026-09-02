@@ -1,26 +1,28 @@
 ---
 /**
- * 멀티 에이전트 지도 (7주차 4·5·6장).
+ * 멀티 에이전트 지도 (7주차 4·5·6장) — 줌 캔버스판.
  *
- * 개요 지도에서 노드를 클릭하면 그 노드로 확대(zoom-in)되며 안쪽 해부도가
- * 열린다: 입력에서 출력까지의 흐름 카드, 도구 왕복 루프, 쥔 도구와 못 보는
- * 도구, 정지 조건. "지도" 버튼이나 Esc로 다시 축소한다.
+ * 개요에서 각 에이전트는 원이고, 원 안에 그 에이전트의 안쪽 구조(지침 →
+ * LLM → 도구, 루프, 곁가지 도구들)가 처음부터 작게 그려져 있다. 원을
+ * 클릭하면 카메라가 그 원으로 연속적으로 날아 들어가 안쪽이 화면을 채우고,
+ * 탭으로 옆 원으로 날아가거나 배경 클릭·Esc·"지도"로 다시 물러난다.
  *
  * 수치는 전부 시연 저장소(week07-energy/support/coding-agent)의 코드에서
- * 읽은 값이다. 글자 크기는 컨테이너 폭에 비례한다(cqw) — 슬라이드처럼 넓은
- * 자리에서는 크게, 본문 폭에서는 알맞게 보인다.
+ * 읽은 값이다. 아래 캡션의 상세(도구·정지 조건)는 확대한 노드를 따라간다.
  *
  * variant: "supervisor" | "handoff" | "parallel"
  */
-interface FlowStep {
-  name: string;
-  desc?: string;
+interface InnerStep { t: string; s?: string }
+interface InnerPill { t: string; muted?: boolean }
+interface Inner {
+  steps: InnerStep[];
+  loop?: { from: number; to: number; label: string };
+  side?: InnerPill[];
+  sideFrom?: number;
 }
-interface NodeDetail {
+interface Caption {
   badge: string;
   title: string;
-  flow: FlowStep[];
-  loop?: string;
   rows: { k: string; v: string }[];
   chips?: { label: string; items: string[]; muted?: boolean }[];
   note?: string;
@@ -28,50 +30,46 @@ interface NodeDetail {
 interface MapNode {
   id: string;
   label: string;
-  sub: string;
   kind: 'user' | 'router' | 'agent' | 'code' | 'gate';
-  x: number;
-  y: number;
-  detail?: NodeDetail;
+  cx: number; cy: number; r: number;
+  inner?: Inner;
+  caption?: Caption;
 }
-interface MapEdge {
-  d: string;
-  dashed?: boolean;
-  both?: boolean;
-  label?: string;
-  lx?: number;
-  ly?: number;
-}
+interface MapEdge { from: string; to: string; bow?: number; both?: boolean; dashed?: boolean; label?: string; lx?: number; ly?: number }
 interface MapDef {
-  head: string;
-  lede: string;
+  head: string; lede: string; foot: string;
   view: [number, number];
   nodes: MapNode[];
   edges: MapEdge[];
-  foot: string;
 }
+
+const loopAgent = (n: number) => ({ from: 2, to: 1, label: `⟲ ≤ ${n}` });
 
 const MAPS: Record<string, MapDef> = {
   supervisor: {
     head: 'supervisor 지도 · week07-energy-agent',
     lede:
-      '노드를 클릭하면 그 자리로 확대되어 안쪽이 열립니다. 결과는 언제나 ' +
-      '가운데로 돌아오고, 답을 쓰는 것은 아래쪽의 담당들입니다.',
-    view: [520, 300],
+      '원 안에 각 자리의 안쪽 구조가 이미 그려져 있습니다. 원을 클릭하면 그 ' +
+      '안으로 들어갑니다. 결과는 언제나 가운데로 돌아오고, 답을 쓰는 것은 아래 담당들입니다.',
+    foot: '곡선 한 쌍: 배정이 내려가고 결과가 돌아온다 · 점선: 최종 답변',
+    view: [1000, 660],
     nodes: [
-      { id: 'user', label: '사용자', sub: '질문 1건', kind: 'user', x: 60, y: 150 },
+      { id: 'user', label: '사용자', kind: 'user', cx: 92, cy: 200, r: 46 },
       {
-        id: 'supervisor', label: 'supervisor', sub: '라우터 · 도구 0', kind: 'router',
-        x: 260, y: 66,
-        detail: {
+        id: 'supervisor', label: 'supervisor', kind: 'router', cx: 500, cy: 160, r: 140,
+        inner: {
+          steps: [
+            { t: '상태', s: '질문 + findings' },
+            { t: '규칙 게이트', s: '_rule_route가 먼저' },
+            { t: 'LLM', s: '지침 403~532자' },
+            { t: 'JSON 한 줄', s: '{"next": …}' },
+          ],
+          side: [{ t: '조회 4종', muted: true }, { t: 'make_chart', muted: true }],
+          sideFrom: 2,
+        },
+        caption: {
           badge: '라우터',
           title: '다음 담당을 고른다. 답변을 쓰지 않는다',
-          flow: [
-            { name: '상태', desc: '질문 + 지금까지의 findings' },
-            { name: '규칙 게이트', desc: '_rule_route · 확실한 결정 셋은 코드가 먼저' },
-            { name: 'LLM', desc: '지침 403자, 상태가 실리면 532자' },
-            { name: 'JSON 한 줄', desc: '{"next": "...", "why": "..."}' },
-          ],
           rows: [
             { k: '내보내는 것', v: '다음 노드 이름 하나. 답변도, 도구 호출도 없다' },
             { k: '정지 조건', v: 'MAX_ROUNDS = 6 · 라우팅 왕복 상한 (루프의 보험)' },
@@ -80,24 +78,20 @@ const MAPS: Record<string, MapDef> = {
             { label: '쥔 도구', items: ['없음'] },
             { label: '못 보는 도구', items: ['조회 4종', 'make_chart'], muted: true },
           ],
-          note:
-            '규칙이 멈추는 자리부터가 모델의 판단입니다. 그 판단이 흔들리는 것을 ' +
-            '사고 재현 ①에서 봅니다.',
+          note: '규칙이 멈추는 자리부터가 모델의 판단입니다. 그 판단이 흔들리는 것을 사고 재현 ①에서 봅니다.',
         },
       },
       {
-        id: 'analyst', label: 'analyst', sub: '도구 4종 · 루프 ≤3', kind: 'agent',
-        x: 120, y: 234,
-        detail: {
+        id: 'analyst', label: 'analyst', kind: 'agent', cx: 210, cy: 490, r: 128,
+        inner: {
+          steps: [{ t: '지침 140자' }, { t: 'LLM' }, { t: 'run_tool 관문' }],
+          loop: loopAgent(3),
+          side: [{ t: 'profile' }, { t: 'usage' }, { t: 'compare' }, { t: 'breakdown' }],
+          sideFrom: 2,
+        },
+        caption: {
           badge: '에이전트',
-          title: '수치를 조회하고 증감을 계산한다',
-          flow: [
-            { name: '지침 140자', desc: '"당신은 전력 데이터 분석가다…"' },
-            { name: 'LLM' },
-            { name: 'run_tool 관문', desc: 'pydantic 검증 · 5주차 규율' },
-            { name: '도구 실행', desc: 'db에서 실제 수치' },
-          ],
-          loop: 'observation을 들고 LLM으로 ⟲ 왕복 ≤ 3 · 6주차의 그 ReAct 루프',
+          title: '수치를 조회하고 증감을 계산한다 · 안쪽은 6주차의 그 ReAct 루프',
           rows: [
             { k: '내보내는 것', v: 'findings 요약 한 건. 도구 원자료는 data 채널에 남고 위로 올라가지 않는다' },
           ],
@@ -108,20 +102,19 @@ const MAPS: Record<string, MapDef> = {
         },
       },
       {
-        id: 'visualizer', label: 'visualizer', sub: '도구 1종 · 루프 ≤3', kind: 'agent',
-        x: 260, y: 234,
-        detail: {
+        id: 'visualizer', label: 'visualizer', kind: 'agent', cx: 500, cy: 512, r: 122,
+        inner: {
+          steps: [{ t: '지침 147자' }, { t: 'LLM' }, { t: 'run_tool 관문' }],
+          loop: loopAgent(3),
+          side: [{ t: 'make_chart' }, { t: '조회 4종', muted: true }],
+          sideFrom: 2,
+        },
+        caption: {
           badge: '에이전트',
           title: '추이를 그래프로 그리고 읽어 준다',
-          flow: [
-            { name: '지침 147자', desc: '"…그래프로 보여주는 담당이다"' },
-            { name: 'LLM' },
-            { name: 'run_tool 관문' },
-            { name: 'make_chart', desc: '수치는 도구가 db에서 직접 조회' },
-          ],
-          loop: 'observation을 들고 LLM으로 ⟲ 왕복 ≤ 3',
           rows: [
             { k: '내보내는 것', v: 'findings 요약 + 차트 파일 이름' },
+            { k: '숫자의 출처', v: '차트 수치는 모델이 아니라 도구가 db에서 직접 조회한다' },
           ],
           chips: [
             { label: '쥔 도구', items: ['make_chart'] },
@@ -130,85 +123,78 @@ const MAPS: Record<string, MapDef> = {
         },
       },
       {
-        id: 'counselor', label: 'counselor', sub: '도구 0 · 단발 1회', kind: 'agent',
-        x: 400, y: 234,
-        detail: {
+        id: 'counselor', label: 'counselor', kind: 'agent', cx: 790, cy: 490, r: 128,
+        inner: {
+          steps: [{ t: '지침 199자', s: '+ findings 요약' }, { t: 'LLM 단발 1회' }, { t: '최종 답변', s: 'answer' }],
+          side: [{ t: '도구 없음', muted: true }],
+          sideFrom: 1,
+        },
+        caption: {
           badge: '에이전트',
-          title: '요약만 보고 고객에게 답을 쓴다',
-          flow: [
-            { name: '지침 199자', desc: '"아래 근거만 사용해…" + findings' },
-            { name: 'LLM 단발 1회', desc: '루프 없음' },
-            { name: '최종 답변', desc: 'answer' },
-          ],
+          title: '요약만 보고 고객에게 답을 쓴다 · 루프도 도구도 없다',
           rows: [
             { k: '없는 것', v: '도구도, 루프도 없다. 근거는 위에서 내려온 요약뿐' },
           ],
           chips: [
-            { label: '쥔 도구', items: ['없음'] },
             { label: '못 보는 도구', items: ['조회 4종', 'make_chart'], muted: true },
           ],
-          note:
-            '도구가 없어 스스로 조회하지 못합니다. supervisor가 자료 없이 여기로 ' +
-            '보내면 그럴듯한 헛답이 나옵니다. 사고 재현 ①이 정확히 이 경로입니다.',
+          note: '도구가 없어 스스로 조회하지 못합니다. supervisor가 자료 없이 여기로 보내면 그럴듯한 헛답이 나옵니다. 사고 재현 ①이 정확히 이 경로입니다.',
         },
       },
     ],
     edges: [
-      { d: 'M 92 140 L 200 84', label: '질문', lx: 132, ly: 100 },
-      { d: 'M 206 96 L 98 144', dashed: true, label: '답변', lx: 170, ly: 132 },
-      { d: 'M 232 92 L 138 210', both: true },
-      { d: 'M 260 92 L 260 210', both: true },
-      { d: 'M 288 92 L 382 210', both: true },
+      { from: 'user', to: 'supervisor', bow: -36, label: '질문' },
+      { from: 'supervisor', to: 'user', bow: -36, dashed: true, label: '답변' },
+      { from: 'supervisor', to: 'analyst', bow: 22, both: true },
+      { from: 'supervisor', to: 'visualizer', bow: 18, both: true },
+      { from: 'supervisor', to: 'counselor', bow: -22, both: true },
     ],
-    foot: '실선 양방향: 배정이 내려가고 결과가 돌아온다 · 점선: 최종 답변',
   },
 
   handoff: {
     head: 'handoff 지도 · week07-support-agent',
     lede:
-      '가운데가 없습니다. 접수가 Command로 제어권을 넘기면, 이어받은 담당이 ' +
-      '고객에게 직접 답합니다. 노드를 클릭해 각 담당의 안쪽으로 들어가 보세요.',
-    view: [520, 300],
+      '가운데가 없습니다. 접수가 Command로 제어권을 넘기면 이어받은 담당이 고객에게 ' +
+      '직접 답합니다. 원을 클릭해 각 담당의 안쪽으로 들어가 보세요.',
+    foot: '실선: 이양 (넘긴 쪽은 손을 뗀다) · 점선: 담당끼리의 제한된 이양 · 답변은 각 담당이 고객에게 직접',
+    view: [1000, 800],
     nodes: [
-      { id: 'user', label: '고객', sub: '문의', kind: 'user', x: 56, y: 150 },
+      { id: 'user', label: '고객', kind: 'user', cx: 88, cy: 400, r: 46 },
       {
-        id: 'triage', label: 'triage', sub: '접수 · 업무 도구 0', kind: 'router',
-        x: 196, y: 150,
-        detail: {
-          badge: '접수',
-          title: '첫 문의를 듣고 담당을 고른다',
-          flow: [
-            { name: '문의', desc: '대화 전체가 그대로 들어온다' },
-            { name: 'LLM', desc: '지침 255자 · tool_choice="required"' },
-            { name: '도구 호출', desc: 'transfer_to_* 또는 ask_clarification' },
-            { name: 'Command', desc: 'goto=담당 · 상태 갱신과 이동을 한 번에' },
+        id: 'triage', label: 'triage', kind: 'router', cx: 350, cy: 400, r: 128,
+        inner: {
+          steps: [
+            { t: '문의', s: '대화 전체가 들어온다' },
+            { t: 'LLM', s: 'tool_choice="required"' },
+            { t: 'Command', s: 'goto=담당' },
           ],
+          side: [{ t: 'to billing' }, { t: 'to tech' }, { t: 'to retention' }, { t: '되묻기' }],
+          sideFrom: 1,
+        },
+        caption: {
+          badge: '접수',
+          title: '첫 문의를 듣고 담당을 고른다 · 업무 도구 0 (지침 255자)',
           rows: [
             { k: '정지 조건', v: 'MAX_HANDOFFS = 3 · 한 턴에 담당이 바뀌는 횟수 상한' },
             { k: '다음 턴', v: 'entry가 체크포인터의 current_agent를 읽어 접수를 건너뛴다' },
           ],
           chips: [
-            { label: '업무 도구', items: ['없음'] },
             { label: '이양 도구', items: ['transfer_to_billing', 'transfer_to_tech', 'transfer_to_retention', 'ask_clarification'] },
           ],
-          note:
-            '출력이 반드시 도구 호출이어야 하므로 "요금 담당에게 문의하세요"라고 ' +
-            '말로만 넘기는 길이 없습니다. v0.1과 갈리는 지점입니다.',
+          note: '출력이 반드시 도구 호출이어야 하므로 말로만 넘기는 길이 없습니다. v0.1과 갈리는 지점입니다.',
         },
       },
       {
-        id: 'billing', label: 'billing', sub: '요금 · 도구 4종', kind: 'agent',
-        x: 386, y: 62,
-        detail: {
-          badge: '담당',
-          title: '청구·요금제·약관 문의에 답한다',
-          flow: [
-            { name: '대화 전체', desc: '요약자 없이 고객의 말을 직접 읽는다' },
-            { name: 'LLM', desc: '지침 289자' },
-            { name: 'run_tool 관문', desc: 'customer_id는 상태에서 주입' },
-            { name: '도구 실행' },
-          ],
-          loop: 'observation을 들고 LLM으로 ⟲ 왕복 ≤ 3',
+        id: 'billing', label: 'billing', kind: 'agent', cx: 770, cy: 150, r: 115,
+        inner: {
+          steps: [{ t: '대화 전체' }, { t: 'LLM · 289자' }, { t: 'run_tool 관문' }],
+          loop: loopAgent(3),
+          side: [{ t: 'invoice_detail' }, { t: 'invoice_history' }, { t: 'plan_info' }, { t: 'search_terms' }],
+          sideFrom: 2,
+        },
+        caption: {
+          badge: '요금 담당',
+          title: '청구·요금제·약관 문의에 답한다 · 고객에게 직접',
           rows: [
             { k: '내보내는 것', v: '고객에게 직접 답변, 또는 transfer_to_*로 이양' },
           ],
@@ -220,18 +206,16 @@ const MAPS: Record<string, MapDef> = {
         },
       },
       {
-        id: 'tech', label: 'tech', sub: '기술지원 · 도구 2종', kind: 'agent',
-        x: 386, y: 150,
-        detail: {
-          badge: '담당',
+        id: 'tech', label: 'tech', kind: 'agent', cx: 770, cy: 400, r: 108,
+        inner: {
+          steps: [{ t: '대화 전체' }, { t: 'LLM · 169자' }, { t: 'run_tool 관문' }],
+          loop: loopAgent(3),
+          side: [{ t: 'outage_lookup' }, { t: 'line_status' }],
+          sideFrom: 2,
+        },
+        caption: {
+          badge: '기술지원 담당',
           title: '장애·회선 상태 문의에 답한다',
-          flow: [
-            { name: '대화 전체' },
-            { name: 'LLM', desc: '지침 169자' },
-            { name: 'run_tool 관문' },
-            { name: '도구 실행' },
-          ],
-          loop: 'observation을 들고 LLM으로 ⟲ 왕복 ≤ 3',
           rows: [
             { k: '내보내는 것', v: '고객에게 직접 답변, 또는 transfer_to_*로 이양' },
           ],
@@ -243,18 +227,16 @@ const MAPS: Record<string, MapDef> = {
         },
       },
       {
-        id: 'retention', label: 'retention', sub: '해지방어 · 도구 3종', kind: 'agent',
-        x: 386, y: 238,
-        detail: {
-          badge: '담당',
-          title: '해지·약정·위약금 문의에 답한다',
-          flow: [
-            { name: '대화 전체' },
-            { name: 'LLM', desc: '지침 208자' },
-            { name: 'run_tool 관문' },
-            { name: '도구 실행', desc: 'v1.0: search_terms로 약관 검색' },
-          ],
-          loop: 'observation을 들고 LLM으로 ⟲ 왕복 ≤ 3',
+        id: 'retention', label: 'retention', kind: 'agent', cx: 770, cy: 650, r: 112,
+        inner: {
+          steps: [{ t: '대화 전체' }, { t: 'LLM · 208자' }, { t: 'run_tool 관문' }],
+          loop: loopAgent(3),
+          side: [{ t: 'contracts' }, { t: 'offers' }, { t: 'search_terms' }],
+          sideFrom: 2,
+        },
+        caption: {
+          badge: '해지방어 담당',
+          title: '해지·약정·위약금 문의에 답한다 · v1.0은 약관을 검색해 조항으로 인용',
           rows: [
             { k: '내보내는 것', v: '고객에게 직접 답변. 조항 인용은 코드가 존재·근거를 대조한다' },
           ],
@@ -267,167 +249,148 @@ const MAPS: Record<string, MapDef> = {
       },
     ],
     edges: [
-      { d: 'M 88 150 L 148 150', label: '문의', lx: 116, ly: 138 },
-      { d: 'M 236 134 L 330 76', label: 'Command', lx: 268, ly: 92 },
-      { d: 'M 244 150 L 330 150' },
-      { d: 'M 236 166 L 330 224' },
-      { d: 'M 386 84 L 386 128', dashed: true, both: true },
-      { d: 'M 386 172 L 386 216', dashed: true, both: true },
-      { d: 'M 444 74 C 478 110 478 190 444 226', dashed: true, both: true },
+      { from: 'user', to: 'triage', label: '문의' },
+      { from: 'triage', to: 'billing', bow: -20, label: 'Command' },
+      { from: 'triage', to: 'tech' },
+      { from: 'triage', to: 'retention', bow: 20 },
+      { from: 'billing', to: 'tech', dashed: true, both: true, bow: -14 },
+      { from: 'tech', to: 'retention', dashed: true, both: true, bow: -14 },
+      { from: 'billing', to: 'retention', dashed: true, both: true, bow: -60 },
     ],
-    foot: '실선: 이양 (넘긴 쪽은 손을 뗀다) · 점선: 담당끼리의 제한된 이양 · 답변은 각 담당이 고객에게 직접',
   },
 
   parallel: {
     head: '병렬 실행 지도 · week07-coding-agent',
     lede:
-      '역할이 설계 시점이 아니라 실행 시점에 만들어집니다. planner가 태스크를 ' +
-      '만들면 Send가 그 수만큼 워커를 띄웁니다. 노드를 클릭해 안쪽으로 들어가 보세요.',
-    view: [560, 300],
+      '역할이 실행 시점에 만들어집니다. planner가 태스크를 만들면 Send가 그 수만큼 ' +
+      '워커를 띄웁니다. 원을 클릭해 안쪽으로 들어가 보세요.',
+    foot: '실선: 제어 흐름 · 점선: 복구 루프 · 워커 셋은 같은 순간에 함께 돈다',
+    view: [1000, 680],
     nodes: [
       {
-        id: 'planner', label: 'planner', sub: '계획 1회', kind: 'agent',
-        x: 66, y: 150,
-        detail: {
+        id: 'planner', label: 'planner', kind: 'agent', cx: 112, cy: 340, r: 100,
+        inner: {
+          steps: [{ t: 'SPEC + 규약' }, { t: 'LLM 1회', s: '저가 모델' }, { t: 'JSON 계획', s: 'tasks 3건' }],
+          side: [{ t: '역할은 코드가 고정', muted: true }],
+          sideFrom: 2,
+        },
+        caption: {
           badge: '에이전트',
-          title: 'SPEC을 읽고 태스크를 만든다',
-          flow: [
-            { name: 'SPEC + CONTRACT', desc: '문서 한 장 + API 규약' },
-            { name: 'LLM 1회', desc: '저가 모델' },
-            { name: 'JSON 계획', desc: 'tasks 3건 · 내용과 난이도' },
-            { name: '코드 검증', desc: '역할·파일 소유권은 모델이 못 바꾼다' },
-          ],
+          title: 'SPEC을 읽고 태스크를 만든다 · 6주차 Plan-and-Execute의 계획 단계',
           rows: [
             { k: '내보내는 것', v: 'tasks 3건 · role · files · branch · difficulty' },
             { k: '모델 배정', v: '난이도가 모델을 고른다: hard면 상위, easy면 저가' },
           ],
-          note: '6주차 Plan-and-Execute의 계획 단계가 여기서는 팀 구성이 됩니다.',
+          note: '역할과 파일 소유권은 모델이 바꿀 수 없습니다. 코드가 고정합니다.',
         },
       },
       {
-        id: 'gate', label: 'gate', sub: '견적 → 승인', kind: 'gate',
-        x: 178, y: 150,
-        detail: {
+        id: 'gate', label: 'gate', kind: 'gate', cx: 305, cy: 340, r: 82,
+        inner: {
+          steps: [{ t: 'estimate_run' }, { t: '상한 $0.02' }, { t: 'interrupt', s: '사람에게 묻는다' }],
+          side: [{ t: '승인 → Send' }, { t: '거절 → stopped' }],
+          sideFrom: 2,
+        },
+        caption: {
           badge: '게이트',
-          title: '값을 먼저 묻는 문',
-          flow: [
-            { name: 'estimate_run', desc: '실행 전 예상 비용 계산' },
-            { name: '상한 비교', desc: 'BUDGET_USD = 0.02' },
-            { name: 'interrupt', desc: '넘으면 사람에게 묻는다' },
-            { name: '승인 / 중단', desc: '거절이면 한 줄도 짜지 않는다' },
-          ],
+          title: '값을 먼저 묻는 문 · 거절할 수 있어야 문이다',
           rows: [
-            { k: '내보내는 것', v: '승인이면 Send 팬아웃, 거절이면 stopped' },
+            { k: '내보내는 것', v: '승인이면 Send 팬아웃, 거절이면 stopped. 한 줄도 짜지 않는다' },
           ],
-          note: '6주차 budget guard가 사람에게 묻는 문으로 진화한 자리. 거절할 수 있어야 문입니다.',
+          note: '6주차 budget guard가 사람에게 묻는 문으로 진화한 자리입니다.',
         },
       },
       {
-        id: 'backend', label: 'worker · backend', sub: 'app.py', kind: 'agent',
-        x: 330, y: 62,
-        detail: {
+        id: 'backend', label: 'worker · backend', kind: 'agent', cx: 555, cy: 122, r: 100,
+        inner: {
+          steps: [{ t: '태스크 + 규약' }, { t: 'LLM' }, { t: 'write_file' }],
+          loop: loopAgent(3),
+          side: [{ t: 'app.py' }, { t: 'worktree 격리' }],
+          sideFrom: 2,
+        },
+        caption: {
           badge: '워커',
-          title: '자기 파일만 쓴다: app.py',
-          flow: [
-            { name: '태스크 + CONTRACT', desc: '전체 상태가 아니라 자기 페이로드만' },
-            { name: 'LLM', desc: '난이도별 모델' },
-            { name: 'write_file', desc: '소유권 밖 경로는 코드가 거부' },
-            { name: 'worktree 커밋', desc: '역할별 작업 디렉터리 · GIT_LOCK 직렬화' },
-          ],
-          loop: '쓴 파일을 확인하며 ⟲ 왕복 ≤ 3 · 자기 파일을 다 쓰면 조기 종료',
+          title: '자기 파일만 쓴다: app.py · 소유권 밖 경로는 코드가 거부',
           rows: [
             { k: '내보내는 것', v: '{"results": [...]} · 리듀서(operator.add)가 합친다' },
+            { k: '격리', v: 'git worktree · git 명령은 GIT_LOCK으로 직렬화' },
           ],
-          chips: [{ label: '쥔 도구', items: ['write_file'] }],
         },
       },
       {
-        id: 'frontend', label: 'worker · frontend', sub: 'static/index.html', kind: 'agent',
-        x: 330, y: 150,
-        detail: {
+        id: 'frontend', label: 'worker · frontend', kind: 'agent', cx: 555, cy: 340, r: 100,
+        inner: {
+          steps: [{ t: '태스크 + 규약' }, { t: 'LLM' }, { t: 'write_file' }],
+          loop: loopAgent(3),
+          side: [{ t: 'index.html' }, { t: 'worktree 격리' }],
+          sideFrom: 2,
+        },
+        caption: {
           badge: '워커',
           title: '자기 파일만 쓴다: static/index.html',
-          flow: [
-            { name: '태스크 + CONTRACT' },
-            { name: 'LLM' },
-            { name: 'write_file' },
-            { name: 'worktree 커밋' },
-          ],
-          loop: '쓴 파일을 확인하며 ⟲ 왕복 ≤ 3',
           rows: [
             { k: '이웃과의 접점', v: '파일은 겹치지 않고, 규약(CONTRACT)만 공유한다' },
           ],
-          chips: [{ label: '쥔 도구', items: ['write_file'] }],
+          note: '병렬로 벌고 싶은 것은 모델 호출 시간이지 git이 아닙니다.',
         },
       },
       {
-        id: 'tests', label: 'worker · tests', sub: 'tests/test_api.py', kind: 'agent',
-        x: 330, y: 238,
-        detail: {
+        id: 'tests', label: 'worker · tests', kind: 'agent', cx: 555, cy: 558, r: 100,
+        inner: {
+          steps: [{ t: '태스크 + 규약' }, { t: 'LLM' }, { t: 'write_file' }],
+          loop: loopAgent(3),
+          side: [{ t: 'test_api.py' }, { t: 'worktree 격리' }],
+          sideFrom: 2,
+        },
+        caption: {
           badge: '워커',
           title: '자기 파일만 쓴다: tests/test_api.py',
-          flow: [
-            { name: '태스크 + CONTRACT' },
-            { name: 'LLM' },
-            { name: 'write_file' },
-            { name: 'worktree 커밋' },
-          ],
-          loop: '쓴 파일을 확인하며 ⟲ 왕복 ≤ 3',
           rows: [
             { k: '역할', v: '규약이 못 박지 않은 것을 테스트가 드러낸다 (사고 재현 ③의 주인공)' },
           ],
-          chips: [{ label: '쥔 도구', items: ['write_file'] }],
         },
       },
       {
-        id: 'integrator', label: 'integrator', sub: 'LLM 0회', kind: 'code',
-        x: 484, y: 150,
-        detail: {
+        id: 'integrator', label: 'integrator', kind: 'code', cx: 855, cy: 400, r: 104,
+        inner: {
+          steps: [{ t: 'merge --no-ff' }, { t: 'pytest' }, { t: 'docker up', s: '8080' }, { t: '판정' }],
+        },
+        caption: {
           badge: '코드',
-          title: '합치고, 돌려 보고, 판정한다',
-          flow: [
-            { name: 'merge --no-ff', desc: '브랜치 셋을 순차 머지' },
-            { name: 'pytest', desc: '규약의 빈틈이 여기서 드러난다' },
-            { name: 'docker compose up', desc: '산출물이 8080에 뜬다' },
-            { name: '판정', desc: '성공 / 실패 로그' },
-          ],
+          title: '합치고, 돌려 보고, 판정한다 · LLM 0회',
           rows: [
-            { k: 'LLM 호출', v: '0회. 전부 하네스가 실행한다' },
             { k: '실패하면', v: '고치기 ≤ 2 (fixer) · 재계획 ≤ 1 (planner) · 그다음은 포기' },
           ],
+          note: '무한히 도는 자동화는 자동화가 아닙니다.',
         },
       },
       {
-        id: 'fixer', label: 'fixer', sub: '상위 모델', kind: 'agent',
-        x: 484, y: 54,
-        detail: {
+        id: 'fixer', label: 'fixer', kind: 'agent', cx: 855, cy: 128, r: 84,
+        inner: {
+          steps: [{ t: '실패 로그', s: '끝 2,000자' }, { t: 'LLM', s: '상위 모델' }, { t: '한 파일 재작성' }],
+          side: [{ t: '≤ 2회' }],
+          sideFrom: 2,
+        },
+        caption: {
           badge: '에이전트',
-          title: '실패 로그를 되먹여 한 파일을 고친다',
-          flow: [
-            { name: '실패 로그', desc: '끝 2,000자 + 제품 파일 3개 + CONTRACT' },
-            { name: 'LLM', desc: '상위 모델 고정' },
-            { name: '한 파일 재작성', desc: 'tool_calls를 하나로 자른다' },
-          ],
+          title: '실패 로그를 되먹여 한 파일을 고친다 · 6주차 Reflexion의 자리',
           rows: [
             { k: '왜 한 파일인가', v: '여러 파일을 한꺼번에 고치면 무엇이 나았는지 알 수 없다' },
-            { k: '정지 조건', v: 'MAX_FIXES = 2' },
           ],
-          note: '6주차 Reflexion이 여기서는 빌드 로그를 되먹이는 일이 됩니다.',
         },
       },
     ],
     edges: [
-      { d: 'M 104 150 L 146 150' },
-      { d: 'M 212 134 L 274 76', label: 'Send ×3', lx: 224, ly: 88 },
-      { d: 'M 212 150 L 272 150' },
-      { d: 'M 212 166 L 274 224' },
-      { d: 'M 388 74 L 446 134' },
-      { d: 'M 388 150 L 442 150' },
-      { d: 'M 388 224 L 446 166' },
-      { d: 'M 484 128 L 484 76', dashed: true, both: true, label: '고치기 ≤2', lx: 500, ly: 104 },
-      { d: 'M 452 172 C 300 288 140 240 78 172', dashed: true, label: '재계획 ≤1', lx: 268, ly: 262 },
+      { from: 'planner', to: 'gate' },
+      { from: 'gate', to: 'backend', bow: -18, label: 'Send ×3' },
+      { from: 'gate', to: 'frontend' },
+      { from: 'gate', to: 'tests', bow: 18 },
+      { from: 'backend', to: 'integrator', bow: -14 },
+      { from: 'frontend', to: 'integrator' },
+      { from: 'tests', to: 'integrator', bow: 14 },
+      { from: 'integrator', to: 'fixer', dashed: true, both: true, label: '고치기 ≤2' },
+      { from: 'integrator', to: 'planner', dashed: true, bow: -235, label: '재계획 ≤1', lx: 400, ly: 548 },
     ],
-    foot: '실선: 제어 흐름 · 점선: 복구 루프 · 워커 셋은 같은 순간에 함께 돈다',
   },
 };
 
@@ -435,28 +398,69 @@ const { variant = 'supervisor' } = Astro.props;
 const map = MAPS[variant];
 if (!map) throw new Error(`AgentMap: unknown variant "${variant}"`);
 const [vw, vh] = map.view;
-const clickable = map.nodes.filter((n) => n.detail);
-const details = Object.fromEntries(
-  clickable.map((n) => [n.id, { label: n.label, x: n.x / vw, y: n.y / vh, ...n.detail }]),
-);
+const byId = Object.fromEntries(map.nodes.map((n) => [n.id, n]));
+
+interface Rendered { d: string; dashed?: boolean; both?: boolean; label?: string; lx: number; ly: number }
+const edges: Rendered[] = map.edges.map((e) => {
+  const a = byId[e.from], b = byId[e.to];
+  const dx = b.cx - a.cx, dy = b.cy - a.cy;
+  const len = Math.hypot(dx, dy);
+  const ux = dx / len, uy = dy / len;
+  const px = -uy, py = ux; // 수직 방향
+  const bow = e.bow ?? 0;
+  const sx = a.cx + ux * (a.r + 4) + px * bow * 0.25;
+  const sy = a.cy + uy * (a.r + 4) + py * bow * 0.25;
+  const ex = b.cx - ux * (b.r + 10) + px * bow * 0.25;
+  const ey = b.cy - uy * (b.r + 10) + py * bow * 0.25;
+  const cx = (sx + ex) / 2 + px * bow;
+  const cy = (sy + ey) / 2 + py * bow;
+  const lx = e.lx ?? 0.25 * sx + 0.5 * cx + 0.25 * ex + px * 16;
+  const ly = e.ly ?? 0.25 * sy + 0.5 * cy + 0.25 * ey + py * 16;
+  return { d: `M ${sx.toFixed(1)} ${sy.toFixed(1)} Q ${cx.toFixed(1)} ${cy.toFixed(1)} ${ex.toFixed(1)} ${ey.toFixed(1)}`,
+    dashed: e.dashed, both: e.both, label: e.label, lx, ly };
+});
+
+// 원 내부 미니 다이어그램 레이아웃 (r=150 기준 좌표, r에 비례해 축소)
+const STEP_W = 132, STEP_H = 36, STEP_GAP = 20, STEP_X = -46;
+function stepYs(n: number): number[] {
+  const total = n * STEP_H + (n - 1) * STEP_GAP;
+  const top = -total / 2 + STEP_H / 2 + (n >= 4 ? 12 : 8);
+  return Array.from({ length: n }, (_, i) => top + i * (STEP_H + STEP_GAP));
+}
+function pillYs(n: number): number[] {
+  const gap = 34;
+  const top = -((n - 1) * gap) / 2;
+  return Array.from({ length: n }, (_, i) => top + i * gap);
+}
+
+const clickable = map.nodes.filter((n) => n.caption);
+const clientData = {
+  view: [vw, vh],
+  nodes: clickable.map((n) => ({ id: n.id, label: n.label, cx: n.cx, cy: n.cy, r: n.r, caption: n.caption })),
+};
 ---
 
-<div class="amap" data-agentmap data-details={JSON.stringify(details)}>
+<div class="amap" data-agentmap data-map={JSON.stringify(clientData)}>
   <div class="amap-head">
     <strong>{map.head}</strong>
     <span>{map.lede}</span>
   </div>
 
   <div class="amap-stage" style={`aspect-ratio: ${vw} / ${vh};`}>
-    <div class="amap-scene" data-scene>
+    <div class="amap-canvas" data-canvas>
       <svg viewBox={`0 0 ${vw} ${vh}`} aria-hidden="true">
         <defs>
           <marker id={`amap-arrow-${variant}`} viewBox="0 0 8 8" refX="7" refY="4"
-            markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            markerWidth="7" markerHeight="7" orient="auto-start-reverse">
             <path d="M 0 0 L 8 4 L 0 8 z" fill="var(--amap-line)" />
           </marker>
+          <marker id={`amap-arrow-in-${variant}`} viewBox="0 0 8 8" refX="6" refY="4"
+            markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+            <path d="M 0 0 L 8 4 L 0 8 z" fill="var(--amap-inner-line)" />
+          </marker>
         </defs>
-        {map.edges.map((edge) => (
+
+        {edges.map((edge) => (
           <path
             d={edge.d}
             class:list={['amap-edge', { 'is-dashed': edge.dashed }]}
@@ -464,129 +468,186 @@ const details = Object.fromEntries(
             marker-start={edge.both ? `url(#amap-arrow-${variant})` : undefined}
           />
         ))}
-        {map.edges.filter((e) => e.label).map((edge) => (
+
+        {map.nodes.map((node) => {
+          const s = node.r / 150;
+          const ys = node.inner ? stepYs(node.inner.steps.length) : [];
+          const pys = node.inner?.side ? pillYs(node.inner.side.length) : [];
+          const sideY = node.inner?.sideFrom !== undefined ? ys[node.inner.sideFrom] : 0;
+          return (
+            <g
+              class:list={['amap-node', `is-${node.kind}`, { 'is-static': !node.caption }]}
+              data-node={node.caption ? node.id : undefined}
+              tabindex={node.caption ? 0 : undefined}
+              role={node.caption ? 'button' : undefined}
+            >
+              <circle class="amap-circle" cx={node.cx} cy={node.cy} r={node.r} />
+              <text class="amap-name" x={node.cx} y={node.cy - node.r + 30 * s} font-size={21 * s}>{node.label}</text>
+              {node.inner && (
+                <g transform={`translate(${node.cx}, ${node.cy + 8 * s}) scale(${s})`}>
+                  {node.inner.steps.map((step, i) => (
+                    <>
+                      <rect class="amap-step" x={STEP_X - STEP_W / 2} y={ys[i] - STEP_H / 2}
+                        width={STEP_W} height={STEP_H} rx={STEP_H / 2} />
+                      <text class="amap-step-t" x={STEP_X} y={ys[i] + (step.s ? -1 : 4)}>{step.t}</text>
+                      {step.s && <text class="amap-step-s" x={STEP_X} y={ys[i] + 12}>{step.s}</text>}
+                      {i < node.inner!.steps.length - 1 && (
+                        <line class="amap-inner-edge" x1={STEP_X} y1={ys[i] + STEP_H / 2}
+                          x2={STEP_X} y2={ys[i + 1] - STEP_H / 2 - 4}
+                          marker-end={`url(#amap-arrow-in-${variant})`} />
+                      )}
+                    </>
+                  ))}
+                  {node.inner.loop && (
+                    <>
+                      <path class="amap-inner-edge is-loop"
+                        d={`M ${STEP_X - STEP_W / 2 - 2} ${ys[node.inner.loop.from]}
+                            C ${STEP_X - STEP_W / 2 - 34} ${ys[node.inner.loop.from]},
+                              ${STEP_X - STEP_W / 2 - 34} ${ys[node.inner.loop.to]},
+                              ${STEP_X - STEP_W / 2 - 4} ${ys[node.inner.loop.to]}`}
+                        marker-end={`url(#amap-arrow-in-${variant})`} />
+                      <text class="amap-loop-t" x={STEP_X - STEP_W / 2 - 24}
+                        y={(ys[node.inner.loop.from] + ys[node.inner.loop.to]) / 2 + 4}>{node.inner.loop.label}</text>
+                    </>
+                  )}
+                  {node.inner.side?.map((pill, i) => (
+                    <>
+                      <line class="amap-inner-edge is-dash"
+                        x1={STEP_X + STEP_W / 2} y1={sideY}
+                        x2={40} y2={pys[i]} />
+                      <rect class:list={['amap-pill', { 'is-muted': pill.muted }]}
+                        x={40} y={pys[i] - 13} width={100} height={26} rx={13} />
+                      <text class:list={['amap-pill-t', { 'is-muted': pill.muted }]}
+                        x={90} y={pys[i] + 4}>{pill.t}</text>
+                    </>
+                  ))}
+                </g>
+              )}
+            </g>
+          );
+        })}
+
+        {edges.filter((e) => e.label).map((edge) => (
           <text x={edge.lx} y={edge.ly} class="amap-edge-label">{edge.label}</text>
         ))}
       </svg>
-      {map.nodes.map((node) =>
-        node.detail ? (
-          <button
-            type="button"
-            class={`amap-node is-${node.kind}`}
-            data-node={node.id}
-            style={`left: ${(node.x / vw) * 100}%; top: ${(node.y / vh) * 100}%;`}
-          >
-            <span class="amap-node-name">{node.label}</span>
-            <span class="amap-node-sub">{node.sub}</span>
-            <span class="amap-node-zoom">확대 ＋</span>
-          </button>
-        ) : (
-          <div
-            class={`amap-node is-${node.kind} is-static`}
-            style={`left: ${(node.x / vw) * 100}%; top: ${(node.y / vh) * 100}%;`}
-          >
-            <span class="amap-node-name">{node.label}</span>
-            <span class="amap-node-sub">{node.sub}</span>
-          </div>
-        ),
-      )}
     </div>
 
-    <div class="amap-zoom" data-zoom hidden>
-      <div class="amap-zoom-bar">
-        <button type="button" class="amap-back" data-back>← 지도</button>
-        <div class="amap-tabs" data-tabs>
-          {clickable.map((node) => (
-            <button type="button" class={`amap-tab is-${node.kind}`} data-tab={node.id}>{node.label}</button>
-          ))}
-        </div>
+    <div class="amap-bar" data-bar hidden>
+      <button type="button" class="amap-back" data-back>← 지도</button>
+      <div class="amap-tabs">
+        {clickable.map((node) => (
+          <button type="button" class="amap-tab" data-tab={node.id}>{node.label}</button>
+        ))}
       </div>
-      <div class="amap-detail" data-detail></div>
     </div>
   </div>
 
-  <p class="amap-foot">{map.foot}</p>
+  <div class="amap-caption" data-caption>
+    <p class="amap-foot">{map.foot}</p>
+  </div>
 </div>
 
 <script>
   document.querySelectorAll<HTMLElement>('[data-agentmap]').forEach(init);
 
   function init(root: HTMLElement) {
-    const details = JSON.parse(root.dataset.details ?? '{}') as Record<string, {
-      label: string; x: number; y: number;
-      badge: string; title: string;
-      flow: { name: string; desc?: string }[];
-      loop?: string;
-      rows: { k: string; v: string }[];
-      chips?: { label: string; items: string[]; muted?: boolean }[];
-      note?: string;
-    }>;
-    const scene = root.querySelector<HTMLElement>('[data-scene]')!;
-    const zoom = root.querySelector<HTMLElement>('[data-zoom]')!;
-    const panel = root.querySelector<HTMLElement>('[data-detail]')!;
-    const nodes = root.querySelectorAll<HTMLButtonElement>('[data-node]');
-    const tabs = root.querySelectorAll<HTMLButtonElement>('[data-tab]');
+    const data = JSON.parse(root.dataset.map ?? '{}') as {
+      view: [number, number];
+      nodes: {
+        id: string; label: string; cx: number; cy: number; r: number;
+        caption: {
+          badge: string; title: string;
+          rows: { k: string; v: string }[];
+          chips?: { label: string; items: string[]; muted?: boolean }[];
+          note?: string;
+        };
+      }[];
+    };
+    const stage = root.querySelector<HTMLElement>('.amap-stage')!;
+    const canvas = root.querySelector<HTMLElement>('[data-canvas]')!;
+    const bar = root.querySelector<HTMLElement>('[data-bar]')!;
+    const caption = root.querySelector<HTMLElement>('[data-caption]')!;
+    const overview = caption.innerHTML;
     const esc = (s: string) =>
       s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    let current = '';
 
-    nodes.forEach((button) =>
-      button.addEventListener('click', () => open(button.dataset.node ?? '')));
-    tabs.forEach((button) =>
-      button.addEventListener('click', () => render(button.dataset.tab ?? '')));
-    root.querySelector('[data-back]')?.addEventListener('click', close);
-    root.addEventListener('keydown', (event) => {
-      if ((event as KeyboardEvent).key === 'Escape' && !zoom.hidden) close();
+    root.querySelectorAll<SVGGElement>('[data-node]').forEach((g) => {
+      g.addEventListener('click', (event) => {
+        event.stopPropagation();
+        fly(g.dataset.node ?? '');
+      });
+      g.addEventListener('keydown', (event) => {
+        if ((event as KeyboardEvent).key === 'Enter') fly(g.dataset.node ?? '');
+      });
     });
+    root.querySelectorAll<HTMLButtonElement>('[data-tab]').forEach((button) =>
+      button.addEventListener('click', () => fly(button.dataset.tab ?? '')));
+    root.querySelector('[data-back]')?.addEventListener('click', reset);
+    canvas.addEventListener('click', () => { if (current) reset(); });
+    root.addEventListener('keydown', (event) => {
+      if ((event as KeyboardEvent).key === 'Escape' && current) reset();
+    });
+    window.addEventListener('resize', () => { if (current) apply(current); });
 
-    function open(id: string) {
-      const d = details[id];
-      if (!d) return;
-      scene.style.transformOrigin = `${d.x * 100}% ${d.y * 100}%`;
-      scene.classList.add('is-zoomed');
-      zoom.hidden = false;
-      requestAnimationFrame(() => zoom.classList.add('is-open'));
-      render(id);
+    function fly(id: string) {
+      const node = data.nodes.find((n) => n.id === id);
+      if (!node || id === current) return;
+      current = id;
+      apply(id);
+      bar.hidden = false;
+      root.classList.add('is-zoomed');
+      root.querySelectorAll('[data-tab]').forEach((b) =>
+        b.classList.toggle('is-active', (b as HTMLElement).dataset.tab === id));
+      root.querySelectorAll('[data-node]').forEach((g) =>
+        g.classList.toggle('is-active', (g as SVGGElement).dataset.node === id));
+      renderCaption(node);
     }
 
-    function close() {
-      scene.classList.remove('is-zoomed');
-      zoom.classList.remove('is-open');
-      window.setTimeout(() => { zoom.hidden = true; }, 220);
+    function apply(id: string) {
+      const node = data.nodes.find((n) => n.id === id);
+      if (!node) return;
+      // 조상(슬라이드 데크)이 transform으로 축소해도 어긋나지 않도록
+      // 시각 좌표(getBoundingClientRect)가 아니라 레이아웃 픽셀을 쓴다.
+      const w = stage.clientWidth;
+      const h = stage.clientHeight;
+      const u = w / data.view[0];
+      const k = Math.min(w, h) / (2 * node.r * 1.18 * u);
+      const tx = w / 2 - k * node.cx * u;
+      const ty = h / 2 - k * node.cy * u;
+      canvas.style.transformOrigin = '0 0';
+      canvas.style.transform = `translate(${tx}px, ${ty}px) scale(${k})`;
     }
 
-    function render(id: string) {
-      const d = details[id];
-      if (!d) return;
-      tabs.forEach((t) => t.classList.toggle('is-active', t.dataset.tab === id));
+    function reset() {
+      current = '';
+      canvas.style.transform = '';
+      bar.hidden = true;
+      root.classList.remove('is-zoomed');
+      root.querySelectorAll('[data-node]').forEach((g) => g.classList.remove('is-active'));
+      caption.innerHTML = overview;
+    }
 
-      const flow = d.flow
-        .map((step) => `<div class="amap-step">
-            <strong>${esc(step.name)}</strong>
-            ${step.desc ? `<span>${esc(step.desc)}</span>` : ''}
-          </div>`)
-        .join('<span class="amap-step-arrow" aria-hidden="true">→</span>');
-      const loop = d.loop ? `<div class="amap-loop">${esc(d.loop)}</div>` : '';
-
-      const chips = (d.chips ?? [])
+    function renderCaption(node: (typeof data.nodes)[number]) {
+      const c = node.caption;
+      const chips = (c.chips ?? [])
         .map((group) => `<div class="amap-chips${group.muted ? ' is-muted' : ''}">
           <span class="amap-chips-label">${esc(group.label)}</span>
           ${group.items.map((item) => `<code>${esc(item)}</code>`).join('')}
         </div>`)
         .join('');
-
-      panel.innerHTML = `
-        <div class="amap-panel-head">
-          <span class="amap-badge">${esc(d.badge)}</span>
-          <strong>${esc(d.label)}</strong>
-          <span class="amap-panel-title">${esc(d.title)}</span>
+      caption.innerHTML = `
+        <div class="amap-caption-head">
+          <span class="amap-badge">${esc(c.badge)}</span>
+          <strong>${esc(node.label)}</strong>
+          <span>${esc(c.title)}</span>
         </div>
-        <div class="amap-flow">${flow}</div>
-        ${loop}
         <dl class="amap-rows">
-          ${d.rows.map((row) => `<div><dt>${esc(row.k)}</dt><dd>${esc(row.v)}</dd></div>`).join('')}
+          ${c.rows.map((row) => `<div><dt>${esc(row.k)}</dt><dd>${esc(row.v)}</dd></div>`).join('')}
         </dl>
         ${chips}
-        ${d.note ? `<p class="amap-note">${esc(d.note)}</p>` : ''}`;
+        ${c.note ? `<p class="amap-note">${esc(c.note)}</p>` : ''}`;
     }
   }
 </script>
@@ -601,7 +662,8 @@ const details = Object.fromEntries(
     box-shadow: var(--aas-shadow);
     font-family: var(--aas-sans);
     container-type: inline-size;
-    --amap-line: color-mix(in srgb, var(--aas-muted) 55%, transparent);
+    --amap-line: color-mix(in srgb, var(--aas-muted) 60%, transparent);
+    --amap-inner-line: color-mix(in srgb, var(--aas-muted) 75%, transparent);
     --amap-router: #fab219;
     --amap-agent: #2f81f7;
     --amap-code: #8b949e;
@@ -620,65 +682,70 @@ const details = Object.fromEntries(
     background: var(--aas-bg);
     overflow: hidden;
   }
-  .amap-scene { position: absolute; inset: 0; transition: transform 0.28s ease, opacity 0.28s ease; }
-  .amap-scene.is-zoomed { transform: scale(2.6); opacity: 0; pointer-events: none; }
-  .amap-scene svg { position: absolute; inset: 0; width: 100%; height: 100%; }
-
-  .amap-edge { fill: none; stroke: var(--amap-line); stroke-width: 1.6; }
-  .amap-edge.is-dashed { stroke-dasharray: 5 4; }
-  .amap-edge-label { font-size: 11px; fill: var(--aas-muted); font-family: var(--aas-sans); }
-
-  .amap-node {
-    position: absolute;
-    transform: translate(-50%, -50%);
-    display: flex; flex-direction: column; align-items: center; gap: 0.1em;
-    padding: 0.55em 0.9em;
-    border-radius: 10px;
-    border: 1.5px solid var(--aas-border);
-    background: var(--aas-panel);
-    font-family: inherit;
-    cursor: pointer;
-    transition: border-color 0.15s ease, box-shadow 0.15s ease;
-    max-width: 32%;
-    font-size: clamp(0.8rem, 2cqw, 1.5rem);
-  }
-  .amap-node.is-static { cursor: default; border-style: dashed; }
-  .amap-node:not(.is-static):hover { border-color: var(--amap-agent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--amap-agent) 18%, transparent); }
-  .amap-node.is-router:hover { border-color: var(--amap-router); box-shadow: 0 0 0 3px color-mix(in srgb, var(--amap-router) 22%, transparent); }
-  .amap-node.is-gate:hover { border-color: var(--amap-gate); box-shadow: 0 0 0 3px color-mix(in srgb, var(--amap-gate) 18%, transparent); }
-
-  .amap-node-name { font-size: 1em; font-weight: 650; color: var(--aas-text); white-space: nowrap; }
-  .amap-node-sub { font-size: 0.72em; color: var(--aas-muted); white-space: nowrap; }
-  .amap-node-zoom {
-    font-size: 0.62em; color: var(--aas-muted);
-    opacity: 0; transition: opacity 0.15s ease;
-  }
-  .amap-node:not(.is-static):hover .amap-node-zoom { opacity: 1; }
-  .amap-node.is-router .amap-node-name::before { content: '◆ '; color: var(--amap-router); }
-  .amap-node.is-agent .amap-node-name::before { content: '● '; color: var(--amap-agent); }
-  .amap-node.is-code .amap-node-name::before { content: '■ '; color: var(--amap-code); }
-  .amap-node.is-gate .amap-node-name::before { content: '▲ '; color: var(--amap-gate); }
-
-  .amap-zoom {
+  .amap-canvas {
     position: absolute; inset: 0;
-    display: flex; flex-direction: column;
-    background: var(--aas-bg);
-    opacity: 0; transform: scale(0.94);
-    transition: opacity 0.22s ease, transform 0.22s ease;
-    overflow: auto;
+    transition: transform 0.65s cubic-bezier(0.4, 0, 0.2, 1);
+    will-change: transform;
   }
-  .amap-zoom.is-open { opacity: 1; transform: scale(1); }
+  .amap-canvas svg { position: absolute; inset: 0; width: 100%; height: 100%; }
 
-  .amap-zoom-bar {
-    display: flex; align-items: center; gap: 0.7em; flex-wrap: wrap;
-    padding: 0.7em 0.9em 0.4em;
-    font-size: clamp(0.82rem, 1.6cqw, 1.2rem);
+  .amap-edge { fill: none; stroke: var(--amap-line); stroke-width: 1.8; }
+  .amap-edge.is-dashed { stroke-dasharray: 6 5; }
+  .amap-edge-label { font-size: 16px; fill: var(--aas-muted); font-family: var(--aas-sans); text-anchor: middle; }
+
+  .amap-node { cursor: pointer; outline: none; }
+  .amap-node.is-static { cursor: default; }
+  .amap-circle {
+    fill: var(--aas-panel);
+    stroke: var(--aas-border);
+    stroke-width: 2;
+    transition: stroke 0.2s ease, stroke-width 0.2s ease;
   }
+  .amap-node.is-static .amap-circle { stroke-dasharray: 6 5; }
+  .amap-node:not(.is-static):hover .amap-circle,
+  .amap-node:focus-visible .amap-circle { stroke-width: 3.5; }
+  .amap-node.is-router:hover .amap-circle, .amap-node.is-router.is-active .amap-circle { stroke: var(--amap-router); }
+  .amap-node.is-agent:hover .amap-circle, .amap-node.is-agent.is-active .amap-circle { stroke: var(--amap-agent); }
+  .amap-node.is-code:hover .amap-circle, .amap-node.is-code.is-active .amap-circle { stroke: var(--amap-code); }
+  .amap-node.is-gate:hover .amap-circle, .amap-node.is-gate.is-active .amap-circle { stroke: var(--amap-gate); }
+  .amap-node.is-active .amap-circle { stroke-width: 3; }
+
+  .amap-name {
+    text-anchor: middle; font-weight: 700; fill: var(--aas-text);
+    font-family: var(--aas-sans);
+  }
+  .amap-node.is-user .amap-name { font-size: 15px; font-weight: 600; }
+  .amap-node.is-user .amap-name { transform: translateY(28px); }
+
+  .amap-step { fill: var(--aas-bg); stroke: var(--amap-inner-line); stroke-width: 1.4; }
+  .amap-step-t {
+    font-size: 13px; font-weight: 650; fill: var(--aas-text);
+    text-anchor: middle; font-family: var(--aas-sans);
+  }
+  .amap-step-s { font-size: 9.5px; fill: var(--aas-muted); text-anchor: middle; font-family: var(--aas-sans); }
+  .amap-inner-edge { fill: none; stroke: var(--amap-inner-line); stroke-width: 1.4; }
+  .amap-inner-edge.is-dash { stroke-dasharray: 4 4; stroke-width: 1.1; }
+  .amap-loop-t { font-size: 10px; fill: var(--aas-muted); text-anchor: middle; font-family: var(--aas-sans); }
+  .amap-pill { fill: var(--aas-bg); stroke: var(--amap-inner-line); stroke-width: 1.2; }
+  .amap-pill.is-muted { stroke-dasharray: 3 3; opacity: 0.55; }
+  .amap-pill-t {
+    font-size: 10.5px; fill: var(--aas-text); text-anchor: middle;
+    font-family: var(--aas-mono, monospace);
+  }
+  .amap-pill-t.is-muted { opacity: 0.55; }
+
+  .amap-bar {
+    position: absolute; top: 0.55em; left: 0.55em; right: 0.55em;
+    display: flex; align-items: center; gap: 0.6em; flex-wrap: wrap;
+    font-size: clamp(0.8rem, 1.4cqw, 1.1rem);
+    pointer-events: none;
+  }
+  .amap-bar > * { pointer-events: auto; }
   .amap-back {
     padding: 0.3em 0.8em; border-radius: 999px;
     border: 1px solid var(--aas-border); background: var(--aas-panel);
     color: var(--aas-text); font-family: inherit; font-size: 0.92em; font-weight: 600;
-    cursor: pointer;
+    cursor: pointer; box-shadow: var(--aas-shadow);
   }
   .amap-back:hover { background: var(--aas-tint); }
   .amap-tabs { display: flex; flex-wrap: wrap; gap: 0.35em; }
@@ -686,87 +753,63 @@ const details = Object.fromEntries(
     padding: 0.24em 0.7em; border-radius: 999px;
     border: 1px solid var(--aas-border); background: var(--aas-panel);
     color: var(--aas-muted); font-family: inherit; font-size: 0.84em;
-    cursor: pointer;
+    cursor: pointer; box-shadow: var(--aas-shadow);
   }
   .amap-tab:hover { background: var(--aas-tint); }
   .amap-tab.is-active { color: var(--aas-text); border-color: var(--aas-muted); font-weight: 650; }
 
-  .amap-detail {
-    flex: 1;
-    padding: 0.4em 1em 1em;
-    font-size: clamp(0.85rem, 1.75cqw, 1.3rem);
+  .amap-caption {
+    margin-top: 0.8rem;
+    font-size: clamp(0.85rem, 1.6cqw, 1.25rem);
+    min-height: 2.2em;
   }
-  .amap-detail :global(.amap-panel-head) {
+  .amap-caption :global(.amap-caption-head) {
     display: flex; align-items: baseline; flex-wrap: wrap; gap: 0.5em;
-    margin-bottom: 0.7em;
+    margin-bottom: 0.5em;
   }
-  .amap-detail :global(.amap-badge) {
+  .amap-caption :global(.amap-badge) {
     font-size: 0.72em; font-weight: 600;
     padding: 0.1em 0.5em; border-radius: 999px;
     border: 1px solid var(--aas-border); color: var(--aas-muted);
   }
-  .amap-detail :global(.amap-panel-head strong) { font-size: 1.18em; color: var(--aas-text); }
-  .amap-detail :global(.amap-panel-title) { font-size: 0.92em; color: var(--aas-muted); }
+  .amap-caption :global(.amap-caption-head strong) { font-size: 1.05em; color: var(--aas-text); }
+  .amap-caption :global(.amap-caption-head span:last-child) { font-size: 0.88em; color: var(--aas-muted); }
 
-  .amap-detail :global(.amap-flow) {
-    display: flex; flex-wrap: wrap; align-items: stretch; gap: 0.45em;
-    margin-bottom: 0.6em;
-  }
-  .amap-detail :global(.amap-step) {
-    display: flex; flex-direction: column; gap: 0.15em; justify-content: center;
-    padding: 0.5em 0.7em;
-    border: 1px solid var(--aas-border); border-radius: 9px;
-    background: var(--aas-panel);
-    max-width: 15em;
-  }
-  .amap-detail :global(.amap-step strong) { font-size: 0.92em; color: var(--aas-text); }
-  .amap-detail :global(.amap-step span) { font-size: 0.74em; line-height: 1.5; color: var(--aas-muted); }
-  .amap-detail :global(.amap-step-arrow) { align-self: center; color: var(--aas-muted); font-size: 1.05em; }
-
-  .amap-detail :global(.amap-loop) {
-    display: inline-block;
-    margin-bottom: 0.7em; padding: 0.3em 0.8em;
-    border: 1px dashed var(--amap-agent); border-radius: 999px;
-    color: var(--aas-text); font-size: 0.82em;
-    background: color-mix(in srgb, var(--amap-agent) 8%, transparent);
-  }
-
-  .amap-detail :global(.amap-rows) { margin: 0 0 0.35em; display: grid; gap: 0.4em; }
-  .amap-detail :global(.amap-rows > div) {
+  .amap-caption :global(.amap-rows) { margin: 0 0 0.3em; display: grid; gap: 0.35em; }
+  .amap-caption :global(.amap-rows > div) {
     display: grid; grid-template-columns: 7.2em 1fr; gap: 0.7em;
-    font-size: 0.88em; line-height: 1.6;
+    font-size: 0.86em; line-height: 1.6;
   }
-  .amap-detail :global(dt) { color: var(--aas-muted); font-weight: 600; }
-  .amap-detail :global(dd) { margin: 0; color: var(--aas-text); }
+  .amap-caption :global(dt) { color: var(--aas-muted); font-weight: 600; }
+  .amap-caption :global(dd) { margin: 0; color: var(--aas-text); }
 
-  .amap-detail :global(.amap-chips) {
+  .amap-caption :global(.amap-chips) {
     display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.35em;
-    margin-top: 0.5em; font-size: 0.8em;
+    margin-top: 0.45em; font-size: 0.78em;
   }
-  .amap-detail :global(.amap-chips-label) { color: var(--aas-muted); font-weight: 600; margin-right: 0.15em; }
-  .amap-detail :global(.amap-chips code) {
+  .amap-caption :global(.amap-chips-label) { color: var(--aas-muted); font-weight: 600; margin-right: 0.15em; }
+  .amap-caption :global(.amap-chips code) {
     padding: 0.1em 0.5em; border-radius: 999px;
-    border: 1px solid var(--aas-border); background: var(--aas-panel);
+    border: 1px solid var(--aas-border); background: var(--aas-bg);
     font-size: 0.92em;
   }
-  .amap-detail :global(.amap-chips.is-muted code) { opacity: 0.55; text-decoration: line-through; }
+  .amap-caption :global(.amap-chips.is-muted code) { opacity: 0.55; text-decoration: line-through; }
 
-  .amap-detail :global(.amap-note) {
-    margin: 0.7em 0 0; padding: 0.55em 0.75em;
+  .amap-caption :global(.amap-note) {
+    margin: 0.55em 0 0; padding: 0.5em 0.7em;
     border-left: 3px solid var(--amap-router);
     background: var(--aas-tint);
     border-radius: 0 8px 8px 0;
-    font-size: 0.84em; line-height: 1.65; color: var(--aas-text);
+    font-size: 0.82em; line-height: 1.65; color: var(--aas-text);
   }
 
-  .amap-foot { margin: 0.7rem 0 0; font-size: clamp(0.76rem, 1.2cqw, 1rem); color: var(--aas-muted); }
+  .amap-foot { margin: 0; font-size: clamp(0.76rem, 1.2cqw, 1rem); color: var(--aas-muted); }
 
   @media (prefers-reduced-motion: reduce) {
-    .amap-scene, .amap-zoom { transition: none; }
+    .amap-canvas { transition: none; }
   }
 
   @media (max-width: 34rem) {
-    .amap-node-sub, .amap-node-zoom { display: none; }
-    .amap-detail :global(.amap-rows > div) { grid-template-columns: 1fr; gap: 0.1em; }
+    .amap-caption :global(.amap-rows > div) { grid-template-columns: 1fr; gap: 0.1em; }
   }
 </style>
