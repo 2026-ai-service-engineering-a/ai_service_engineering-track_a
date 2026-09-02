@@ -1,0 +1,345 @@
+---
+/**
+ * 하이브리드 라우팅 시뮬레이터 (7주차 4장).
+ *
+ * 질문을 넣으면 빛나는 점이 사용자 → supervisor → 담당 사이를 실제로
+ * 이동하며 라우팅된다. 규칙이 정한 구간은 초록 배지로 흐르고, 규칙이
+ * 멈추는 지점에서 점이 서고 남은 후보 경로가 점선으로 깜빡인다 —
+ * 여기부터는 LLM의 판단이고, 실행마다 흔들리는 자리다.
+ *
+ * 판정 로직은 `src/lib/multi-agent-rules.mjs`에 있고, week07-energy-agent의
+ * `_rule_route`·`wants_chart`를 규칙 그대로 옮긴 것이다. 파이썬 원본과 같은
+ * 입력 60건을 대조해 전부 일치하는 것을 확인했다 (원본 과정의 대조 기록).
+ */
+const PRESETS = [
+  '지난달 요금이 왜 이렇게 많이 나왔나요?',
+  '최근 1년 추이를 그래프로 보여주세요',
+  '제 계약전력이 몇 kW인가요?',
+  '사용량 차트 좀 뽑아줘',
+];
+
+const NODES = [
+  { id: 'user', label: '사용자', x: 74, y: 168, r: 38 },
+  { id: 'sup', label: 'supervisor', x: 330, y: 86, r: 60 },
+  { id: 'analyst', label: 'analyst', x: 170, y: 272, r: 50 },
+  { id: 'visualizer', label: 'visualizer', x: 340, y: 278, r: 50 },
+  { id: 'counselor', label: 'counselor', x: 512, y: 268, r: 50 },
+];
+const pos = Object.fromEntries(NODES.map((n) => [n.id, n]));
+const line = (a: string, b: string) => {
+  const A = pos[a], B = pos[b];
+  const dx = B.x - A.x, dy = B.y - A.y, len = Math.hypot(dx, dy);
+  const ux = dx / len, uy = dy / len;
+  return { x1: A.x + ux * A.r, y1: A.y + uy * A.r, x2: B.x - ux * B.r, y2: B.y - uy * B.r };
+};
+const EDGES = [line('user', 'sup'), line('sup', 'analyst'), line('sup', 'visualizer'), line('sup', 'counselor')];
+const CANDIDATES = ['analyst', 'visualizer', 'counselor'].map((id) => ({ id, ...line('sup', id) }));
+---
+
+<div class="rr" data-rr data-nodes={JSON.stringify(NODES.map(({ id, x, y }) => ({ id, x, y })))}>
+  <div class="rr-head">
+    <strong>라우팅을 규칙이 어디까지 데려다주는지 보기</strong>
+    <span>
+      아래 판정은 모델을 부르지 않는 결정적 코드라 이 페이지에서 그대로
+      돌아갑니다. week07-energy-agent의 <code>_rule_route</code>와 같은 규칙,
+      같은 입력, 같은 답입니다. 질문을 바꾸고 점이 어디까지 가는지 보세요.
+    </span>
+  </div>
+
+  <label class="rr-label" for="rr-q">고객의 질문</label>
+  <div class="rr-inputrow">
+    <input class="rr-input" id="rr-q" data-q type="text" value={PRESETS[0]} />
+    <button type="button" class="rr-replay" data-replay>▶ 다시 재생</button>
+  </div>
+  <div class="rr-presets">
+    {PRESETS.map((preset) => (
+      <button type="button" data-preset={preset}>{preset}</button>
+    ))}
+  </div>
+  <label class="rr-toggle">
+    <input type="checkbox" data-hybrid checked />
+    <span>하이브리드 라우팅 (v1.0). 끄면 v0.2처럼 <strong>모든</strong> 결정을 LLM이 합니다</span>
+  </label>
+
+  <div class="rr-stage" style="aspect-ratio: 640 / 348;">
+    <svg viewBox="0 0 640 348" aria-hidden="true">
+      {EDGES.map((e) => (
+        <line class="rr-edge" x1={e.x1} y1={e.y1} x2={e.x2} y2={e.y2} />
+      ))}
+      {CANDIDATES.map((e) => (
+        <line class="rr-cand" data-cand={e.id} x1={e.x1} y1={e.y1} x2={e.x2} y2={e.y2} />
+      ))}
+      {NODES.map((n) => (
+        <g class="rr-node" data-agent={n.id}>
+          <circle cx={n.x} cy={n.y} r={n.r} class="rr-circle" />
+          <circle cx={n.x} cy={n.y} r={n.r} class="rr-ring" />
+          <text x={n.x} y={n.y + 5} class="rr-name">{n.label}</text>
+        </g>
+      ))}
+      <circle class="rr-dot" data-dot r="8" cx="0" cy="0" />
+    </svg>
+    <div class="rr-bubble" data-bubble hidden>
+      <span class="rr-badge" data-badge>규칙</span>
+      <span data-why></span>
+    </div>
+  </div>
+
+  <div class="rr-steps" data-steps></div>
+  <p class="rr-foot" data-foot></p>
+</div>
+
+<script>
+  import { traceSupervisor, wantsChart, CHART_WORDS, SUPERVISOR_AGENTS }
+    from '../lib/multi-agent-rules.mjs';
+
+  document.querySelectorAll<HTMLElement>('[data-rr]').forEach(init);
+
+  function init(root: HTMLElement) {
+    const nodes = JSON.parse(root.dataset.nodes ?? '[]') as { id: string; x: number; y: number }[];
+    const at = Object.fromEntries(nodes.map((n) => [n.id, n]));
+    const $ = <T extends HTMLElement>(s: string) => root.querySelector<T>(s)!;
+    const input = $<HTMLInputElement>('[data-q]');
+    const hybrid = $<HTMLInputElement>('[data-hybrid]');
+    const dot = root.querySelector<SVGCircleElement>('[data-dot]')!;
+    const bubble = $('[data-bubble]');
+    const steps = $('[data-steps]');
+    const foot = $('[data-foot]');
+    const esc = (s: string) =>
+      s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+    let runId = 0;
+    let timer = 0;
+
+    root.querySelectorAll<HTMLButtonElement>('[data-preset]').forEach((button) =>
+      button.addEventListener('click', () => { input.value = button.dataset.preset ?? ''; play(); }));
+    input.addEventListener('input', () => {
+      window.clearTimeout(timer);
+      timer = window.setTimeout(play, 450);
+    });
+    hybrid.addEventListener('change', play);
+    $('[data-replay]').addEventListener('click', play);
+    play();
+
+    function moveDot(id: string) {
+      const p = at[id];
+      dot.style.transform = `translate(${p.x}px, ${p.y}px)`;
+    }
+    function pulse(id: string) {
+      const g = root.querySelector(`[data-agent="${id}"]`);
+      g?.classList.remove('is-pulse');
+      void (g as HTMLElement | null)?.getBoundingClientRect();
+      g?.classList.add('is-pulse');
+    }
+    function say(by: string, why: string) {
+      bubble.hidden = false;
+      bubble.classList.toggle('is-llm', by === 'llm');
+      bubble.classList.remove('is-pop');
+      void bubble.getBoundingClientRect();
+      bubble.classList.add('is-pop');
+      $('[data-badge]').textContent = by === 'llm' ? 'LLM' : '규칙';
+      $('[data-why]').textContent = why;
+    }
+    function chip(by: string, text: string) {
+      steps.insertAdjacentHTML('beforeend',
+        `<span class="rr-chip is-${by}">${esc(text)}</span>`);
+    }
+
+    async function play() {
+      const my = ++runId;
+      const question = input.value;
+      const trace = traceSupervisor(question, { hybrid: hybrid.checked });
+
+      steps.innerHTML = '';
+      bubble.hidden = true;
+      root.querySelectorAll('.rr-cand').forEach((c) => c.classList.remove('is-on'));
+      root.querySelectorAll('.rr-node').forEach((g) => g.classList.remove('is-visited', 'is-llmstop'));
+      dot.classList.remove('is-stuck');
+      dot.style.transition = 'none';
+      moveDot('user');
+      void dot.getBoundingClientRect();
+      dot.style.transition = '';
+
+      const hit = CHART_WORDS.filter((w) => question.includes(w));
+      const ruled = trace.filter((s) => s.by === 'rule').length;
+      foot.innerHTML = `${wantsChart(question)
+        ? `그래프 낱말 <code>${hit.map(esc).join(' · ')}</code>가 걸렸습니다.`
+        : '그래프 낱말이 없습니다.'} ${hybrid.checked
+        ? `규칙이 ${ruled}개의 결정을 끝내고, 남은 자리만 모델이 봅니다.`
+        : '규칙을 껐습니다. 첫 결정부터 모델의 판단이고, 실행마다 달라질 수 있습니다.'}`;
+
+      await sleep(80);
+      if (my !== runId) return;
+      moveDot('sup');
+      await sleep(620);
+
+      const visited = new Set<string>();
+      for (const step of trace) {
+        if (my !== runId) return;
+        if (step.by === 'llm') {
+          say('llm', step.why);
+          chip('llm', 'LLM 판단 필요');
+          dot.classList.add('is-stuck');
+          root.querySelector('[data-agent="sup"]')?.classList.add('is-llmstop');
+          root.querySelectorAll<SVGLineElement>('.rr-cand').forEach((c) => {
+            if (!visited.has(c.dataset.cand ?? '')) c.classList.add('is-on');
+          });
+          return;
+        }
+        const labels = SUPERVISOR_AGENTS as Record<string, string>;
+        say('rule', step.why);
+        chip('rule', labels[step.next] ?? step.next);
+        if (step.next === 'done') {
+          await sleep(500);
+          if (my !== runId) return;
+          moveDot('user');
+          pulse('user');
+          return;
+        }
+        await sleep(560);
+        if (my !== runId) return;
+        moveDot(step.next);
+        visited.add(step.next);
+        await sleep(620);
+        if (my !== runId) return;
+        pulse(step.next);
+        root.querySelector(`[data-agent="${step.next}"]`)?.classList.add('is-visited');
+        await sleep(280);
+        if (my !== runId) return;
+        moveDot('sup');
+        await sleep(620);
+      }
+    }
+  }
+</script>
+
+<style>
+  .rr {
+    margin: 2rem 0;
+    padding: 1.1rem 1.1rem 0.9rem;
+    border: 1px solid var(--aas-border);
+    border-radius: 14px;
+    background: var(--aas-panel);
+    box-shadow: var(--aas-shadow);
+    font-family: var(--aas-sans);
+    container-type: inline-size;
+    font-size: clamp(0.85rem, 1.5cqw, 1.2rem);
+    --rr-rule: #0ca30c;
+    --rr-llm: #fab219;
+    --rr-accent: #2f81f7;
+  }
+
+  .rr-head { display: flex; flex-direction: column; gap: 0.3em; margin-bottom: 0.8em; }
+  .rr-head strong { font-size: 1.12em; color: var(--aas-text); }
+  .rr-head span { font-size: 0.87em; line-height: 1.65; color: var(--aas-muted); }
+  .rr-head code { font-size: 0.9em; }
+
+  .rr-label { display: block; font-size: 0.8em; color: var(--aas-muted); margin-bottom: 0.35em; }
+  .rr-inputrow { display: flex; gap: 0.45em; }
+  .rr-input {
+    flex: 1; box-sizing: border-box;
+    padding: 0.45em 0.6em; border-radius: 8px;
+    border: 1px solid var(--aas-border); background: var(--aas-bg);
+    color: var(--aas-text); font-size: 0.9em; line-height: 1.6;
+    font-family: inherit;
+  }
+  .rr-replay {
+    padding: 0.35em 0.9em; border-radius: 999px; white-space: nowrap;
+    border: 1px solid var(--rr-accent); background: var(--rr-accent);
+    color: #fff; font-family: inherit; font-size: 0.86em; font-weight: 650;
+    cursor: pointer;
+  }
+
+  .rr-presets { display: flex; flex-wrap: wrap; gap: 0.35em; margin: 0.55em 0 0.6em; }
+  .rr-presets button {
+    padding: 0.28em 0.6em; border-radius: 999px;
+    border: 1px solid var(--aas-border); background: var(--aas-bg);
+    color: var(--aas-muted); font-family: inherit; font-size: 0.8em;
+    cursor: pointer; transition: background 0.15s ease;
+  }
+  .rr-presets button:hover { background: var(--aas-tint); }
+
+  .rr-toggle {
+    display: flex; align-items: flex-start; gap: 0.45em;
+    font-size: 0.82em; color: var(--aas-muted); line-height: 1.6;
+    margin-bottom: 0.8em; cursor: pointer;
+  }
+  .rr-toggle input { margin-top: 0.25em; }
+
+  .rr-stage {
+    position: relative; width: 100%;
+    border: 1px solid var(--aas-border); border-radius: 10px;
+    background: var(--aas-bg);
+    overflow: hidden;
+  }
+  .rr-stage svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+
+  .rr-edge { stroke: color-mix(in srgb, var(--aas-muted) 40%, transparent); stroke-width: 1.6; }
+  .rr-cand {
+    stroke: var(--rr-llm); stroke-width: 2; stroke-dasharray: 6 6;
+    opacity: 0; transition: opacity 0.3s ease;
+  }
+  .rr-cand.is-on { opacity: 1; animation: rr-flow 1.1s linear infinite; }
+  @keyframes rr-flow { to { stroke-dashoffset: -12; } }
+
+  .rr-circle { fill: var(--aas-panel); stroke: var(--aas-border); stroke-width: 2; }
+  .rr-ring { fill: none; stroke: var(--rr-accent); stroke-width: 3; opacity: 0; }
+  .rr-node.is-visited .rr-circle { stroke: var(--rr-rule); }
+  .rr-node.is-llmstop .rr-circle { stroke: var(--rr-llm); stroke-width: 3; }
+  .rr-node.is-pulse .rr-ring { animation: rr-pulse 0.7s ease-out; }
+  @keyframes rr-pulse {
+    0% { opacity: 0.9; transform: scale(1); transform-origin: center; transform-box: fill-box; }
+    100% { opacity: 0; transform: scale(1.35); transform-origin: center; transform-box: fill-box; }
+  }
+  .rr-name {
+    text-anchor: middle; font-size: 15px; font-weight: 650;
+    fill: var(--aas-text); font-family: var(--aas-sans);
+  }
+
+  .rr-dot {
+    fill: var(--rr-accent);
+    filter: drop-shadow(0 0 6px color-mix(in srgb, var(--rr-accent) 80%, transparent));
+    transition: transform 0.6s cubic-bezier(0.5, 0, 0.4, 1);
+  }
+  .rr-dot.is-stuck { fill: var(--rr-llm); filter: drop-shadow(0 0 8px color-mix(in srgb, var(--rr-llm) 85%, transparent)); animation: rr-stuck 1s ease-in-out infinite alternate; }
+  @keyframes rr-stuck { from { opacity: 1; } to { opacity: 0.45; } }
+
+  .rr-bubble {
+    position: absolute; left: 50%; top: 4%;
+    transform: translateX(-50%);
+    display: flex; align-items: baseline; gap: 0.45em;
+    max-width: 92%;
+    padding: 0.35em 0.7em; border-radius: 999px;
+    border: 1px solid var(--rr-rule);
+    background: var(--aas-panel);
+    box-shadow: var(--aas-shadow);
+    font-size: 0.82em; color: var(--aas-text); white-space: nowrap;
+  }
+  .rr-bubble.is-llm { border-color: var(--rr-llm); }
+  .rr-bubble.is-pop { animation: rr-pop 0.25s ease-out; }
+  @keyframes rr-pop { from { transform: translateX(-50%) scale(0.85); opacity: 0; } }
+  .rr-badge {
+    font-size: 0.78em; font-weight: 700;
+    padding: 0.05em 0.45em; border-radius: 999px;
+    border: 1px solid var(--rr-rule); color: var(--rr-rule);
+  }
+  .rr-bubble.is-llm .rr-badge { border-color: var(--rr-llm); color: var(--rr-llm); }
+
+  .rr-steps { display: flex; flex-wrap: wrap; gap: 0.35em; margin-top: 0.7em; min-height: 1.8em; }
+  .rr-steps :global(.rr-chip) {
+    padding: 0.22em 0.65em; border-radius: 999px;
+    font-size: 0.8em; font-weight: 600;
+    border: 1px solid var(--rr-rule); color: var(--rr-rule);
+    animation: rr-pop2 0.25s ease-out;
+  }
+  .rr-steps :global(.rr-chip.is-llm) { border-color: var(--rr-llm); color: var(--rr-llm); }
+  @keyframes rr-pop2 { from { transform: scale(0.8); opacity: 0; } }
+
+  .rr-foot, .rr-foot :global(code) {
+    margin: 0.5em 0 0; font-size: 0.82em; line-height: 1.65;
+    color: var(--aas-muted);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .rr-dot, .rr-cand { transition: none; animation: none !important; }
+  }
+</style>

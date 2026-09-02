@@ -1,0 +1,273 @@
+---
+/**
+ * 이양 리플레이 (7주차 5장).
+ *
+ * week07-support-agent demos/handoff.py의 실측 대화 세 마디를 스텝으로
+ * 재생한다. 세 모드: 분류만(v0.1) · handoff(v0.2) · 함정(매 턴
+ * current_agent를 빈 값으로 보내는 실수). "다음"을 누르며 제어권이 언제
+ * 넘어가고 체크포인터에 무엇이 남는지 본다.
+ */
+const LANES = [
+  { id: 'user', name: '고객' },
+  { id: 'triage', name: '접수' },
+  { id: 'billing', name: '요금' },
+  { id: 'retention', name: '해지방어' },
+];
+
+const T1 = '"이번 달 요금이 왜 이렇게 나왔어요?"';
+const T2 = '"그래서 얼마나 나왔는데요?"';
+const T3 = '"그냥 해지할래요."';
+
+const MODES = {
+  classify: {
+    label: '분류만 (v0.1)',
+    lede: '분류는 말로만 하고, 대화는 접수가 계속 쥡니다. 체크포인터에 담당을 남기지 않습니다.',
+    events: [
+      { lane: 'user', badge: '턴 1', text: T1 },
+      { lane: 'triage', badge: '분류', text: '"요금 관련 문의로 확인됩니다. 요금 담당에 문의해 주세요." · 말로만 넘기고 대화는 그대로 쥔다' },
+      { lane: 'user', badge: '턴 2', text: T2 },
+      { lane: 'triage', badge: '수신', text: '여전히 접수가 받는다. 조회 도구가 없어 금액을 모른다' },
+      { lane: 'user', badge: '턴 3', text: T3 },
+      { lane: 'triage', badge: '수신', text: '해지 방어는 더더욱 못 한다. 세 마디 모두 받은 사람: 접수 상담원' },
+    ],
+    done: '분류는 판단이고 이양은 실행입니다. v0.1에는 실행이 없습니다.',
+  },
+  handoff: {
+    label: 'handoff (v0.2)',
+    lede: '넘기는 행위가 도구 호출이고, 담당은 체크포인터에 남아 다음 턴까지 유지됩니다.',
+    events: [
+      { lane: 'user', badge: '턴 1', text: T1 },
+      { lane: 'triage', badge: 'entry', text: 'current_agent가 비어 있다 → 접수부터', cp: '' },
+      { lane: 'triage', badge: '이양', text: 'transfer_to_billing("요금 과다 청구 및 납부 관련 문의") → Command(goto=billing)', cp: 'billing', xfer: true },
+      { lane: 'billing', badge: '답변', text: '조회 도구로 청구 내역을 확인하고 고객에게 직접 답한다' },
+      { lane: 'user', badge: '턴 2', text: T2 },
+      { lane: 'billing', badge: 'entry', text: 'current_agent = billing → 접수를 건너뛴다' },
+      { lane: 'billing', badge: '답변', text: '같은 담당이 이어서 답한다. 저장된 담당의 몫' },
+      { lane: 'user', badge: '턴 3', text: T3 },
+      { lane: 'billing', badge: '이양', text: 'transfer_to_retention("고객이 해지를 요청하여 이관") · 중앙에 묻지 않고 자기가 넘긴다', cp: 'retention', xfer: true },
+      { lane: 'retention', badge: '답변', text: '약정·위약금을 조회해 직접 답한다' },
+    ],
+    done: '이양 2회. 두 번째 마디는 저장된 담당의 몫, 세 번째 마디는 handoff의 몫입니다.',
+  },
+  trap: {
+    label: '함정: 상태 덮어쓰기',
+    lede: '매 턴 습관처럼 current_agent: ""를 함께 보내면, 저장된 담당이 지워져 매 턴 접수부터 다시 시작합니다.',
+    events: [
+      { lane: 'user', badge: '턴 1', text: T1 },
+      { lane: 'triage', badge: 'entry', text: '첫 턴이라 어차피 비어 있다 → 접수부터', cp: '' },
+      { lane: 'triage', badge: '이양', text: 'transfer_to_billing(...) → Command(goto=billing)', cp: 'billing', xfer: true },
+      { lane: 'billing', badge: '답변', text: '요금 담당이 답한다. 여기까지는 정상과 같다' },
+      { lane: 'user', badge: '턴 2', text: T2 + ' · 클라이언트가 current_agent: ""를 함께 보낸다', warn: true, cp: '' },
+      { lane: 'triage', badge: 'entry', text: '저장돼 있던 billing이 덮여 사라졌다 → 접수부터 (다시)', warn: true },
+      { lane: 'triage', badge: '이양', text: '같은 분류를 또 한다: transfer_to_billing(...)', cp: 'billing', xfer: true, warn: true },
+      { lane: 'billing', badge: '답변', text: '답은 그럴듯하게 나온다. 화면만 보면 사고를 모른다' },
+      { lane: 'user', badge: '턴 3', text: T3 + ' · 또 current_agent: ""', warn: true, cp: '' },
+      { lane: 'triage', badge: 'entry', text: '또 지워졌다 → 접수부터', warn: true },
+      { lane: 'triage', badge: '이양', text: 'transfer_to_retention(...)', cp: 'retention', xfer: true, warn: true },
+      { lane: 'retention', badge: '답변', text: '해지방어가 답한다. 결과만 보면 정상 handoff와 같다' },
+    ],
+    done: '이양 3회, 접수가 매 턴 등장. 상태에 남길 것과 매 턴 새로 보낼 것을 나누지 않은 값입니다. 트레이스를 세어야 보입니다.',
+  },
+};
+---
+
+<div class="hrp" data-hrp data-modes={JSON.stringify(MODES)}>
+  <div class="hrp-head">
+    <strong>이양 리플레이 · 같은 대화 세 마디</strong>
+    <span>
+      실측 대화를 한 스텝씩 재생합니다. 모드를 바꿔 같은 세 마디가 세 구조에서
+      어떻게 다르게 흐르는지 보세요.
+    </span>
+  </div>
+
+  <div class="hrp-controls">
+    <div class="hrp-seg" role="group" data-seg></div>
+    <div class="hrp-btns">
+      <button type="button" data-reset>처음부터</button>
+      <button type="button" class="is-primary" data-next>다음 ▸</button>
+    </div>
+  </div>
+
+  <p class="hrp-lede" data-lede></p>
+
+  <div class="hrp-board">
+    <div class="hrp-lanes" data-lanes>
+      {LANES.map((lane) => (
+        <span class="hrp-lane" data-lane={lane.id}>{lane.name}</span>
+      ))}
+      <span class="hrp-cp">checkpointer · current_agent = <code data-cp>—</code></span>
+    </div>
+    <ol class="hrp-log" data-log></ol>
+    <div class="hrp-foot">
+      <span data-count>이양 0회</span>
+      <span data-done></span>
+    </div>
+  </div>
+</div>
+
+<script>
+  document.querySelectorAll<HTMLElement>('[data-hrp]').forEach(init);
+
+  function init(root: HTMLElement) {
+    const MODES = JSON.parse(root.dataset.modes ?? '{}') as Record<string, {
+      label: string; lede: string; done: string;
+      events: { lane: string; badge: string; text: string; cp?: string; xfer?: boolean; warn?: boolean }[];
+    }>;
+    const $ = <T extends HTMLElement>(s: string) => root.querySelector<T>(s)!;
+    const seg = $('[data-seg]');
+    const log = $('[data-log]');
+    const esc = (s: string) =>
+      s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+    let mode = 'classify';
+    let step = 0;
+
+    seg.innerHTML = Object.entries(MODES)
+      .map(([key, m]) => `<button type="button" data-pick="${key}">${esc(m.label)}</button>`)
+      .join('');
+    seg.querySelectorAll<HTMLButtonElement>('[data-pick]').forEach((button) =>
+      button.addEventListener('click', () => {
+        mode = button.dataset.pick ?? 'classify';
+        reset();
+      }));
+    $('[data-next]').addEventListener('click', advance);
+    $('[data-reset]').addEventListener('click', reset);
+    reset();
+
+    function reset() {
+      step = 0;
+      seg.querySelectorAll('[data-pick]').forEach((b) =>
+        b.classList.toggle('is-active', (b as HTMLElement).dataset.pick === mode));
+      $('[data-lede]').textContent = MODES[mode].lede;
+      log.innerHTML = '';
+      paint();
+    }
+
+    function advance() {
+      const events = MODES[mode].events;
+      if (step >= events.length) return;
+      const e = events[step];
+      step += 1;
+      const li = document.createElement('li');
+      li.className = `is-${e.lane}${e.warn ? ' is-warn' : ''}`;
+      li.innerHTML = `<span class="hrp-badge">${esc(e.badge)}</span><span>${esc(e.text)}</span>`;
+      log.appendChild(li);
+      li.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      paint();
+    }
+
+    function paint() {
+      const m = MODES[mode];
+      const seen = m.events.slice(0, step);
+      const holder = seen.length ? seen[seen.length - 1].lane : '';
+      root.querySelectorAll<HTMLElement>('[data-lane]').forEach((lane) =>
+        lane.classList.toggle('is-holder', lane.dataset.lane === holder));
+
+      const cps = seen.filter((e) => e.cp !== undefined);
+      const cp = mode === 'classify'
+        ? '없음 (v0.1)'
+        : cps.length ? (cps[cps.length - 1].cp || '""') : '비어 있음';
+      $('[data-cp]').textContent = cp;
+
+      const xfers = seen.filter((e) => e.xfer).length;
+      $('[data-count]').textContent = `이양 ${xfers}회`;
+      $('[data-done]').textContent = step >= m.events.length ? m.done : '';
+      ($('[data-next]') as HTMLButtonElement).disabled = step >= m.events.length;
+    }
+  }
+</script>
+
+<style>
+  .hrp {
+    margin: 2rem 0;
+    padding: 1.1rem 1.1rem 0.9rem;
+    border: 1px solid var(--aas-border);
+    border-radius: 14px;
+    background: var(--aas-panel);
+    box-shadow: var(--aas-shadow);
+    font-family: var(--aas-sans);
+    container-type: inline-size;
+    --hrp-accent: #2f81f7;
+    --hrp-warn: #d0453f;
+    font-size: clamp(0.85rem, 1.5cqw, 1.2rem);
+  }
+
+  .hrp-head { display: flex; flex-direction: column; gap: 0.3em; margin-bottom: 0.8em; }
+  .hrp-head strong { font-size: 1.15em; color: var(--aas-text); }
+  .hrp-head span { font-size: 0.88em; line-height: 1.65; color: var(--aas-muted); }
+
+  .hrp-controls {
+    display: flex; align-items: center; justify-content: space-between;
+    flex-wrap: wrap; gap: 0.6em; margin-bottom: 0.5em;
+  }
+  .hrp-seg { display: inline-flex; border: 1px solid var(--aas-border); border-radius: 999px; overflow: hidden; }
+  .hrp-seg :global(button) {
+    padding: 0.35em 0.9em; border: none; background: var(--aas-bg);
+    color: var(--aas-muted); font-family: inherit; font-size: 0.86em; cursor: pointer;
+  }
+  .hrp-seg :global(button.is-active) { background: var(--hrp-accent); color: #fff; font-weight: 650; }
+  .hrp-btns { display: flex; gap: 0.4em; }
+  .hrp-btns button {
+    padding: 0.35em 1em; border-radius: 999px;
+    border: 1px solid var(--aas-border); background: var(--aas-bg);
+    color: var(--aas-text); font-family: inherit; font-size: 0.88em; cursor: pointer;
+  }
+  .hrp-btns button.is-primary { background: var(--hrp-accent); border-color: var(--hrp-accent); color: #fff; font-weight: 650; }
+  .hrp-btns button:disabled { opacity: 0.4; cursor: default; }
+
+  .hrp-lede { margin: 0 0 0.7em; font-size: 0.86em; line-height: 1.6; color: var(--aas-muted); }
+
+  .hrp-board {
+    padding: 0.8em 0.9em;
+    border: 1px solid var(--aas-border); border-radius: 10px;
+    background: var(--aas-bg);
+  }
+  .hrp-lanes {
+    display: flex; align-items: center; flex-wrap: wrap; gap: 0.4em;
+    padding-bottom: 0.6em; border-bottom: 1px dashed var(--aas-border); margin-bottom: 0.6em;
+  }
+  .hrp-lane {
+    padding: 0.22em 0.75em; border-radius: 999px;
+    border: 1px solid var(--aas-border); color: var(--aas-muted);
+    font-size: 0.82em; transition: all 0.2s ease;
+  }
+  .hrp-lane.is-holder {
+    border-color: var(--hrp-accent); color: var(--aas-text); font-weight: 650;
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--hrp-accent) 18%, transparent);
+  }
+  .hrp-cp { margin-left: auto; font-size: 0.78em; color: var(--aas-muted); }
+  .hrp-cp code { padding: 0.1em 0.45em; border-radius: 6px; border: 1px solid var(--aas-border); background: var(--aas-panel); }
+
+  .hrp-log {
+    list-style: none; margin: 0; padding: 0;
+    display: grid; gap: 0.35em;
+    max-height: 17em; overflow-y: auto;
+  }
+  .hrp-log :global(li) {
+    display: grid; grid-template-columns: 3.6em 1fr; gap: 0.6em; align-items: baseline;
+    padding: 0.4em 0.55em; border-radius: 8px;
+    border: 1px solid var(--aas-border); background: var(--aas-panel);
+    font-size: 0.84em; line-height: 1.55; color: var(--aas-text);
+  }
+  .hrp-log :global(li.is-user) { border-left: 3px solid var(--aas-muted); }
+  .hrp-log :global(li.is-triage) { border-left: 3px solid #fab219; }
+  .hrp-log :global(li.is-billing) { border-left: 3px solid var(--hrp-accent); }
+  .hrp-log :global(li.is-retention) { border-left: 3px solid #0ca30c; }
+  .hrp-log :global(li.is-warn) { border-color: color-mix(in srgb, var(--hrp-warn) 55%, var(--aas-border)); background: color-mix(in srgb, var(--hrp-warn) 6%, var(--aas-panel)); }
+  .hrp-log :global(.hrp-badge) {
+    font-size: 0.78em; font-weight: 650; text-align: center;
+    padding: 0.12em 0.3em; border-radius: 999px;
+    border: 1px solid var(--aas-border); color: var(--aas-muted);
+  }
+  .hrp-log :global(li.is-warn .hrp-badge) { color: var(--hrp-warn); border-color: currentcolor; }
+
+  .hrp-foot {
+    display: flex; gap: 0.9em; align-items: baseline; flex-wrap: wrap;
+    margin-top: 0.7em; font-size: 0.84em; color: var(--aas-muted);
+  }
+  .hrp-foot [data-count] { font-weight: 650; color: var(--aas-text); }
+
+  @media (max-width: 34rem) {
+    .hrp-cp { margin-left: 0; }
+  }
+</style>

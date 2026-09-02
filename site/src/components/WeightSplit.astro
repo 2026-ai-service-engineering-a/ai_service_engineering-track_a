@@ -1,0 +1,256 @@
+---
+/**
+ * 한 번의 호출이 이고 가는 무게 (7주차 4장).
+ *
+ * 같은 질문("지난달 요금이 왜 이렇게 많이 나왔나요?")을 단일 에이전트와
+ * supervisor 구조로 각각 돌린 실측이다. 구조를 바꿔 가며 지침·컨텍스트
+ * 막대가 어떻게 재배치되는지 본다. 막대를 클릭하면 그 호출이 실제로 이고
+ * 가는 것이 아래에 열린다.
+ *
+ * 수치 출처: week07-energy-agent demos/compare.py 실측 (2026-08).
+ */
+const MAX = 2640; // 축의 최대값: 단일 구조의 답변 직전 컨텍스트
+
+const MODES = {
+  single: {
+    title: '단일 (v0.1) · 에이전트 하나가 세 역할을 전부',
+    calls: 3,
+    context: 2640,
+    answerBy: 'advisor',
+    bars: [
+      {
+        id: 'advisor', name: 'advisor', len: 1105, answer: true,
+        note:
+          '분석 지침 + 시각화 규칙 + 상담 말투가 한 문서에 있습니다. 상담문을 ' +
+          '쓰는 마지막 호출도 도구 사용법과 차트 규칙을 전부 이고 갑니다. 매 ' +
+          '호출 × 3회, 같은 1,105자가 실려 갑니다.',
+      },
+    ],
+  },
+  supervisor: {
+    title: 'supervisor (v0.2) · 역할마다 자기 지침만',
+    calls: 5,
+    context: 466,
+    answerBy: 'counselor',
+    bars: [
+      {
+        id: 'sup', name: 'supervisor', len: 532,
+        note: '라우팅 지침 + 지금까지의 상태(질문·findings). 답변을 쓰지 않고 다음 담당만 고릅니다.',
+      },
+      {
+        id: 'analyst', name: 'analyst', len: 140,
+        note: '분석 지침만 140자. 상담 말투도 차트 규칙도 여기 없습니다.',
+      },
+      {
+        id: 'visualizer', name: 'visualizer', len: 147,
+        note: '그래프 지침만 147자. 이 질문에서는 차트 요청이 없어 호출되지 않았습니다.',
+      },
+      {
+        id: 'counselor', name: 'counselor', len: 199, answer: true,
+        note:
+          '상담문을 쓰는 순간 필요한 것은 199자짜리 말투 지침과 findings 요약뿐입니다. ' +
+          '도구 사용법과 차트 규칙은 아예 보이지 않습니다.',
+      },
+    ],
+  },
+};
+---
+
+<div class="wsp" data-wsp data-modes={JSON.stringify(MODES)} data-max={MAX}>
+  <div class="wsp-head">
+    <strong>한 번의 호출이 이고 가는 무게</strong>
+    <span>
+      같은 질문을 두 구조로 돌린 실측입니다. 구조를 바꿔 보고, 막대를 눌러
+      그 호출이 실제로 이고 가는 것을 여세요. 역할별 지침의 총합은
+      1,018자로 v0.1의 1,105자와 크게 다르지 않습니다. 나뉘는 것은 총량이
+      아니라 무게입니다.
+    </span>
+  </div>
+
+  <div class="wsp-controls">
+    <div class="wsp-seg" role="group">
+      <button type="button" data-mode="single" class="is-active">단일 (v0.1)</button>
+      <button type="button" data-mode="supervisor">supervisor (v0.2)</button>
+    </div>
+    <label class="wsp-only">
+      <input type="checkbox" data-answer-only />
+      <span>답변을 쓴 호출만 보기</span>
+    </label>
+  </div>
+
+  <div class="wsp-board">
+    <div class="wsp-title" data-title></div>
+    <div class="wsp-bars" data-bars></div>
+    <div class="wsp-meta">
+      <div class="wsp-row">
+        <span class="wsp-row-label">답변 직전 컨텍스트</span>
+        <div class="wsp-track"><div class="wsp-fill is-ctx" data-ctx></div></div>
+        <span class="wsp-row-value" data-ctx-value></span>
+      </div>
+      <div class="wsp-row">
+        <span class="wsp-row-label">LLM 호출</span>
+        <span class="wsp-dots" data-dots></span>
+        <span class="wsp-row-value" data-calls></span>
+      </div>
+    </div>
+  </div>
+
+  <p class="wsp-note" data-note>막대를 클릭하면 그 호출이 이고 가는 것이 여기 열립니다.</p>
+</div>
+
+<script>
+  document.querySelectorAll<HTMLElement>('[data-wsp]').forEach(init);
+
+  function init(root: HTMLElement) {
+    const MODES = JSON.parse(root.dataset.modes ?? '{}') as Record<string, {
+      title: string; calls: number; context: number; answerBy: string;
+      bars: { id: string; name: string; len: number; answer?: boolean; note: string }[];
+    }>;
+    const MAX = Number(root.dataset.max ?? 2640);
+    const $ = <T extends HTMLElement>(s: string) => root.querySelector<T>(s)!;
+    const bars = $('[data-bars]');
+    const note = $('[data-note]');
+    const only = $<HTMLInputElement>('[data-answer-only]');
+    const esc = (s: string) =>
+      s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+    let mode = 'single';
+    let picked = '';
+
+    root.querySelectorAll<HTMLButtonElement>('[data-mode]').forEach((button) =>
+      button.addEventListener('click', () => {
+        mode = button.dataset.mode ?? 'single';
+        picked = '';
+        root.querySelectorAll('[data-mode]').forEach((b) =>
+          b.classList.toggle('is-active', b === button));
+        render();
+      }));
+    only.addEventListener('change', render);
+    render();
+
+    function render() {
+      const m = MODES[mode];
+      $('[data-title]').textContent = m.title;
+
+      bars.innerHTML = m.bars
+        .map((bar) => {
+          const dim = only.checked && !bar.answer;
+          return `<button type="button" class="wsp-bar${bar.answer ? ' is-answer' : ''}${dim ? ' is-dim' : ''}${picked === bar.id ? ' is-picked' : ''}" data-bar="${bar.id}">
+            <span class="wsp-bar-name">${esc(bar.name)}${bar.answer ? '<em>답변을 쓴다</em>' : ''}</span>
+            <span class="wsp-track"><span class="wsp-fill" style="width: 0%"></span></span>
+            <span class="wsp-bar-value">${bar.len.toLocaleString('ko-KR')}자</span>
+          </button>`;
+        })
+        .join('');
+
+      requestAnimationFrame(() =>
+        requestAnimationFrame(() => {
+          bars.querySelectorAll<HTMLElement>('.wsp-fill').forEach((fill, i) => {
+            fill.style.width = `${(m.bars[i].len / MAX) * 100}%`;
+          });
+        }));
+
+      bars.querySelectorAll<HTMLButtonElement>('[data-bar]').forEach((button) =>
+        button.addEventListener('click', () => {
+          picked = button.dataset.bar ?? '';
+          const bar = m.bars.find((b) => b.id === picked);
+          bars.querySelectorAll('[data-bar]').forEach((b) =>
+            b.classList.toggle('is-picked', b === button));
+          if (bar) note.innerHTML = `<strong>${esc(bar.name)}</strong> · ${esc(bar.note)}`;
+        }));
+
+      const ctx = $('[data-ctx]');
+      ctx.style.width = '0%';
+      requestAnimationFrame(() =>
+        requestAnimationFrame(() => { ctx.style.width = `${(m.context / MAX) * 100}%`; }));
+      $('[data-ctx-value]').textContent = `${m.context.toLocaleString('ko-KR')}자`;
+      $('[data-dots]').textContent = '●'.repeat(m.calls);
+      $('[data-calls]').textContent = `${m.calls}회`;
+
+      note.innerHTML = only.checked
+        ? `답변을 쓴 호출의 지침: 단일 <strong>1,105자</strong> 대 supervisor <strong>199자</strong>. 컨텍스트: <strong>2,640자</strong> 대 <strong>466자</strong>. 대신 호출은 3회에서 5회가 됩니다.`
+        : '막대를 클릭하면 그 호출이 이고 가는 것이 여기 열립니다.';
+    }
+  }
+</script>
+
+<style>
+  .wsp {
+    margin: 2rem 0;
+    padding: 1.1rem 1.1rem 0.9rem;
+    border: 1px solid var(--aas-border);
+    border-radius: 14px;
+    background: var(--aas-panel);
+    box-shadow: var(--aas-shadow);
+    font-family: var(--aas-sans);
+    container-type: inline-size;
+    --wsp-bar: #2f81f7;
+    --wsp-answer: #d0453f;
+    font-size: clamp(0.85rem, 1.5cqw, 1.2rem);
+  }
+
+  .wsp-head { display: flex; flex-direction: column; gap: 0.3em; margin-bottom: 0.9em; }
+  .wsp-head strong { font-size: 1.15em; color: var(--aas-text); }
+  .wsp-head span { font-size: 0.88em; line-height: 1.65; color: var(--aas-muted); }
+
+  .wsp-controls {
+    display: flex; align-items: center; justify-content: space-between;
+    flex-wrap: wrap; gap: 0.6em; margin-bottom: 0.8em;
+  }
+  .wsp-seg { display: inline-flex; border: 1px solid var(--aas-border); border-radius: 999px; overflow: hidden; }
+  .wsp-seg button {
+    padding: 0.35em 1em; border: none; background: var(--aas-bg);
+    color: var(--aas-muted); font-family: inherit; font-size: 0.88em; cursor: pointer;
+  }
+  .wsp-seg button.is-active { background: var(--wsp-bar); color: #fff; font-weight: 650; }
+  .wsp-only { display: flex; align-items: center; gap: 0.4em; font-size: 0.84em; color: var(--aas-muted); cursor: pointer; }
+
+  .wsp-board {
+    padding: 0.8em 0.9em;
+    border: 1px solid var(--aas-border); border-radius: 10px;
+    background: var(--aas-bg);
+  }
+  .wsp-title { font-size: 0.9em; font-weight: 650; color: var(--aas-text); margin-bottom: 0.7em; }
+
+  .wsp-bars { display: grid; gap: 0.45em; margin-bottom: 0.9em; }
+  .wsp :global(.wsp-bar) {
+    display: grid; grid-template-columns: 8.5em 1fr 4.5em; gap: 0.7em; align-items: center;
+    padding: 0.3em 0.4em; border: 1px solid transparent; border-radius: 8px;
+    background: none; font-family: inherit; font-size: 1em; text-align: left;
+    cursor: pointer; transition: opacity 0.2s ease, border-color 0.15s ease;
+  }
+  .wsp :global(.wsp-bar:hover) { border-color: var(--aas-border); }
+  .wsp :global(.wsp-bar.is-picked) { border-color: var(--wsp-bar); }
+  .wsp :global(.wsp-bar.is-dim) { opacity: 0.28; }
+  .wsp :global(.wsp-bar-name) { font-size: 0.86em; color: var(--aas-text); display: flex; flex-direction: column; }
+  .wsp :global(.wsp-bar-name em) { font-style: normal; font-size: 0.78em; color: var(--wsp-answer); font-weight: 650; }
+  .wsp :global(.wsp-bar-value) { font-size: 0.84em; color: var(--aas-muted); text-align: right; }
+
+  .wsp :global(.wsp-track) {
+    display: block; height: 1.05em; border-radius: 999px;
+    background: color-mix(in srgb, var(--aas-muted) 12%, transparent);
+    overflow: hidden;
+  }
+  .wsp :global(.wsp-fill) {
+    display: block; height: 100%; border-radius: 999px;
+    background: var(--wsp-bar);
+    transition: width 0.5s ease;
+  }
+  .wsp :global(.wsp-bar.is-answer .wsp-fill) { background: var(--wsp-answer); }
+  .wsp :global(.wsp-fill.is-ctx) { background: color-mix(in srgb, var(--aas-muted) 55%, transparent); }
+
+  .wsp-meta { display: grid; gap: 0.45em; }
+  .wsp-row { display: grid; grid-template-columns: 8.5em 1fr 4.5em; gap: 0.7em; align-items: center; padding: 0 0.4em; }
+  .wsp-row-label { font-size: 0.84em; color: var(--aas-muted); }
+  .wsp-row-value { font-size: 0.84em; color: var(--aas-muted); text-align: right; }
+  .wsp-dots { font-size: 0.8em; letter-spacing: 0.35em; color: var(--wsp-bar); }
+
+  .wsp-note, .wsp-note :global(strong) {
+    margin: 0.8em 0 0; font-size: 0.86em; line-height: 1.65; color: var(--aas-muted);
+  }
+  .wsp-note :global(strong) { color: var(--aas-text); }
+
+  @media (max-width: 34rem) {
+    .wsp :global(.wsp-bar), .wsp-row { grid-template-columns: 6em 1fr 3.6em; gap: 0.4em; }
+  }
+</style>
