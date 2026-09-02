@@ -166,27 +166,29 @@ const CAME_FROM = [
     background: var(--aas-panel);
     box-shadow: var(--aas-shadow);
     font-family: var(--aas-sans);
+    container-type: inline-size;
+    font-size: clamp(0.85rem, 1.5cqw, 1.2rem);
     --hr-open: #0ca30c;
     --hr-shut: #d03b3b;
   }
 
   .hrule-head { display: flex; flex-direction: column; gap: 0.3rem; margin-bottom: 0.9rem; }
-  .hrule-head strong { font-size: 1rem; color: var(--aas-text); }
-  .hrule-head span { font-size: 0.85rem; line-height: 1.65; color: var(--aas-muted); }
+  .hrule-head strong { font-size: 1em; color: var(--aas-text); }
+  .hrule-head span { font-size: 0.85em; line-height: 1.65; color: var(--aas-muted); }
 
   .hrule-controls {
     display: grid; grid-template-columns: 1fr 1fr; gap: 0.7rem; margin-bottom: 0.8rem;
   }
 
   .hrule-label {
-    display: block; font-size: 0.78rem; color: var(--aas-muted);
+    display: block; font-size: 0.78em; color: var(--aas-muted);
     margin-bottom: 0.35rem;
   }
   .hrule-select, .hrule-input {
     display: block; width: 100%; box-sizing: border-box;
     padding: 0.45rem 0.6rem; border-radius: 8px;
     border: 1px solid var(--aas-border); background: var(--aas-bg);
-    color: var(--aas-text); font-size: 0.84rem; line-height: 1.6;
+    color: var(--aas-text); font-size: 0.84em; line-height: 1.6;
     font-family: inherit;
   }
 
@@ -194,23 +196,23 @@ const CAME_FROM = [
   .hrule-presets button {
     padding: 0.28rem 0.6rem; border-radius: 999px;
     border: 1px solid var(--aas-border); background: var(--aas-bg);
-    color: var(--aas-muted); font-family: inherit; font-size: 0.76rem;
+    color: var(--aas-muted); font-family: inherit; font-size: 0.76em;
     cursor: pointer; transition: background 0.15s ease;
   }
   .hrule-presets button:hover { background: var(--aas-tint); }
 
   .hrule-toggle {
     display: flex; align-items: flex-start; gap: 0.45rem;
-    font-size: 0.8rem; color: var(--aas-muted); line-height: 1.6;
+    font-size: 0.8em; color: var(--aas-muted); line-height: 1.6;
     margin-bottom: 0.9rem;
   }
   .hrule-toggle input { margin-top: 0.25rem; }
 
-  .hrule-topics { font-size: 0.82rem; color: var(--aas-muted); margin-bottom: 0.6rem; }
+  .hrule-topics { font-size: 0.82em; color: var(--aas-muted); margin-bottom: 0.6rem; }
   .hrule-topics :global(.hrule-topic) {
     display: inline-block; padding: 0.08rem 0.45rem; margin-right: 0.25rem;
     border-radius: 999px; border: 1px solid var(--aas-accent);
-    color: var(--aas-text); font-size: 0.76rem;
+    color: var(--aas-text); font-size: 0.76em;
   }
   .hrule-topics :global(.hrule-dim) { opacity: 0.75; }
 
@@ -222,15 +224,15 @@ const CAME_FROM = [
     padding: 0.5rem 0.6rem; border-radius: 8px;
     border: 1px solid var(--aas-border); background: var(--aas-bg);
   }
-  .hrule-choices :global(.hrule-choice span) { font-size: 0.82rem; color: var(--aas-text); font-weight: 600; }
-  .hrule-choices :global(.hrule-choice em) { font-style: normal; font-size: 0.74rem; }
+  .hrule-choices :global(.hrule-choice span) { font-size: 0.82em; color: var(--aas-text); font-weight: 600; }
+  .hrule-choices :global(.hrule-choice em) { font-style: normal; font-size: 0.74em; }
   .hrule-choices :global(.hrule-choice.is-open) { border-color: var(--hr-open); }
   .hrule-choices :global(.hrule-choice.is-open em) { color: var(--hr-open); }
   .hrule-choices :global(.hrule-choice.is-shut) { opacity: 0.72; }
   .hrule-choices :global(.hrule-choice.is-shut em) { color: var(--hr-shut); }
 
   .hrule-note, .hrule-note :global(code), .hrule-note :global(strong) {
-    margin: 0.8rem 0 0; font-size: 0.8rem; line-height: 1.65; color: var(--aas-muted);
+    margin: 0.8rem 0 0; font-size: 0.8em; line-height: 1.65; color: var(--aas-muted);
   }
 
   @media (max-width: 34rem) {

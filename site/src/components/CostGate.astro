@@ -135,13 +135,15 @@ const RULE = `def estimate_call(model, role, prompt_chars):
     background: var(--aas-panel);
     box-shadow: var(--aas-shadow);
     font-family: var(--aas-sans);
+    container-type: inline-size;
+    font-size: clamp(0.85rem, 1.5cqw, 1.2rem);
     --cg-open: #0ca30c;
     --cg-asks: #fab219;
   }
 
   .cgate-head { display: flex; flex-direction: column; gap: 0.3rem; }
-  .cgate-head strong { font-size: 1rem; color: var(--aas-text); }
-  .cgate-head span { font-size: 0.85rem; line-height: 1.65; color: var(--aas-muted); }
+  .cgate-head strong { font-size: 1em; color: var(--aas-text); }
+  .cgate-head span { font-size: 0.85em; line-height: 1.65; color: var(--aas-muted); }
 
   .cgate-rule {
     margin: 0.9rem 0; padding: 0.6rem 0.7rem;
@@ -150,7 +152,7 @@ const RULE = `def estimate_call(model, role, prompt_chars):
   }
   .cgate-rule code {
     display: block;
-    font-size: 0.72rem; line-height: 1.45; color: var(--aas-muted);
+    font-size: 0.72em; line-height: 1.45; color: var(--aas-muted);
     white-space: pre; background: none; padding: 0;
   }
 
@@ -163,30 +165,30 @@ const RULE = `def estimate_call(model, role, prompt_chars):
     padding: 0.5rem 0.6rem; border-radius: 8px;
     border: 1px solid var(--aas-border); background: var(--aas-bg);
   }
-  .cgate-role-name { font-size: 0.84rem; font-weight: 600; color: var(--aas-text); }
-  .cgate-role code { font-size: 0.72rem; color: var(--aas-muted); background: none; padding: 0; }
+  .cgate-role-name { font-size: 0.84em; font-weight: 600; color: var(--aas-text); }
+  .cgate-role code { font-size: 0.72em; color: var(--aas-muted); background: none; padding: 0; }
   .cgate-role label {
     display: flex; align-items: center; gap: 0.3rem;
-    font-size: 0.76rem; color: var(--aas-muted); margin-top: 0.15rem;
+    font-size: 0.76em; color: var(--aas-muted); margin-top: 0.15rem;
   }
 
   .cgate-sliders { display: grid; gap: 0.15rem; margin-bottom: 0.9rem; }
   .cgate-label {
     display: flex; justify-content: space-between; align-items: baseline;
-    font-size: 0.78rem; color: var(--aas-muted); margin-top: 0.45rem;
+    font-size: 0.78em; color: var(--aas-muted); margin-top: 0.45rem;
   }
   .cgate-label output { color: var(--aas-text); font-weight: 600; }
   .cgate-sliders input[type='range'] { width: 100%; accent-color: var(--aas-accent); }
 
-  .cgate-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+  .cgate-table { width: 100%; border-collapse: collapse; font-size: 0.8em; }
   .cgate-table th, .cgate-table :global(td) {
     text-align: left; padding: 0.35rem 0.4rem;
     border-bottom: 1px solid var(--aas-border);
   }
-  .cgate-table th { color: var(--aas-muted); font-weight: 500; font-size: 0.74rem; }
+  .cgate-table th { color: var(--aas-muted); font-weight: 500; font-size: 0.74em; }
   .cgate-table :global(td) { color: var(--aas-text); }
-  .cgate-table :global(td code) { font-size: 0.74rem; background: none; padding: 0; }
-  .cgate-table :global(td em) { font-style: normal; font-size: 0.7rem; color: var(--cg-asks); }
+  .cgate-table :global(td code) { font-size: 0.74em; background: none; padding: 0; }
+  .cgate-table :global(td em) { font-style: normal; font-size: 0.7em; color: var(--cg-asks); }
   .cgate-table tfoot td { font-weight: 600; border-bottom: none; }
 
   .cgate-verdict {
@@ -194,8 +196,8 @@ const RULE = `def estimate_call(model, role, prompt_chars):
     margin-top: 0.9rem; padding: 0.6rem 0.7rem;
     border-radius: 8px; border: 1px solid currentcolor;
   }
-  .cgate-verdict :global(strong) { font-size: 0.88rem; }
-  .cgate-verdict :global(span) { font-size: 0.79rem; color: var(--aas-muted); }
+  .cgate-verdict :global(strong) { font-size: 0.88em; }
+  .cgate-verdict :global(span) { font-size: 0.79em; color: var(--aas-muted); }
   .cgate-verdict.is-open { color: var(--cg-open); }
   .cgate-verdict.is-asks { color: var(--cg-asks); }
 </style>

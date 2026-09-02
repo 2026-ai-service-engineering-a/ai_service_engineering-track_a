@@ -123,13 +123,15 @@ const RULE = `def _rule_route(state):
     background: var(--aas-panel);
     box-shadow: var(--aas-shadow);
     font-family: var(--aas-sans);
+    container-type: inline-size;
+    font-size: clamp(0.85rem, 1.5cqw, 1.2rem);
     --rr-rule: #0ca30c;
     --rr-llm: #fab219;
   }
 
   .rrule-head { display: flex; flex-direction: column; gap: 0.3rem; }
-  .rrule-head strong { font-size: 1rem; color: var(--aas-text); }
-  .rrule-head span { font-size: 0.85rem; line-height: 1.65; color: var(--aas-muted); }
+  .rrule-head strong { font-size: 1em; color: var(--aas-text); }
+  .rrule-head span { font-size: 0.85em; line-height: 1.65; color: var(--aas-muted); }
 
   .rrule-rule {
     margin: 0.9rem 0; padding: 0.6rem 0.7rem;
@@ -138,19 +140,19 @@ const RULE = `def _rule_route(state):
   }
   .rrule-rule code {
     display: block;
-    font-size: 0.72rem; line-height: 1.45; color: var(--aas-muted);
+    font-size: 0.72em; line-height: 1.45; color: var(--aas-muted);
     white-space: pre; background: none; padding: 0;
   }
 
   .rrule-label {
-    display: block; font-size: 0.78rem; color: var(--aas-muted);
+    display: block; font-size: 0.78em; color: var(--aas-muted);
     margin-bottom: 0.35rem;
   }
   .rrule-input {
     display: block; width: 100%; box-sizing: border-box;
     padding: 0.45rem 0.6rem; border-radius: 8px;
     border: 1px solid var(--aas-border); background: var(--aas-bg);
-    color: var(--aas-text); font-size: 0.86rem; line-height: 1.6;
+    color: var(--aas-text); font-size: 0.86em; line-height: 1.6;
     font-family: inherit;
   }
 
@@ -158,14 +160,14 @@ const RULE = `def _rule_route(state):
   .rrule-presets button {
     padding: 0.28rem 0.6rem; border-radius: 999px;
     border: 1px solid var(--aas-border); background: var(--aas-bg);
-    color: var(--aas-muted); font-family: inherit; font-size: 0.76rem;
+    color: var(--aas-muted); font-family: inherit; font-size: 0.76em;
     cursor: pointer; transition: background 0.15s ease;
   }
   .rrule-presets button:hover { background: var(--aas-tint); }
 
   .rrule-toggle {
     display: flex; align-items: flex-start; gap: 0.45rem;
-    font-size: 0.8rem; color: var(--aas-muted); line-height: 1.6;
+    font-size: 0.8em; color: var(--aas-muted); line-height: 1.6;
     margin-bottom: 0.9rem;
   }
   .rrule-toggle input { margin-top: 0.25rem; }
@@ -176,10 +178,10 @@ const RULE = `def _rule_route(state):
     align-items: baseline;
     padding: 0.45rem 0.6rem; border-radius: 8px;
     border: 1px solid var(--aas-border); background: var(--aas-bg);
-    font-size: 0.82rem;
+    font-size: 0.82em;
   }
   .rrule-steps :global(.rrule-badge) {
-    font-size: 0.7rem; font-weight: 600; text-align: center;
+    font-size: 0.7em; font-weight: 600; text-align: center;
     padding: 0.1rem 0.3rem; border-radius: 999px;
     border: 1px solid currentcolor;
   }
@@ -189,7 +191,7 @@ const RULE = `def _rule_route(state):
   .rrule-steps :global(.rrule-why) { color: var(--aas-muted); }
 
   .rrule-foot, .rrule-foot :global(code) {
-    margin: 0.8rem 0 0; font-size: 0.8rem; line-height: 1.65;
+    margin: 0.8rem 0 0; font-size: 0.8em; line-height: 1.65;
     color: var(--aas-muted);
   }
 
