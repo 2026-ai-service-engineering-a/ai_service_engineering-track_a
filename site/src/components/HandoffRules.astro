@@ -19,10 +19,10 @@ const MESSAGES = [
 ];
 
 const DESKS = [
-  { id: 'triage', label: 'triage', sub: '접수', x: 150, y: 196, r: 58 },
-  { id: 'billing', label: 'billing', sub: '요금', x: 484, y: 84, r: 52 },
-  { id: 'tech', label: 'tech', sub: '기술지원', x: 484, y: 196, r: 50 },
-  { id: 'retention', label: 'retention', sub: '해지방어', x: 484, y: 312, r: 52 },
+  { id: 'triage', label: 'triage', sub: '접수', x: 140, y: 208, r: 56 },
+  { id: 'billing', label: 'billing', sub: '요금', x: 425, y: 76, r: 46 },
+  { id: 'tech', label: 'tech', sub: '기술지원', x: 548, y: 208, r: 46 },
+  { id: 'retention', label: 'retention', sub: '해지방어', x: 425, y: 340, r: 46 },
 ];
 const pos = Object.fromEntries(DESKS.map((d) => [d.id, d]));
 
@@ -42,15 +42,15 @@ const door = (from: string, to: string, bow = 0): Door => {
   };
 };
 const DOORS: Door[] = [
-  door('triage', 'billing', -16),
+  door('triage', 'billing', -14),
   door('triage', 'tech'),
-  door('triage', 'retention', 16),
-  door('billing', 'tech', -18),
-  door('tech', 'billing', -18),
-  door('tech', 'retention', -18),
-  door('retention', 'tech', -18),
-  door('billing', 'retention', -64),
-  door('retention', 'billing', -96),
+  door('triage', 'retention', 14),
+  door('billing', 'tech', -12),
+  door('tech', 'billing', -12),
+  door('tech', 'retention', -12),
+  door('retention', 'tech', -12),
+  door('billing', 'retention', -12),
+  door('retention', 'billing', -12),
 ];
 ---
 
@@ -94,8 +94,8 @@ const DOORS: Door[] = [
     </label>
   </div>
 
-  <div class="hr-stage" style="aspect-ratio: 640 / 392;">
-    <svg viewBox="0 0 640 392" aria-hidden="true">
+  <div class="hr-stage" style="aspect-ratio: 640 / 410;">
+    <svg viewBox="0 0 640 410" aria-hidden="true">
       <defs>
         <marker id="hr-arrow" viewBox="0 0 8 8" refX="7" refY="4"
           markerWidth="7" markerHeight="7" orient="auto">
@@ -116,10 +116,10 @@ const DOORS: Door[] = [
         </g>
       ))}
       <g class="hr-ask" data-ask>
-        <rect x="88" y="300" width="128" height="30" rx="15" />
-        <text x="152" y="319">되묻는다 (ask)</text>
+        <rect x="76" y="312" width="128" height="30" rx="15" />
+        <text x="140" y="331">되묻는다 (ask)</text>
       </g>
-      <text class="hr-required" data-required x="150" y="286">tool_choice="required"</text>
+      <text class="hr-required" data-required x="140" y="296">tool_choice="required"</text>
     </svg>
   </div>
 
@@ -289,17 +289,17 @@ const DOORS: Door[] = [
   .hr-stage svg { position: absolute; inset: 0; width: 100%; height: 100%; }
 
   .hr-door path {
-    fill: none; stroke: currentColor; stroke-width: 2;
+    fill: none; stroke: currentColor; stroke-width: 2.6;
     color: color-mix(in srgb, var(--aas-muted) 22%, transparent);
     transition: color 0.25s ease;
   }
   .hr-door .hr-x {
-    text-anchor: middle; font-size: 15px; font-weight: 700;
+    text-anchor: middle; font-size: 19px; font-weight: 700;
     fill: var(--hr-block); opacity: 0; transition: opacity 0.25s ease;
   }
   .hr-door.is-open path { color: var(--hr-open); stroke-dasharray: 7 5; animation: hr-flow 0.9s linear infinite; }
   @keyframes hr-flow { to { stroke-dashoffset: -12; } }
-  .hr-door.is-blocked path { color: color-mix(in srgb, var(--hr-block) 55%, transparent); stroke-dasharray: 3 5; }
+  .hr-door.is-blocked path { color: color-mix(in srgb, var(--hr-block) 80%, transparent); stroke-dasharray: 3 5; }
   .hr-door.is-blocked .hr-x { opacity: 1; }
 
   .hr-desk { cursor: pointer; outline: none; }
