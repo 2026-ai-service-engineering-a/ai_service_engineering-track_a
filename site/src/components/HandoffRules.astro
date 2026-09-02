@@ -1,164 +1,220 @@
 ---
 /**
- * 라우팅 기준 셋을 직접 돌려 보는 도구 (7주차 5장).
+ * 이양의 문 시뮬레이터 (7주차 5장).
+ *
+ * 원을 클릭해 "지금 담당"을 정하고 문의를 바꾸면, 그 담당이 넘길 수 있는
+ * 문(화살표)들이 실제로 열리고 닫힌다. 규칙은 고르지 않고 좁힌다 — 되돌아
+ * 가는 문은 ✕로 닫히고, 문의가 둘 섞이면 모든 문이 닫히며 되묻기만 남는다.
  *
  * 판정 로직은 `src/lib/multi-agent-rules.mjs`에 있고, week07-support-agent의
  * `_routing_plan`·`topics_in`을 규칙 그대로 옮긴 것이다. 파이썬 원본과 같은
  * 입력 384건을 대조해 전부 일치한다 (원본 과정의 대조 기록).
- *
- * 여기 없는 것: 이양을 실제로 할지 말지의 판단. 규칙은 **넘길 수 있는 곳을
- * 좁힐 뿐**이고, 그중 무엇을 고를지는 모델이 정한다. 이 도구가 보여주는 것은
- * 좁혀진 선택지까지다.
  */
 const MESSAGES = [
   '이번 달 요금이 왜 이렇게 많이 나왔나요?',
   '인터넷이 어제부터 계속 끊깁니다',
+  '그냥 해지할래요. 위약금 얼마예요?',
   '요금도 이상하고 인터넷도 안 돼요',
   '저기요, 좀 답답해서 전화드렸어요',
 ];
 
 const DESKS = [
-  { id: 'triage', label: '접수 상담원' },
-  { id: 'billing', label: '요금 담당' },
-  { id: 'tech', label: '기술지원 담당' },
-  { id: 'retention', label: '해지방어 담당' },
+  { id: 'triage', label: 'triage', sub: '접수', x: 150, y: 196, r: 58 },
+  { id: 'billing', label: 'billing', sub: '요금', x: 484, y: 84, r: 52 },
+  { id: 'tech', label: 'tech', sub: '기술지원', x: 484, y: 196, r: 50 },
+  { id: 'retention', label: 'retention', sub: '해지방어', x: 484, y: 312, r: 52 },
 ];
+const pos = Object.fromEntries(DESKS.map((d) => [d.id, d]));
 
-const CAME_FROM = [
-  { id: '', label: '없음 (처음 받았다)' },
-  { id: 'billing', label: '요금 담당이 넘겼다' },
-  { id: 'tech', label: '기술지원이 넘겼다' },
-  { id: 'retention', label: '해지방어가 넘겼다' },
+interface Door { from: string; to: string; d: string; mx: number; my: number }
+const door = (from: string, to: string, bow = 0): Door => {
+  const A = pos[from], B = pos[to];
+  const dx = B.x - A.x, dy = B.y - A.y, len = Math.hypot(dx, dy);
+  const ux = dx / len, uy = dy / len, px = -uy, py = ux;
+  const sx = A.x + ux * (A.r + 3), sy = A.y + uy * (A.r + 3);
+  const ex = B.x - ux * (B.r + 10), ey = B.y - uy * (B.r + 10);
+  const cx = (sx + ex) / 2 + px * bow, cy = (sy + ey) / 2 + py * bow;
+  return {
+    from, to,
+    d: `M ${sx.toFixed(1)} ${sy.toFixed(1)} Q ${cx.toFixed(1)} ${cy.toFixed(1)} ${ex.toFixed(1)} ${ey.toFixed(1)}`,
+    mx: 0.25 * sx + 0.5 * cx + 0.25 * ex,
+    my: 0.25 * sy + 0.5 * cy + 0.25 * ey,
+  };
+};
+const DOORS: Door[] = [
+  door('triage', 'billing', -16),
+  door('triage', 'tech'),
+  door('triage', 'retention', 16),
+  door('billing', 'tech', -18),
+  door('tech', 'billing', -18),
+  door('tech', 'retention', -18),
+  door('retention', 'tech', -18),
+  door('billing', 'retention', -64),
+  door('retention', 'billing', -96),
 ];
 ---
 
-<div class="hrule" data-hrule>
-  <div class="hrule-head">
-    <strong>기준 셋이 선택지를 어떻게 좁히는지 보기</strong>
+<div class="hr" data-hr>
+  <div class="hr-head">
+    <strong>이양의 문: 규칙은 고르지 않고 좁힙니다</strong>
     <span>
-      week07-support-agent의 <code>_routing_plan</code>을 그대로 옮긴 것입니다. 규칙은
-      넘길 곳을 <strong>고르지 않고 좁힙니다</strong>. 좁혀진 목록 안에서 무엇을
-      고를지는 모델의 몫이고, 이 도구는 좁혀지는 데까지만 보여줍니다.
+      아래 판정은 week07-support-agent의 <code>_routing_plan</code>·<code>topics_in</code>과
+      같은 결정적 코드입니다. 문의를 바꾸고, 원을 클릭해 지금 담당을 바꿔
+      보세요. 열린 문 중 무엇을 고를지는 모델의 몫이고, 규칙은 문만 닫습니다.
     </span>
   </div>
 
-  <div class="hrule-controls">
-    <div>
-      <label class="hrule-label" for="hrule-desk">지금 받은 담당</label>
-      <select class="hrule-select" id="hrule-desk" data-desk>
-        {DESKS.map((desk) => <option value={desk.id}>{desk.label}</option>)}
-      </select>
-    </div>
-    <div>
-      <label class="hrule-label" for="hrule-from">직전에 넘긴 곳</label>
-      <select class="hrule-select" id="hrule-from" data-from>
-        {CAME_FROM.map((from) => <option value={from.id}>{from.label}</option>)}
-      </select>
-    </div>
-  </div>
-
-  <label class="hrule-label" for="hrule-msg">고객이 방금 한 말</label>
-  <input class="hrule-input" id="hrule-msg" data-msg type="text" value={MESSAGES[0]} />
-
-  <div class="hrule-presets">
-    {MESSAGES.map((message) => (
-      <button type="button" data-preset={message}>{message}</button>
+  <label class="hr-label" for="hr-m">고객의 문의</label>
+  <input class="hr-input" id="hr-m" data-m type="text" value={MESSAGES[0]} />
+  <div class="hr-presets">
+    {MESSAGES.map((m) => (
+      <button type="button" data-preset={m}>{m}</button>
     ))}
   </div>
+  <div class="hr-hits" data-hits></div>
 
-  <label class="hrule-toggle">
-    <input type="checkbox" data-rules checked />
-    <span>라우팅 기준 (v0.3). 끄면 v0.2처럼 <strong>아무 데나</strong> 넘길 수 있습니다</span>
-  </label>
-
-  <div class="hrule-out">
-    <div class="hrule-topics" data-topics></div>
-    <div class="hrule-choices" data-choices></div>
-    <p class="hrule-note" data-note></p>
+  <div class="hr-ctl">
+    <span class="hr-ctl-label">직전에 넘어온 곳</span>
+    <div class="hr-chips" data-camefrom>
+      <button type="button" data-cf="" class="is-active">없음</button>
+      <button type="button" data-cf="billing">요금</button>
+      <button type="button" data-cf="tech">기술</button>
+      <button type="button" data-cf="retention">해지</button>
+    </div>
+    <span class="hr-ctl-label">이번 턴 이양 횟수</span>
+    <div class="hr-chips" data-turns>
+      <button type="button" data-tn="0" class="is-active">0</button>
+      <button type="button" data-tn="1">1</button>
+      <button type="button" data-tn="2">2</button>
+      <button type="button" data-tn="3">3</button>
+    </div>
+    <label class="hr-toggle">
+      <input type="checkbox" data-rules checked />
+      <span>기준 셋 (v0.3)</span>
+    </label>
   </div>
+
+  <div class="hr-stage" style="aspect-ratio: 640 / 392;">
+    <svg viewBox="0 0 640 392" aria-hidden="true">
+      <defs>
+        <marker id="hr-arrow" viewBox="0 0 8 8" refX="7" refY="4"
+          markerWidth="7" markerHeight="7" orient="auto">
+          <path d="M 0 0 L 8 4 L 0 8 z" fill="currentColor" />
+        </marker>
+      </defs>
+      {DOORS.map((d) => (
+        <g class="hr-door" data-door={`${d.from}:${d.to}`}>
+          <path d={d.d} marker-end="url(#hr-arrow)" />
+          <text class="hr-x" x={d.mx} y={d.my + 5}>✕</text>
+        </g>
+      ))}
+      {DESKS.map((desk) => (
+        <g class="hr-desk" data-desk={desk.id} tabindex="0" role="button">
+          <circle cx={desk.x} cy={desk.y} r={desk.r} class="hr-circle" />
+          <text x={desk.x} y={desk.y - 2} class="hr-name">{desk.label}</text>
+          <text x={desk.x} y={desk.y + 17} class="hr-sub">{desk.sub}</text>
+        </g>
+      ))}
+      <g class="hr-ask" data-ask>
+        <rect x="88" y="300" width="128" height="30" rx="15" />
+        <text x="152" y="319">되묻는다 (ask)</text>
+      </g>
+      <text class="hr-required" data-required x="150" y="286">tool_choice="required"</text>
+    </svg>
+  </div>
+
+  <p class="hr-foot" data-foot></p>
 </div>
 
 <script>
-  import { routingPlan, topicsIn, DESK_LABELS, HANDOFF_TARGETS }
+  import { routingPlan, topicsIn, TOPIC_WORDS, DESK_LABELS, HANDOFF_TARGETS }
     from '../lib/multi-agent-rules.mjs';
 
-  const TOPIC_LABELS: Record<string, string> = {
-    billing: '요금', tech: '기술지원', retention: '해지',
-  };
-
-  const root = document.querySelector<HTMLElement>('[data-hrule]');
-  if (root) init(root);
+  document.querySelectorAll<HTMLElement>('[data-hr]').forEach(init);
 
   function init(root: HTMLElement) {
     const $ = <T extends HTMLElement>(s: string) => root.querySelector<T>(s)!;
-    const desk = $<HTMLSelectElement>('[data-desk]');
-    const from = $<HTMLSelectElement>('[data-from]');
-    const message = $<HTMLInputElement>('[data-msg]');
+    const input = $<HTMLInputElement>('[data-m]');
     const rules = $<HTMLInputElement>('[data-rules]');
-    const topics = $<HTMLElement>('[data-topics]');
-    const choices = $<HTMLElement>('[data-choices]');
-    const note = $<HTMLParagraphElement>('[data-note]');
     const esc = (s: string) =>
       s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    let desk = 'triage';
+    let cameFrom = '';
+    let turns = 0;
 
-    root.querySelectorAll<HTMLButtonElement>('[data-preset]').forEach((button) =>
-      button.addEventListener('click', () => {
-        message.value = button.dataset.preset ?? '';
-        render();
-      }));
-
-    [desk, from, rules].forEach((el) => el.addEventListener('change', render));
-    message.addEventListener('input', render);
+    root.querySelectorAll<HTMLButtonElement>('[data-preset]').forEach((b) =>
+      b.addEventListener('click', () => { input.value = b.dataset.preset ?? ''; render(); }));
+    input.addEventListener('input', render);
+    rules.addEventListener('change', render);
+    root.querySelectorAll<HTMLElement>('[data-desk]').forEach((g) => {
+      g.addEventListener('click', () => { desk = g.dataset.desk ?? 'triage'; render(); });
+      g.addEventListener('keydown', (e) => {
+        if ((e as KeyboardEvent).key === 'Enter') { desk = g.dataset.desk ?? 'triage'; render(); }
+      });
+    });
+    root.querySelectorAll<HTMLButtonElement>('[data-cf]').forEach((b) =>
+      b.addEventListener('click', () => { cameFrom = b.dataset.cf ?? ''; render(); }));
+    root.querySelectorAll<HTMLButtonElement>('[data-tn]').forEach((b) =>
+      b.addEventListener('click', () => { turns = Number(b.dataset.tn ?? 0); render(); }));
     render();
 
     function render() {
-      const plan = routingPlan({
-        desk: desk.value, message: message.value,
-        cameFrom: from.value, rules: rules.checked,
+      if (cameFrom === desk) cameFrom = '';
+      root.querySelectorAll<HTMLButtonElement>('[data-cf]').forEach((b) => {
+        b.classList.toggle('is-active', (b.dataset.cf ?? '') === cameFrom);
+        b.disabled = (b.dataset.cf ?? '') === desk;
+      });
+      root.querySelectorAll<HTMLButtonElement>('[data-tn]').forEach((b) =>
+        b.classList.toggle('is-active', Number(b.dataset.tn) === turns));
+      root.querySelectorAll<HTMLElement>('[data-desk]').forEach((g) =>
+        g.classList.toggle('is-current', g.dataset.desk === desk));
+
+      const message = input.value;
+      const plan = routingPlan({ desk, message, cameFrom, turnHandoffs: turns, rules: rules.checked });
+      const targets = plan.allowed.map((key: string) => (HANDOFF_TARGETS as Record<string, string>)[key]);
+      const mine = Object.values(HANDOFF_TARGETS).filter((t) => t !== desk);
+      const asking = plan.allowed.length === 0 && plan.mustUseTool;
+      const capped = plan.note === '한 턴 이양 상한';
+
+      root.querySelectorAll<HTMLElement>('[data-door]').forEach((g) => {
+        const [from, to] = (g.dataset.door ?? ':').split(':');
+        g.classList.remove('is-open', 'is-blocked');
+        if (from !== desk) return;
+        if (targets.includes(to)) g.classList.add('is-open');
+        else if (!asking && !capped && to === cameFrom) g.classList.add('is-blocked');
+        else if (asking || capped) g.classList.add('is-blocked');
       });
 
-      const found = topicsIn(message.value);
-      topics.innerHTML = found.length
-        ? `문의 갈래 ${found.length}개 감지: ` +
-          found.map((t) => `<span class="hrule-topic">${TOPIC_LABELS[t]}</span>`).join(' ')
-        : '<span class="hrule-dim">문의 갈래를 낱말로 잡지 못했습니다</span>';
+      const ask = root.querySelector<HTMLElement>('[data-ask]')!;
+      ask.classList.toggle('is-on', asking);
+      const required = root.querySelector<HTMLElement>('[data-required]')!;
+      required.classList.toggle('is-on', desk === 'triage' && plan.mustUseTool && !capped);
 
-      const targets = HANDOFF_TARGETS as Record<string, string>;
-      const deskLabels = DESK_LABELS as Record<string, string>;
-      const all = Object.keys(targets);
-      choices.innerHTML = all
-        .map((tool) => {
-          const target = targets[tool];
-          const open = plan.allowed.includes(tool);
-          const self = target === desk.value;
-          return `<div class="hrule-choice ${open ? 'is-open' : 'is-shut'}">
-            <span>${esc(deskLabels[target])}</span>
-            <em>${open ? '넘길 수 있다' : self ? '자기 자신' : '막혔다'}</em>
-          </div>`;
+      const hitHtml = Object.entries(TOPIC_WORDS as Record<string, string[]>)
+        .map(([topic, words]) => {
+          const found = words.filter((w) => message.includes(w));
+          if (!found.length) return '';
+          const labels = DESK_LABELS as Record<string, string>;
+          return `<span class="hr-hit is-${topic}">${esc(labels[topic])} 갈래 · ${found.map((w) => `"${esc(w)}"`).join(' ')}</span>`;
         })
-        .join('') +
-        `<div class="hrule-choice ${plan.mustUseTool ? 'is-open' : 'is-shut'}">
-          <span>되묻기</span>
-          <em>${plan.mustUseTool ? '반드시 도구 호출' : '말로 답해도 된다'}</em>
-        </div>`;
+        .join('');
+      $('[data-hits]').innerHTML = hitHtml || '<span class="hr-hit is-none">걸린 갈래 낱말이 없습니다</span>';
 
-      const parts: string[] = [];
-      if (plan.note) parts.push(esc(plan.note));
-      if (plan.mustUseTool && plan.allowed.length === 0) {
-        parts.push('넘길 곳이 없으므로 <strong>되묻는 것 말고는 할 수 있는 일이 없습니다</strong>.');
-      } else if (plan.mustUseTool) {
-        parts.push('접수는 <code>tool_choice="required"</code>라 말로 얼버무릴 수 없습니다.');
-      }
-      if (!rules.checked) {
-        parts.push('기준을 껐습니다. 되돌리기도 막히지 않고, 섞인 문의도 그냥 넘어갑니다.');
-      }
-      note.innerHTML = parts.join(' ') || '규칙이 손댈 것이 없는 자리입니다.';
+      const deskLabels = DESK_LABELS as Record<string, string>;
+      const opened = targets.map((t: string) => deskLabels[t]).join(' · ');
+      $('[data-foot]').innerHTML = [
+        `<strong>${esc(deskLabels[desk])}</strong>의 문 ${targets.length}/${mine.length}개 열림${opened ? `: ${esc(opened)}` : ''}.`,
+        plan.note ? esc(plan.note) + '.' : '',
+        topicsIn(message).length >= 2 && desk === 'triage' && rules.checked
+          ? '' : (plan.mustUseTool && desk === 'triage' ? '출력은 반드시 도구 호출이어야 합니다.' : ''),
+        !rules.checked ? '기준 셋을 껐습니다. 문은 다 열려 있고, 오배송과 핑퐁의 자유도 함께 열립니다.' : '',
+      ].filter(Boolean).join(' ');
     }
   }
 </script>
 
 <style>
-  .hrule {
+  .hr {
     margin: 2rem 0;
     padding: 1.1rem 1.1rem 0.9rem;
     border: 1px solid var(--aas-border);
@@ -169,73 +225,114 @@ const CAME_FROM = [
     container-type: inline-size;
     font-size: clamp(0.85rem, 1.5cqw, 1.2rem);
     --hr-open: #0ca30c;
-    --hr-shut: #d03b3b;
+    --hr-block: #d0453f;
+    --hr-accent: #2f81f7;
+    --hr-ask: #fab219;
   }
 
-  .hrule-head { display: flex; flex-direction: column; gap: 0.3rem; margin-bottom: 0.9rem; }
-  .hrule-head strong { font-size: 1em; color: var(--aas-text); }
-  .hrule-head span { font-size: 0.85em; line-height: 1.65; color: var(--aas-muted); }
+  .hr-head { display: flex; flex-direction: column; gap: 0.3em; margin-bottom: 0.8em; }
+  .hr-head strong { font-size: 1.12em; color: var(--aas-text); }
+  .hr-head span { font-size: 0.87em; line-height: 1.65; color: var(--aas-muted); }
+  .hr-head code { font-size: 0.9em; }
 
-  .hrule-controls {
-    display: grid; grid-template-columns: 1fr 1fr; gap: 0.7rem; margin-bottom: 0.8rem;
-  }
-
-  .hrule-label {
-    display: block; font-size: 0.78em; color: var(--aas-muted);
-    margin-bottom: 0.35rem;
-  }
-  .hrule-select, .hrule-input {
+  .hr-label { display: block; font-size: 0.8em; color: var(--aas-muted); margin-bottom: 0.35em; }
+  .hr-input {
     display: block; width: 100%; box-sizing: border-box;
-    padding: 0.45rem 0.6rem; border-radius: 8px;
+    padding: 0.45em 0.6em; border-radius: 8px;
     border: 1px solid var(--aas-border); background: var(--aas-bg);
-    color: var(--aas-text); font-size: 0.84em; line-height: 1.6;
-    font-family: inherit;
+    color: var(--aas-text); font-size: 0.9em; font-family: inherit;
   }
-
-  .hrule-presets { display: flex; flex-wrap: wrap; gap: 0.35rem; margin: 0.55rem 0 0.8rem; }
-  .hrule-presets button {
-    padding: 0.28rem 0.6rem; border-radius: 999px;
+  .hr-presets { display: flex; flex-wrap: wrap; gap: 0.35em; margin: 0.55em 0 0.4em; }
+  .hr-presets button {
+    padding: 0.28em 0.6em; border-radius: 999px;
     border: 1px solid var(--aas-border); background: var(--aas-bg);
-    color: var(--aas-muted); font-family: inherit; font-size: 0.76em;
-    cursor: pointer; transition: background 0.15s ease;
+    color: var(--aas-muted); font-family: inherit; font-size: 0.78em;
+    cursor: pointer;
   }
-  .hrule-presets button:hover { background: var(--aas-tint); }
+  .hr-presets button:hover { background: var(--aas-tint); }
 
-  .hrule-toggle {
-    display: flex; align-items: flex-start; gap: 0.45rem;
-    font-size: 0.8em; color: var(--aas-muted); line-height: 1.6;
-    margin-bottom: 0.9rem;
+  .hr-hits { display: flex; flex-wrap: wrap; gap: 0.35em; min-height: 1.7em; margin-bottom: 0.5em; }
+  .hr-hits :global(.hr-hit) {
+    padding: 0.18em 0.6em; border-radius: 999px;
+    font-size: 0.76em; font-weight: 600;
+    border: 1px solid currentcolor;
   }
-  .hrule-toggle input { margin-top: 0.25rem; }
+  .hr-hits :global(.hr-hit.is-billing) { color: var(--hr-accent); }
+  .hr-hits :global(.hr-hit.is-tech) { color: var(--hr-open); }
+  .hr-hits :global(.hr-hit.is-retention) { color: var(--hr-block); }
+  .hr-hits :global(.hr-hit.is-none) { color: var(--aas-muted); border-style: dashed; font-weight: 400; }
 
-  .hrule-topics { font-size: 0.82em; color: var(--aas-muted); margin-bottom: 0.6rem; }
-  .hrule-topics :global(.hrule-topic) {
-    display: inline-block; padding: 0.08rem 0.45rem; margin-right: 0.25rem;
-    border-radius: 999px; border: 1px solid var(--aas-accent);
-    color: var(--aas-text); font-size: 0.76em;
+  .hr-ctl {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 0.5em 0.7em;
+    margin-bottom: 0.8em;
   }
-  .hrule-topics :global(.hrule-dim) { opacity: 0.75; }
-
-  .hrule-choices {
-    display: grid; grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr)); gap: 0.4rem;
-  }
-  .hrule-choices :global(.hrule-choice) {
-    display: flex; flex-direction: column; gap: 0.15rem;
-    padding: 0.5rem 0.6rem; border-radius: 8px;
+  .hr-ctl-label { font-size: 0.78em; color: var(--aas-muted); }
+  .hr-chips { display: inline-flex; gap: 0.25em; }
+  .hr-chips button {
+    padding: 0.2em 0.6em; border-radius: 999px;
     border: 1px solid var(--aas-border); background: var(--aas-bg);
+    color: var(--aas-muted); font-family: inherit; font-size: 0.78em;
+    cursor: pointer;
   }
-  .hrule-choices :global(.hrule-choice span) { font-size: 0.82em; color: var(--aas-text); font-weight: 600; }
-  .hrule-choices :global(.hrule-choice em) { font-style: normal; font-size: 0.74em; }
-  .hrule-choices :global(.hrule-choice.is-open) { border-color: var(--hr-open); }
-  .hrule-choices :global(.hrule-choice.is-open em) { color: var(--hr-open); }
-  .hrule-choices :global(.hrule-choice.is-shut) { opacity: 0.72; }
-  .hrule-choices :global(.hrule-choice.is-shut em) { color: var(--hr-shut); }
-
-  .hrule-note, .hrule-note :global(code), .hrule-note :global(strong) {
-    margin: 0.8rem 0 0; font-size: 0.8em; line-height: 1.65; color: var(--aas-muted);
+  .hr-chips button.is-active { border-color: var(--hr-accent); color: var(--hr-accent); font-weight: 650; }
+  .hr-chips button:disabled { opacity: 0.35; cursor: default; }
+  .hr-toggle {
+    display: inline-flex; align-items: center; gap: 0.35em;
+    font-size: 0.8em; color: var(--aas-muted); cursor: pointer;
   }
 
-  @media (max-width: 34rem) {
-    .hrule-controls { grid-template-columns: 1fr; }
+  .hr-stage {
+    position: relative; width: 100%;
+    border: 1px solid var(--aas-border); border-radius: 10px;
+    background: var(--aas-bg); overflow: hidden;
+  }
+  .hr-stage svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+
+  .hr-door path {
+    fill: none; stroke: currentColor; stroke-width: 2;
+    color: color-mix(in srgb, var(--aas-muted) 22%, transparent);
+    transition: color 0.25s ease;
+  }
+  .hr-door .hr-x {
+    text-anchor: middle; font-size: 15px; font-weight: 700;
+    fill: var(--hr-block); opacity: 0; transition: opacity 0.25s ease;
+  }
+  .hr-door.is-open path { color: var(--hr-open); stroke-dasharray: 7 5; animation: hr-flow 0.9s linear infinite; }
+  @keyframes hr-flow { to { stroke-dashoffset: -12; } }
+  .hr-door.is-blocked path { color: color-mix(in srgb, var(--hr-block) 55%, transparent); stroke-dasharray: 3 5; }
+  .hr-door.is-blocked .hr-x { opacity: 1; }
+
+  .hr-desk { cursor: pointer; outline: none; }
+  .hr-circle {
+    fill: var(--aas-panel); stroke: var(--aas-border); stroke-width: 2;
+    transition: stroke 0.2s ease, stroke-width 0.2s ease;
+  }
+  .hr-desk:hover .hr-circle, .hr-desk:focus-visible .hr-circle { stroke: var(--hr-accent); }
+  .hr-desk.is-current .hr-circle { stroke: var(--hr-accent); stroke-width: 3.5; }
+  .hr-name {
+    text-anchor: middle; font-size: 15px; font-weight: 700;
+    fill: var(--aas-text); font-family: var(--aas-sans);
+  }
+  .hr-sub { text-anchor: middle; font-size: 11px; fill: var(--aas-muted); font-family: var(--aas-sans); }
+
+  .hr-ask { opacity: 0; transition: opacity 0.25s ease; }
+  .hr-ask.is-on { opacity: 1; animation: hr-ask 1s ease-in-out infinite alternate; }
+  @keyframes hr-ask { from { opacity: 1; } to { opacity: 0.55; } }
+  .hr-ask rect { fill: color-mix(in srgb, var(--hr-ask) 14%, var(--aas-panel)); stroke: var(--hr-ask); stroke-width: 1.6; }
+  .hr-ask text { text-anchor: middle; font-size: 13px; font-weight: 650; fill: var(--aas-text); font-family: var(--aas-sans); }
+
+  .hr-required {
+    text-anchor: middle; font-size: 11px; font-family: var(--aas-mono, monospace);
+    fill: var(--aas-muted); opacity: 0; transition: opacity 0.25s ease;
+  }
+  .hr-required.is-on { opacity: 1; }
+
+  .hr-foot, .hr-foot :global(strong) {
+    margin: 0.6em 0 0; font-size: 0.82em; line-height: 1.65; color: var(--aas-muted);
+  }
+  .hr-foot :global(strong) { color: var(--aas-text); }
+
+  @media (prefers-reduced-motion: reduce) {
+    .hr-door.is-open path, .hr-ask.is-on { animation: none; }
   }
 </style>
