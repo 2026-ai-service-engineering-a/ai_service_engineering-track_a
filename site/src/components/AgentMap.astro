@@ -1,0 +1,596 @@
+---
+/**
+ * 멀티 에이전트 지도 (7주차 4·5·6장).
+ *
+ * 노드를 클릭하면 그 자리의 안쪽이 열린다: 지침 길이, 쥔 도구와 못 보는
+ * 도구, 안쪽 루프, 밖으로 내보내는 것, 정지 조건. 수치는 전부 시연
+ * 저장소(week07-energy/support/coding-agent)의 코드에서 그대로 읽은 값이다.
+ * 지침 길이는 프롬프트 원문에서 런타임 플레이스홀더를 뺀 글자 수.
+ *
+ * variant: "supervisor" | "handoff" | "parallel"
+ */
+interface NodeDetail {
+  badge: string;
+  title: string;
+  rows: { k: string; v: string }[];
+  chips?: { label: string; items: string[]; muted?: boolean }[];
+  note?: string;
+}
+interface MapNode {
+  id: string;
+  label: string;
+  sub: string;
+  kind: 'user' | 'router' | 'agent' | 'code' | 'gate';
+  x: number;
+  y: number;
+  detail?: NodeDetail;
+}
+interface MapEdge {
+  d: string;
+  dashed?: boolean;
+  both?: boolean;
+  label?: string;
+  lx?: number;
+  ly?: number;
+}
+interface MapDef {
+  head: string;
+  lede: string;
+  view: [number, number];
+  initial: string;
+  nodes: MapNode[];
+  edges: MapEdge[];
+  foot: string;
+}
+
+const MAPS: Record<string, MapDef> = {
+  supervisor: {
+    head: 'supervisor 지도 · week07-energy-agent',
+    lede:
+      '노드를 클릭하면 그 자리의 안쪽이 열립니다. 결과는 언제나 가운데로 ' +
+      '돌아오고, 답을 쓰는 것은 아래쪽의 담당들입니다.',
+    view: [520, 300],
+    initial: 'supervisor',
+    nodes: [
+      { id: 'user', label: '사용자', sub: '질문 1건', kind: 'user', x: 60, y: 150 },
+      {
+        id: 'supervisor', label: 'supervisor', sub: '라우터 · 도구 0', kind: 'router',
+        x: 260, y: 66,
+        detail: {
+          badge: '라우터',
+          title: '다음 담당을 고른다. 답변을 쓰지 않는다',
+          rows: [
+            { k: '지침', v: '403자 · "당신은 한빛전력 상담팀의 supervisor다…"' },
+            { k: '안쪽 루프', v: '루프 없음. 호출 1회의 출력이 JSON 한 줄: {"next": "...", "why": "..."}' },
+            { k: '내보내는 것', v: '다음 노드 이름 하나 (라우팅 결정)' },
+            { k: '정지 조건', v: 'MAX_ROUNDS = 6 · 라우팅 왕복 상한 (루프의 보험)' },
+          ],
+          chips: [
+            { label: '쥔 도구', items: ['없음'] },
+            { label: '못 보는 도구', items: ['조회 4종', 'make_chart'], muted: true },
+          ],
+          note:
+            '확실한 결정 셋은 _rule_route가 코드로 먼저 확정합니다(v1.0 하이브리드). ' +
+            '모델에게는 애매한 자리만 남깁니다.',
+        },
+      },
+      {
+        id: 'analyst', label: 'analyst', sub: '도구 4종 · 루프 ≤3', kind: 'agent',
+        x: 120, y: 234,
+        detail: {
+          badge: '에이전트',
+          title: '수치를 조회하고 증감을 계산한다',
+          rows: [
+            { k: '지침', v: '140자 · "당신은 전력 데이터 분석가다…"' },
+            { k: '안쪽 루프', v: 'tool-calling 왕복 ≤ 3 · 6주차의 그 ReAct 루프(_run_with_tools 20줄)' },
+            { k: '내보내는 것', v: 'findings 요약 한 건. 도구 원자료는 data 채널에 남고 위로 올라가지 않는다' },
+          ],
+          chips: [
+            { label: '쥔 도구', items: ['customer_profile', 'monthly_usage', 'compare_usage', 'bill_breakdown'] },
+            { label: '못 보는 도구', items: ['make_chart'], muted: true },
+          ],
+        },
+      },
+      {
+        id: 'visualizer', label: 'visualizer', sub: '도구 1종 · 루프 ≤3', kind: 'agent',
+        x: 260, y: 234,
+        detail: {
+          badge: '에이전트',
+          title: '추이를 그래프로 그리고 읽어 준다',
+          rows: [
+            { k: '지침', v: '147자 · "당신은 전력 사용 추이를 그래프로 보여주는 담당이다…"' },
+            { k: '안쪽 루프', v: 'tool-calling 왕복 ≤ 3. 차트의 수치는 모델이 아니라 도구가 db에서 직접 조회한다' },
+            { k: '내보내는 것', v: 'findings 요약 + 차트 파일 이름' },
+          ],
+          chips: [
+            { label: '쥔 도구', items: ['make_chart'] },
+            { label: '못 보는 도구', items: ['조회 4종'], muted: true },
+          ],
+        },
+      },
+      {
+        id: 'counselor', label: 'counselor', sub: '도구 0 · 단발 1회', kind: 'agent',
+        x: 400, y: 234,
+        detail: {
+          badge: '에이전트',
+          title: '요약만 보고 고객에게 답을 쓴다',
+          rows: [
+            { k: '지침', v: '199자 · "당신은 한빛전력 상담사다. 아래 근거만 사용해…"' },
+            { k: '안쪽 루프', v: '루프 없음 · completion 단발 1회' },
+            { k: '내보내는 것', v: '최종 답변(answer)' },
+          ],
+          chips: [
+            { label: '쥔 도구', items: ['없음'] },
+            { label: '못 보는 도구', items: ['조회 4종', 'make_chart'], muted: true },
+          ],
+          note:
+            '도구가 없어 스스로 조회하지 못합니다. supervisor가 자료 없이 여기로 ' +
+            '보내면 그럴듯한 헛답이 나옵니다. 사고 재현 ①이 정확히 이 경로입니다.',
+        },
+      },
+    ],
+    edges: [
+      { d: 'M 92 140 L 200 84', label: '질문', lx: 132, ly: 100 },
+      { d: 'M 206 96 L 98 144', dashed: true, label: '답변', lx: 170, ly: 132 },
+      { d: 'M 232 92 L 138 210', both: true },
+      { d: 'M 260 92 L 260 210', both: true },
+      { d: 'M 288 92 L 382 210', both: true },
+    ],
+    foot: '실선 양방향: 배정이 내려가고 결과가 돌아온다 · 점선: 최종 답변',
+  },
+
+  handoff: {
+    head: 'handoff 지도 · week07-support-agent',
+    lede:
+      '가운데가 없습니다. 접수가 Command로 제어권을 넘기면, 이어받은 담당이 ' +
+      '고객에게 직접 답합니다. 노드를 클릭해 각 담당의 안쪽을 여세요.',
+    view: [520, 300],
+    initial: 'triage',
+    nodes: [
+      { id: 'user', label: '고객', sub: '문의', kind: 'user', x: 56, y: 150 },
+      {
+        id: 'triage', label: 'triage', sub: '접수 · 업무 도구 0', kind: 'router',
+        x: 196, y: 150,
+        detail: {
+          badge: '접수',
+          title: '첫 문의를 듣고 담당을 고른다',
+          rows: [
+            { k: '지침', v: '255자 · "당신은 누리통신 고객센터의 접수 상담원입니다…"' },
+            { k: '규칙(v0.3)', v: 'tool_choice="required" · 출력은 반드시 도구 호출. 말로만 분류하던 v0.1과 갈리는 지점' },
+            { k: '내보내는 것', v: 'Command(goto=담당) 하나, 또는 ask_clarification으로 고객에게 되묻기' },
+            { k: '정지 조건', v: 'MAX_HANDOFFS = 3 · 한 턴에 담당이 바뀌는 횟수 상한' },
+          ],
+          chips: [
+            { label: '업무 도구', items: ['없음'] },
+            { label: '이양 도구', items: ['transfer_to_billing', 'transfer_to_tech', 'transfer_to_retention', 'ask_clarification'] },
+          ],
+          note:
+            '다음 턴은 entry가 체크포인터의 current_agent를 읽어 접수를 건너뜁니다. ' +
+            '담당이 턴을 넘어 유지되는 이유입니다.',
+        },
+      },
+      {
+        id: 'billing', label: 'billing', sub: '요금 · 도구 4종', kind: 'agent',
+        x: 386, y: 62,
+        detail: {
+          badge: '담당',
+          title: '청구·요금제·약관 문의에 답한다',
+          rows: [
+            { k: '지침', v: '289자 · "당신은 누리통신의 요금 담당 상담원입니다…"' },
+            { k: '안쪽 루프', v: 'tool-calling 왕복 ≤ 3' },
+            { k: '내보내는 것', v: '고객에게 직접 답변. 넘긴 접수는 이미 손을 뗐다' },
+          ],
+          chips: [
+            { label: '쥔 도구', items: ['invoice_detail', 'invoice_history', 'plan_info', 'search_terms'] },
+            { label: '이양 도구', items: ['transfer_to_tech', 'transfer_to_retention'] },
+            { label: '막힌 길', items: ['접수로 되돌리기 (핑퐁 차단)'], muted: true },
+          ],
+        },
+      },
+      {
+        id: 'tech', label: 'tech', sub: '기술지원 · 도구 2종', kind: 'agent',
+        x: 386, y: 150,
+        detail: {
+          badge: '담당',
+          title: '장애·회선 상태 문의에 답한다',
+          rows: [
+            { k: '지침', v: '169자 · "당신은 누리통신의 기술지원 담당 상담원입니다…"' },
+            { k: '안쪽 루프', v: 'tool-calling 왕복 ≤ 3' },
+            { k: '내보내는 것', v: '고객에게 직접 답변' },
+          ],
+          chips: [
+            { label: '쥔 도구', items: ['outage_lookup', 'line_status'] },
+            { label: '이양 도구', items: ['transfer_to_billing', 'transfer_to_retention'] },
+            { label: '막힌 길', items: ['접수로 되돌리기 (핑퐁 차단)'], muted: true },
+          ],
+        },
+      },
+      {
+        id: 'retention', label: 'retention', sub: '해지방어 · 도구 3종', kind: 'agent',
+        x: 386, y: 238,
+        detail: {
+          badge: '담당',
+          title: '해지·약정·위약금 문의에 답한다',
+          rows: [
+            { k: '지침', v: '208자 · "당신은 누리통신의 해지방어 담당 상담원입니다…"' },
+            { k: '안쪽 루프', v: 'tool-calling 왕복 ≤ 3. v1.0에서는 search_terms로 약관을 검색해 조항 번호로 인용한다' },
+            { k: '내보내는 것', v: '고객에게 직접 답변 (인용은 코드가 존재·근거를 대조)' },
+          ],
+          chips: [
+            { label: '쥔 도구', items: ['contract_status', 'retention_offers', 'search_terms'] },
+            { label: '이양 도구', items: ['transfer_to_billing', 'transfer_to_tech'] },
+            { label: '막힌 길', items: ['접수로 되돌리기 (핑퐁 차단)'], muted: true },
+          ],
+        },
+      },
+    ],
+    edges: [
+      { d: 'M 88 150 L 148 150', label: '문의', lx: 116, ly: 138 },
+      { d: 'M 236 134 L 330 76', label: 'Command', lx: 268, ly: 92 },
+      { d: 'M 244 150 L 330 150' },
+      { d: 'M 236 166 L 330 224' },
+      { d: 'M 386 84 L 386 128', dashed: true, both: true },
+      { d: 'M 386 172 L 386 216', dashed: true, both: true },
+      { d: 'M 444 74 C 478 110 478 190 444 226', dashed: true, both: true },
+    ],
+    foot: '실선: 이양 (넘긴 쪽은 손을 뗀다) · 점선: 담당끼리의 제한된 이양 · 답변은 각 담당이 고객에게 직접',
+  },
+
+  parallel: {
+    head: '병렬 실행 지도 · week07-coding-agent',
+    lede:
+      '역할이 설계 시점이 아니라 실행 시점에 만들어집니다. planner가 태스크를 ' +
+      '만들면 Send가 그 수만큼 워커를 띄웁니다. 노드를 클릭해 보세요.',
+    view: [560, 300],
+    initial: 'planner',
+    nodes: [
+      {
+        id: 'planner', label: 'planner', sub: '계획 1회', kind: 'agent',
+        x: 66, y: 150,
+        detail: {
+          badge: '에이전트',
+          title: 'SPEC을 읽고 태스크를 만든다',
+          rows: [
+            { k: '호출', v: 'LLM 1회 (저가 모델) · JSON 계획. 6주차 Plan-and-Execute의 계획 단계다' },
+            { k: '코드가 정하는 것', v: '역할 3종과 파일 소유권은 모델이 바꿀 수 없다. 모델은 내용과 난이도(easy·hard)만 정한다' },
+            { k: '내보내는 것', v: 'tasks 3건 · role · files · branch · difficulty' },
+          ],
+          note: '난이도가 모델을 고릅니다: hard면 상위 모델, easy면 저가 모델.',
+        },
+      },
+      {
+        id: 'gate', label: 'gate', sub: '견적 → 승인', kind: 'gate',
+        x: 178, y: 150,
+        detail: {
+          badge: '게이트',
+          title: '값을 먼저 묻는 문',
+          rows: [
+            { k: '동작', v: 'estimate_run이 실행 전 예상 비용을 계산. 상한(BUDGET_USD=0.02)을 넘으면 interrupt로 사람에게 묻는다' },
+            { k: '내보내는 것', v: '승인이면 Send 팬아웃, 거절이면 stopped · 한 줄도 짜지 않는다' },
+          ],
+          note: '6주차 budget guard가 사람에게 묻는 문으로 진화한 자리. 거절할 수 있어야 문입니다.',
+        },
+      },
+      {
+        id: 'backend', label: 'worker · backend', sub: 'app.py', kind: 'agent',
+        x: 330, y: 62,
+        detail: {
+          badge: '워커',
+          title: '자기 파일만 쓴다: app.py',
+          rows: [
+            { k: '안쪽 루프', v: 'write_file 왕복 ≤ 3. 소유권 밖 경로는 코드가 거부한다' },
+            { k: '격리', v: 'git worktree · 역할별 작업 디렉터리. git 명령은 GIT_LOCK으로 직렬화' },
+            { k: '내보내는 것', v: '{"results": [...]} · 리듀서(operator.add)가 합친다' },
+          ],
+          chips: [{ label: '쥔 도구', items: ['write_file'] }],
+        },
+      },
+      {
+        id: 'frontend', label: 'worker · frontend', sub: 'static/index.html', kind: 'agent',
+        x: 330, y: 150,
+        detail: {
+          badge: '워커',
+          title: '자기 파일만 쓴다: static/index.html',
+          rows: [
+            { k: '안쪽 루프', v: 'write_file 왕복 ≤ 3. 세 워커는 CONTRACT(API 규약)만 공유한다' },
+            { k: '격리', v: 'git worktree. 병렬로 버는 것은 모델 호출 시간이지 git이 아니다' },
+            { k: '내보내는 것', v: '{"results": [...]}' },
+          ],
+          chips: [{ label: '쥔 도구', items: ['write_file'] }],
+        },
+      },
+      {
+        id: 'tests', label: 'worker · tests', sub: 'tests/test_api.py', kind: 'agent',
+        x: 330, y: 238,
+        detail: {
+          badge: '워커',
+          title: '자기 파일만 쓴다: tests/test_api.py',
+          rows: [
+            { k: '안쪽 루프', v: 'write_file 왕복 ≤ 3' },
+            { k: '격리', v: 'git worktree' },
+            { k: '내보내는 것', v: '{"results": [...]}' },
+          ],
+          chips: [{ label: '쥔 도구', items: ['write_file'] }],
+        },
+      },
+      {
+        id: 'integrator', label: 'integrator', sub: 'LLM 0회', kind: 'code',
+        x: 484, y: 150,
+        detail: {
+          badge: '코드',
+          title: '합치고, 돌려 보고, 판정한다',
+          rows: [
+            { k: '동작', v: '브랜치 셋을 merge --no-ff 순차 머지 → pytest → docker compose 기동. 전부 하네스가 실행한다' },
+            { k: '내보내는 것', v: '성공, 또는 실패 로그' },
+            { k: '정지 조건', v: '고치기 ≤ 2(fixer) → 재계획 ≤ 1(planner) → 포기. 무한히 도는 자동화는 자동화가 아니다' },
+          ],
+        },
+      },
+      {
+        id: 'fixer', label: 'fixer', sub: '상위 모델', kind: 'agent',
+        x: 484, y: 54,
+        detail: {
+          badge: '에이전트',
+          title: '실패 로그를 되먹여 한 파일을 고친다',
+          rows: [
+            { k: '입력', v: '실패 로그 끝 2,000자 + 제품 파일 3개 + CONTRACT' },
+            { k: '제약', v: '한 번에 한 파일만 (tool_calls를 하나로 자른다). 무엇이 나았는지 알 수 있어야 하므로' },
+            { k: '호출', v: '상위 모델 고정 · 6주차 Reflexion이 여기서는 빌드 로그를 되먹이는 일이 된다' },
+          ],
+        },
+      },
+    ],
+    edges: [
+      { d: 'M 104 150 L 146 150' },
+      { d: 'M 212 134 L 274 76', label: 'Send ×3', lx: 224, ly: 88 },
+      { d: 'M 212 150 L 272 150' },
+      { d: 'M 212 166 L 274 224' },
+      { d: 'M 388 74 L 446 134' },
+      { d: 'M 388 150 L 442 150' },
+      { d: 'M 388 224 L 446 166' },
+      { d: 'M 484 128 L 484 76', dashed: true, both: true, label: '고치기 ≤2', lx: 500, ly: 104 },
+      { d: 'M 452 172 C 300 288 140 240 78 172', dashed: true, label: '재계획 ≤1', lx: 268, ly: 262 },
+    ],
+    foot: '실선: 제어 흐름 · 점선: 복구 루프 · 워커 셋은 같은 순간에 함께 돈다',
+  },
+};
+
+const { variant = 'supervisor' } = Astro.props;
+const map = MAPS[variant];
+if (!map) throw new Error(`AgentMap: unknown variant "${variant}"`);
+const [vw, vh] = map.view;
+const details = Object.fromEntries(
+  map.nodes.filter((n) => n.detail).map((n) => [n.id, { label: n.label, ...n.detail }]),
+);
+---
+
+<div
+  class="amap"
+  data-agentmap
+  data-initial={map.initial}
+  data-details={JSON.stringify(details)}
+>
+  <div class="amap-head">
+    <strong>{map.head}</strong>
+    <span>{map.lede}</span>
+  </div>
+
+  <div class="amap-stage" style={`aspect-ratio: ${vw} / ${vh};`}>
+    <svg viewBox={`0 0 ${vw} ${vh}`} aria-hidden="true">
+      <defs>
+        <marker id={`amap-arrow-${variant}`} viewBox="0 0 8 8" refX="7" refY="4"
+          markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M 0 0 L 8 4 L 0 8 z" fill="var(--amap-line)" />
+        </marker>
+      </defs>
+      {map.edges.map((edge) => (
+        <path
+          d={edge.d}
+          class:list={['amap-edge', { 'is-dashed': edge.dashed }]}
+          marker-end={`url(#amap-arrow-${variant})`}
+          marker-start={edge.both ? `url(#amap-arrow-${variant})` : undefined}
+        />
+      ))}
+      {map.edges.filter((e) => e.label).map((edge) => (
+        <text x={edge.lx} y={edge.ly} class="amap-edge-label">{edge.label}</text>
+      ))}
+    </svg>
+    {map.nodes.map((node) =>
+      node.detail ? (
+        <button
+          type="button"
+          class={`amap-node is-${node.kind}`}
+          data-node={node.id}
+          style={`left: ${(node.x / vw) * 100}%; top: ${(node.y / vh) * 100}%;`}
+        >
+          <span class="amap-node-name">{node.label}</span>
+          <span class="amap-node-sub">{node.sub}</span>
+        </button>
+      ) : (
+        <div
+          class={`amap-node is-${node.kind} is-static`}
+          style={`left: ${(node.x / vw) * 100}%; top: ${(node.y / vh) * 100}%;`}
+        >
+          <span class="amap-node-name">{node.label}</span>
+          <span class="amap-node-sub">{node.sub}</span>
+        </div>
+      ),
+    )}
+  </div>
+
+  <div class="amap-panel" data-panel></div>
+
+  <p class="amap-foot">{map.foot}</p>
+</div>
+
+<script>
+  document.querySelectorAll<HTMLElement>('[data-agentmap]').forEach(init);
+
+  function init(root: HTMLElement) {
+    const details = JSON.parse(root.dataset.details ?? '{}') as Record<string, {
+      label: string;
+      badge: string;
+      title: string;
+      rows: { k: string; v: string }[];
+      chips?: { label: string; items: string[]; muted?: boolean }[];
+      note?: string;
+    }>;
+    const panel = root.querySelector<HTMLElement>('[data-panel]')!;
+    const buttons = root.querySelectorAll<HTMLButtonElement>('[data-node]');
+    const esc = (s: string) =>
+      s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+    buttons.forEach((button) =>
+      button.addEventListener('click', () => select(button.dataset.node ?? '')));
+    select(root.dataset.initial ?? '');
+
+    function select(id: string) {
+      const d = details[id];
+      if (!d) return;
+      buttons.forEach((b) => b.classList.toggle('is-active', b.dataset.node === id));
+
+      const chips = (d.chips ?? [])
+        .map((group) => `<div class="amap-chips${group.muted ? ' is-muted' : ''}">
+          <span class="amap-chips-label">${esc(group.label)}</span>
+          ${group.items.map((item) => `<code>${esc(item)}</code>`).join('')}
+        </div>`)
+        .join('');
+
+      panel.innerHTML = `
+        <div class="amap-panel-head">
+          <span class="amap-badge">${esc(d.badge)}</span>
+          <strong>${esc(d.label)}</strong>
+          <span class="amap-panel-title">${esc(d.title)}</span>
+        </div>
+        <dl class="amap-rows">
+          ${d.rows.map((row) => `<div><dt>${esc(row.k)}</dt><dd>${esc(row.v)}</dd></div>`).join('')}
+        </dl>
+        ${chips}
+        ${d.note ? `<p class="amap-note">${esc(d.note)}</p>` : ''}`;
+    }
+  }
+</script>
+
+<style>
+  .amap {
+    margin: 2rem 0;
+    padding: 1.1rem 1.1rem 0.9rem;
+    border: 1px solid var(--aas-border);
+    border-radius: 14px;
+    background: var(--aas-panel);
+    box-shadow: var(--aas-shadow);
+    font-family: var(--aas-sans);
+    --amap-line: color-mix(in srgb, var(--aas-muted) 55%, transparent);
+    --amap-router: #fab219;
+    --amap-agent: #2f81f7;
+    --amap-code: #8b949e;
+    --amap-gate: #d0453f;
+  }
+
+  .amap-head { display: flex; flex-direction: column; gap: 0.3rem; margin-bottom: 0.9rem; }
+  .amap-head strong { font-size: 1rem; color: var(--aas-text); }
+  .amap-head span { font-size: 0.85rem; line-height: 1.65; color: var(--aas-muted); }
+
+  .amap-stage {
+    position: relative;
+    width: 100%;
+    border: 1px solid var(--aas-border);
+    border-radius: 10px;
+    background: var(--aas-bg);
+    overflow: hidden;
+  }
+  .amap-stage svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+
+  .amap-edge {
+    fill: none;
+    stroke: var(--amap-line);
+    stroke-width: 1.6;
+  }
+  .amap-edge.is-dashed { stroke-dasharray: 5 4; }
+  .amap-edge-label {
+    font-size: 11px;
+    fill: var(--aas-muted);
+    font-family: var(--aas-sans);
+  }
+
+  .amap-node {
+    position: absolute;
+    transform: translate(-50%, -50%);
+    display: flex; flex-direction: column; align-items: center; gap: 0.05rem;
+    padding: 0.4rem 0.7rem;
+    border-radius: 9px;
+    border: 1.5px solid var(--aas-border);
+    background: var(--aas-panel);
+    font-family: inherit;
+    cursor: pointer;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    max-width: 30%;
+  }
+  .amap-node.is-static { cursor: default; border-style: dashed; }
+  .amap-node:not(.is-static):hover { border-color: var(--aas-muted); }
+  .amap-node.is-active { border-color: var(--amap-agent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--amap-agent) 22%, transparent); }
+  .amap-node.is-router.is-active { border-color: var(--amap-router); box-shadow: 0 0 0 3px color-mix(in srgb, var(--amap-router) 25%, transparent); }
+  .amap-node.is-gate.is-active { border-color: var(--amap-gate); box-shadow: 0 0 0 3px color-mix(in srgb, var(--amap-gate) 22%, transparent); }
+
+  .amap-node-name { font-size: 0.8rem; font-weight: 650; color: var(--aas-text); white-space: nowrap; }
+  .amap-node-sub { font-size: 0.66rem; color: var(--aas-muted); white-space: nowrap; }
+  .amap-node.is-router .amap-node-name::before { content: '◆ '; color: var(--amap-router); }
+  .amap-node.is-agent .amap-node-name::before { content: '● '; color: var(--amap-agent); }
+  .amap-node.is-code .amap-node-name::before { content: '■ '; color: var(--amap-code); }
+  .amap-node.is-gate .amap-node-name::before { content: '▲ '; color: var(--amap-gate); }
+
+  .amap-panel {
+    margin-top: 0.9rem;
+    padding: 0.75rem 0.85rem;
+    border: 1px solid var(--aas-border);
+    border-radius: 10px;
+    background: var(--aas-bg);
+    min-height: 5rem;
+  }
+  .amap-panel :global(.amap-panel-head) {
+    display: flex; align-items: baseline; flex-wrap: wrap; gap: 0.5rem;
+    margin-bottom: 0.55rem;
+  }
+  .amap-panel :global(.amap-badge) {
+    font-size: 0.68rem; font-weight: 600;
+    padding: 0.08rem 0.42rem; border-radius: 999px;
+    border: 1px solid var(--aas-border); color: var(--aas-muted);
+  }
+  .amap-panel :global(strong) { font-size: 0.9rem; color: var(--aas-text); }
+  .amap-panel :global(.amap-panel-title) { font-size: 0.8rem; color: var(--aas-muted); }
+
+  .amap-panel :global(.amap-rows) { margin: 0; display: grid; gap: 0.35rem; }
+  .amap-panel :global(.amap-rows > div) {
+    display: grid; grid-template-columns: 6.4rem 1fr; gap: 0.6rem;
+    font-size: 0.8rem; line-height: 1.6;
+  }
+  .amap-panel :global(dt) { color: var(--aas-muted); font-weight: 600; }
+  .amap-panel :global(dd) { margin: 0; color: var(--aas-text); }
+
+  .amap-panel :global(.amap-chips) {
+    display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.3rem;
+    margin-top: 0.55rem; font-size: 0.74rem;
+  }
+  .amap-panel :global(.amap-chips-label) { color: var(--aas-muted); font-weight: 600; margin-right: 0.15rem; }
+  .amap-panel :global(.amap-chips code) {
+    padding: 0.06rem 0.4rem; border-radius: 999px;
+    border: 1px solid var(--aas-border); background: var(--aas-panel);
+    font-size: 0.72rem;
+  }
+  .amap-panel :global(.amap-chips.is-muted code) { opacity: 0.55; text-decoration: line-through; }
+
+  .amap-panel :global(.amap-note) {
+    margin: 0.6rem 0 0; padding: 0.5rem 0.6rem;
+    border-left: 3px solid var(--amap-router);
+    background: var(--aas-tint);
+    border-radius: 0 8px 8px 0;
+    font-size: 0.78rem; line-height: 1.65; color: var(--aas-text);
+  }
+
+  .amap-foot { margin: 0.7rem 0 0; font-size: 0.76rem; color: var(--aas-muted); }
+
+  @media (max-width: 34rem) {
+    .amap-node-sub { display: none; }
+    .amap-panel :global(.amap-rows > div) { grid-template-columns: 1fr; gap: 0.1rem; }
+  }
+</style>

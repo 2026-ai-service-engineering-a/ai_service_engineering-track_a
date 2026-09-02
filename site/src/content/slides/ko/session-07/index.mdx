@@ -9,6 +9,7 @@ toc_open: false
 ---
 
 import Slide from 'stack-site-builder/components/Slide.astro';
+import AgentMap from '../../../../components/AgentMap.astro';
 import RoutingRules from '../../../../components/RoutingRules.astro';
 import HandoffRules from '../../../../components/HandoffRules.astro';
 import CostGate from '../../../../components/CostGate.astro';
@@ -589,6 +590,14 @@ def _run_with_tools(system, question, customer_id, tool_names, agent):
 
 <Slide>
 
+#### 직접 눌러 보기: 네 자리의 안쪽
+
+<AgentMap variant="supervisor" />
+
+</Slide>
+
+<Slide>
+
 #### 나눌 때 실제로 나누는 것 세 가지
 
 - **지침**: 역할마다 자기 문장만 이고 갑니다
@@ -1020,6 +1029,14 @@ def entry(state):
         return Command(goto=current)      # 접수를 거치지 않는다
     return Command(goto="triage")
 ```
+
+</Slide>
+
+<Slide>
+
+#### 직접 눌러 보기: 담당 넷과 도구 배분
+
+<AgentMap variant="handoff" />
 
 </Slide>
 
@@ -1500,6 +1517,14 @@ tests        2.5s →   4.9s                 ███████████�
 
 **병렬화가 파는 물건은 시간 하나뿐이고,
 그것을 정확히 아는 것이 중요합니다**
+
+</Slide>
+
+<Slide>
+
+#### 직접 눌러 보기: 어디가 LLM이고 어디가 코드인가
+
+<AgentMap variant="parallel" />
 
 </Slide>
 
