@@ -1,0 +1,338 @@
+---
+/**
+ * 이양의 문 시뮬레이터 (7주차 5장).
+ *
+ * 원을 클릭해 "지금 담당"을 정하고 문의를 바꾸면, 그 담당이 넘길 수 있는
+ * 문(화살표)들이 실제로 열리고 닫힌다. 규칙은 고르지 않고 좁힌다 — 되돌아
+ * 가는 문은 ✕로 닫히고, 문의가 둘 섞이면 모든 문이 닫히며 되묻기만 남는다.
+ *
+ * 판정 로직은 `src/lib/multi-agent-rules.mjs`에 있고, week07-support-agent의
+ * `_routing_plan`·`topics_in`을 규칙 그대로 옮긴 것이다. 파이썬 원본과 같은
+ * 입력 384건을 대조해 전부 일치한다 (원본 과정의 대조 기록).
+ */
+const MESSAGES = [
+  '이번 달 요금이 왜 이렇게 많이 나왔나요?',
+  '인터넷이 어제부터 계속 끊깁니다',
+  '그냥 해지할래요. 위약금 얼마예요?',
+  '요금도 이상하고 인터넷도 안 돼요',
+  '저기요, 좀 답답해서 전화드렸어요',
+];
+
+const DESKS = [
+  { id: 'triage', label: 'triage', sub: '접수', x: 140, y: 208, r: 56 },
+  { id: 'billing', label: 'billing', sub: '요금', x: 425, y: 76, r: 46 },
+  { id: 'tech', label: 'tech', sub: '기술지원', x: 548, y: 208, r: 46 },
+  { id: 'retention', label: 'retention', sub: '해지방어', x: 425, y: 340, r: 46 },
+];
+const pos = Object.fromEntries(DESKS.map((d) => [d.id, d]));
+
+interface Door { from: string; to: string; d: string; mx: number; my: number }
+const door = (from: string, to: string, bow = 0): Door => {
+  const A = pos[from], B = pos[to];
+  const dx = B.x - A.x, dy = B.y - A.y, len = Math.hypot(dx, dy);
+  const ux = dx / len, uy = dy / len, px = -uy, py = ux;
+  const sx = A.x + ux * (A.r + 3), sy = A.y + uy * (A.r + 3);
+  const ex = B.x - ux * (B.r + 10), ey = B.y - uy * (B.r + 10);
+  const cx = (sx + ex) / 2 + px * bow, cy = (sy + ey) / 2 + py * bow;
+  return {
+    from, to,
+    d: `M ${sx.toFixed(1)} ${sy.toFixed(1)} Q ${cx.toFixed(1)} ${cy.toFixed(1)} ${ex.toFixed(1)} ${ey.toFixed(1)}`,
+    mx: 0.25 * sx + 0.5 * cx + 0.25 * ex,
+    my: 0.25 * sy + 0.5 * cy + 0.25 * ey,
+  };
+};
+const DOORS: Door[] = [
+  door('triage', 'billing', -14),
+  door('triage', 'tech'),
+  door('triage', 'retention', 14),
+  door('billing', 'tech', -12),
+  door('tech', 'billing', -12),
+  door('tech', 'retention', -12),
+  door('retention', 'tech', -12),
+  door('billing', 'retention', -12),
+  door('retention', 'billing', -12),
+];
+---
+
+<div class="hr" data-hr>
+  <div class="hr-head">
+    <strong>이양의 문: 규칙은 고르지 않고 좁힙니다</strong>
+    <span>
+      아래 판정은 week07-support-agent의 <code>_routing_plan</code>·<code>topics_in</code>과
+      같은 결정적 코드입니다. 문의를 바꾸고, 원을 클릭해 지금 담당을 바꿔
+      보세요. 열린 문 중 무엇을 고를지는 모델의 몫이고, 규칙은 문만 닫습니다.
+    </span>
+  </div>
+
+  <label class="hr-label" for="hr-m">고객의 문의</label>
+  <input class="hr-input" id="hr-m" data-m type="text" value={MESSAGES[0]} />
+  <div class="hr-presets">
+    {MESSAGES.map((m) => (
+      <button type="button" data-preset={m}>{m}</button>
+    ))}
+  </div>
+  <div class="hr-hits" data-hits></div>
+
+  <div class="hr-ctl">
+    <span class="hr-ctl-label">직전에 넘어온 곳</span>
+    <div class="hr-chips" data-camefrom>
+      <button type="button" data-cf="" class="is-active">없음</button>
+      <button type="button" data-cf="billing">요금</button>
+      <button type="button" data-cf="tech">기술</button>
+      <button type="button" data-cf="retention">해지</button>
+    </div>
+    <span class="hr-ctl-label">이번 턴 이양 횟수</span>
+    <div class="hr-chips" data-turns>
+      <button type="button" data-tn="0" class="is-active">0</button>
+      <button type="button" data-tn="1">1</button>
+      <button type="button" data-tn="2">2</button>
+      <button type="button" data-tn="3">3</button>
+    </div>
+    <label class="hr-toggle">
+      <input type="checkbox" data-rules checked />
+      <span>기준 셋 (v0.3)</span>
+    </label>
+  </div>
+
+  <div class="hr-stage" style="aspect-ratio: 640 / 410;">
+    <svg viewBox="0 0 640 410" aria-hidden="true">
+      <defs>
+        <marker id="hr-arrow" viewBox="0 0 8 8" refX="7" refY="4"
+          markerWidth="7" markerHeight="7" orient="auto">
+          <path d="M 0 0 L 8 4 L 0 8 z" fill="currentColor" />
+        </marker>
+      </defs>
+      {DOORS.map((d) => (
+        <g class="hr-door" data-door={`${d.from}:${d.to}`}>
+          <path d={d.d} marker-end="url(#hr-arrow)" />
+          <text class="hr-x" x={d.mx} y={d.my + 5}>✕</text>
+        </g>
+      ))}
+      {DESKS.map((desk) => (
+        <g class="hr-desk" data-desk={desk.id} tabindex="0" role="button">
+          <circle cx={desk.x} cy={desk.y} r={desk.r} class="hr-circle" />
+          <text x={desk.x} y={desk.y - 2} class="hr-name">{desk.label}</text>
+          <text x={desk.x} y={desk.y + 17} class="hr-sub">{desk.sub}</text>
+        </g>
+      ))}
+      <g class="hr-ask" data-ask>
+        <rect x="76" y="312" width="128" height="30" rx="15" />
+        <text x="140" y="331">되묻는다 (ask)</text>
+      </g>
+      <text class="hr-required" data-required x="140" y="296">tool_choice="required"</text>
+    </svg>
+  </div>
+
+  <p class="hr-foot" data-foot></p>
+</div>
+
+<script>
+  import { routingPlan, topicsIn, TOPIC_WORDS, DESK_LABELS, HANDOFF_TARGETS }
+    from '../lib/multi-agent-rules.mjs';
+
+  document.querySelectorAll<HTMLElement>('[data-hr]').forEach(init);
+
+  function init(root: HTMLElement) {
+    const $ = <T extends HTMLElement>(s: string) => root.querySelector<T>(s)!;
+    const input = $<HTMLInputElement>('[data-m]');
+    const rules = $<HTMLInputElement>('[data-rules]');
+    const esc = (s: string) =>
+      s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    let desk = 'triage';
+    let cameFrom = '';
+    let turns = 0;
+
+    root.querySelectorAll<HTMLButtonElement>('[data-preset]').forEach((b) =>
+      b.addEventListener('click', () => { input.value = b.dataset.preset ?? ''; render(); }));
+    input.addEventListener('input', render);
+    rules.addEventListener('change', render);
+    root.querySelectorAll<HTMLElement>('[data-desk]').forEach((g) => {
+      g.addEventListener('click', () => { desk = g.dataset.desk ?? 'triage'; render(); });
+      g.addEventListener('keydown', (e) => {
+        if ((e as KeyboardEvent).key === 'Enter') { desk = g.dataset.desk ?? 'triage'; render(); }
+      });
+    });
+    root.querySelectorAll<HTMLButtonElement>('[data-cf]').forEach((b) =>
+      b.addEventListener('click', () => { cameFrom = b.dataset.cf ?? ''; render(); }));
+    root.querySelectorAll<HTMLButtonElement>('[data-tn]').forEach((b) =>
+      b.addEventListener('click', () => { turns = Number(b.dataset.tn ?? 0); render(); }));
+    render();
+
+    function render() {
+      if (cameFrom === desk) cameFrom = '';
+      root.querySelectorAll<HTMLButtonElement>('[data-cf]').forEach((b) => {
+        b.classList.toggle('is-active', (b.dataset.cf ?? '') === cameFrom);
+        b.disabled = (b.dataset.cf ?? '') === desk;
+      });
+      root.querySelectorAll<HTMLButtonElement>('[data-tn]').forEach((b) =>
+        b.classList.toggle('is-active', Number(b.dataset.tn) === turns));
+      root.querySelectorAll<HTMLElement>('[data-desk]').forEach((g) =>
+        g.classList.toggle('is-current', g.dataset.desk === desk));
+
+      const message = input.value;
+      const plan = routingPlan({ desk, message, cameFrom, turnHandoffs: turns, rules: rules.checked });
+      const targets = plan.allowed.map((key: string) => (HANDOFF_TARGETS as Record<string, string>)[key]);
+      const mine = Object.values(HANDOFF_TARGETS).filter((t) => t !== desk);
+      const asking = plan.allowed.length === 0 && plan.mustUseTool;
+      const capped = plan.note === '한 턴 이양 상한';
+
+      root.querySelectorAll<HTMLElement>('[data-door]').forEach((g) => {
+        const [from, to] = (g.dataset.door ?? ':').split(':');
+        g.classList.remove('is-open', 'is-blocked');
+        if (from !== desk) return;
+        if (targets.includes(to)) g.classList.add('is-open');
+        else if (!asking && !capped && to === cameFrom) g.classList.add('is-blocked');
+        else if (asking || capped) g.classList.add('is-blocked');
+      });
+
+      const ask = root.querySelector<HTMLElement>('[data-ask]')!;
+      ask.classList.toggle('is-on', asking);
+      const required = root.querySelector<HTMLElement>('[data-required]')!;
+      required.classList.toggle('is-on', desk === 'triage' && plan.mustUseTool && !capped);
+
+      const hitHtml = Object.entries(TOPIC_WORDS as Record<string, string[]>)
+        .map(([topic, words]) => {
+          const found = words.filter((w) => message.includes(w));
+          if (!found.length) return '';
+          const labels = DESK_LABELS as Record<string, string>;
+          return `<span class="hr-hit is-${topic}">${esc(labels[topic])} 갈래 · ${found.map((w) => `"${esc(w)}"`).join(' ')}</span>`;
+        })
+        .join('');
+      $('[data-hits]').innerHTML = hitHtml || '<span class="hr-hit is-none">걸린 갈래 낱말이 없습니다</span>';
+
+      const deskLabels = DESK_LABELS as Record<string, string>;
+      const opened = targets.map((t: string) => deskLabels[t]).join(' · ');
+      $('[data-foot]').innerHTML = [
+        `<strong>${esc(deskLabels[desk])}</strong>의 문 ${targets.length}/${mine.length}개 열림${opened ? `: ${esc(opened)}` : ''}.`,
+        plan.note ? esc(plan.note) + '.' : '',
+        topicsIn(message).length >= 2 && desk === 'triage' && rules.checked
+          ? '' : (plan.mustUseTool && desk === 'triage' ? '출력은 반드시 도구 호출이어야 합니다.' : ''),
+        !rules.checked ? '기준 셋을 껐습니다. 문은 다 열려 있고, 오배송과 핑퐁의 자유도 함께 열립니다.' : '',
+      ].filter(Boolean).join(' ');
+    }
+  }
+</script>
+
+<style>
+  .hr {
+    margin: 2rem 0;
+    padding: 1.1rem 1.1rem 0.9rem;
+    border: 1px solid var(--aas-border);
+    border-radius: 14px;
+    background: var(--aas-panel);
+    box-shadow: var(--aas-shadow);
+    font-family: var(--aas-sans);
+    container-type: inline-size;
+    font-size: clamp(0.85rem, 1.5cqw, 1.2rem);
+    --hr-open: #0ca30c;
+    --hr-block: #d0453f;
+    --hr-accent: #2f81f7;
+    --hr-ask: #fab219;
+  }
+
+  .hr-head { display: flex; flex-direction: column; gap: 0.3em; margin-bottom: 0.8em; }
+  .hr-head strong { font-size: 1.12em; color: var(--aas-text); }
+  .hr-head span { font-size: 0.87em; line-height: 1.65; color: var(--aas-muted); }
+  .hr-head code { font-size: 0.9em; }
+
+  .hr-label { display: block; font-size: 0.8em; color: var(--aas-muted); margin-bottom: 0.35em; }
+  .hr-input {
+    display: block; width: 100%; box-sizing: border-box;
+    padding: 0.45em 0.6em; border-radius: 8px;
+    border: 1px solid var(--aas-border); background: var(--aas-bg);
+    color: var(--aas-text); font-size: 0.9em; font-family: inherit;
+  }
+  .hr-presets { display: flex; flex-wrap: wrap; gap: 0.35em; margin: 0.55em 0 0.4em; }
+  .hr-presets button {
+    padding: 0.28em 0.6em; border-radius: 999px;
+    border: 1px solid var(--aas-border); background: var(--aas-bg);
+    color: var(--aas-muted); font-family: inherit; font-size: 0.78em;
+    cursor: pointer;
+  }
+  .hr-presets button:hover { background: var(--aas-tint); }
+
+  .hr-hits { display: flex; flex-wrap: wrap; gap: 0.35em; min-height: 1.7em; margin-bottom: 0.5em; }
+  .hr-hits :global(.hr-hit) {
+    padding: 0.18em 0.6em; border-radius: 999px;
+    font-size: 0.76em; font-weight: 600;
+    border: 1px solid currentcolor;
+  }
+  .hr-hits :global(.hr-hit.is-billing) { color: var(--hr-accent); }
+  .hr-hits :global(.hr-hit.is-tech) { color: var(--hr-open); }
+  .hr-hits :global(.hr-hit.is-retention) { color: var(--hr-block); }
+  .hr-hits :global(.hr-hit.is-none) { color: var(--aas-muted); border-style: dashed; font-weight: 400; }
+
+  .hr-ctl {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 0.5em 0.7em;
+    margin-bottom: 0.8em;
+  }
+  .hr-ctl-label { font-size: 0.78em; color: var(--aas-muted); }
+  .hr-chips { display: inline-flex; gap: 0.25em; }
+  .hr-chips button {
+    padding: 0.2em 0.6em; border-radius: 999px;
+    border: 1px solid var(--aas-border); background: var(--aas-bg);
+    color: var(--aas-muted); font-family: inherit; font-size: 0.78em;
+    cursor: pointer;
+  }
+  .hr-chips button.is-active { border-color: var(--hr-accent); color: var(--hr-accent); font-weight: 650; }
+  .hr-chips button:disabled { opacity: 0.35; cursor: default; }
+  .hr-toggle {
+    display: inline-flex; align-items: center; gap: 0.35em;
+    font-size: 0.8em; color: var(--aas-muted); cursor: pointer;
+  }
+
+  .hr-stage {
+    position: relative; width: 100%;
+    border: 1px solid var(--aas-border); border-radius: 10px;
+    background: var(--aas-bg); overflow: hidden;
+  }
+  .hr-stage svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+
+  .hr-door path {
+    fill: none; stroke: currentColor; stroke-width: 2.6;
+    color: color-mix(in srgb, var(--aas-muted) 22%, transparent);
+    transition: color 0.25s ease;
+  }
+  .hr-door .hr-x {
+    text-anchor: middle; font-size: 19px; font-weight: 700;
+    fill: var(--hr-block); opacity: 0; transition: opacity 0.25s ease;
+  }
+  .hr-door.is-open path { color: var(--hr-open); stroke-dasharray: 7 5; animation: hr-flow 0.9s linear infinite; }
+  @keyframes hr-flow { to { stroke-dashoffset: -12; } }
+  .hr-door.is-blocked path { color: color-mix(in srgb, var(--hr-block) 80%, transparent); stroke-dasharray: 3 5; }
+  .hr-door.is-blocked .hr-x { opacity: 1; }
+
+  .hr-desk { cursor: pointer; outline: none; }
+  .hr-circle {
+    fill: var(--aas-panel); stroke: var(--aas-border); stroke-width: 2;
+    transition: stroke 0.2s ease, stroke-width 0.2s ease;
+  }
+  .hr-desk:hover .hr-circle, .hr-desk:focus-visible .hr-circle { stroke: var(--hr-accent); }
+  .hr-desk.is-current .hr-circle { stroke: var(--hr-accent); stroke-width: 3.5; }
+  .hr-name {
+    text-anchor: middle; font-size: 15px; font-weight: 700;
+    fill: var(--aas-text); font-family: var(--aas-sans);
+  }
+  .hr-sub { text-anchor: middle; font-size: 11px; fill: var(--aas-muted); font-family: var(--aas-sans); }
+
+  .hr-ask { opacity: 0; transition: opacity 0.25s ease; }
+  .hr-ask.is-on { opacity: 1; animation: hr-ask 1s ease-in-out infinite alternate; }
+  @keyframes hr-ask { from { opacity: 1; } to { opacity: 0.55; } }
+  .hr-ask rect { fill: color-mix(in srgb, var(--hr-ask) 14%, var(--aas-panel)); stroke: var(--hr-ask); stroke-width: 1.6; }
+  .hr-ask text { text-anchor: middle; font-size: 13px; font-weight: 650; fill: var(--aas-text); font-family: var(--aas-sans); }
+
+  .hr-required {
+    text-anchor: middle; font-size: 11px; font-family: var(--aas-mono, monospace);
+    fill: var(--aas-muted); opacity: 0; transition: opacity 0.25s ease;
+  }
+  .hr-required.is-on { opacity: 1; }
+
+  .hr-foot, .hr-foot :global(strong) {
+    margin: 0.6em 0 0; font-size: 0.82em; line-height: 1.65; color: var(--aas-muted);
+  }
+  .hr-foot :global(strong) { color: var(--aas-text); }
+
+  @media (prefers-reduced-motion: reduce) {
+    .hr-door.is-open path, .hr-ask.is-on { animation: none; }
+  }
+</style>
