@@ -439,6 +439,26 @@ result = app.invoke({"question": "지난달 요금이 왜 이렇게 나왔나요
 
 <Slide>
 
+#### 선언한 그래프는 스스로 그린다
+::sub[`print(app.get_graph().draw_mermaid())` 한 줄이면 그래프가 자기 그림을 내놓습니다]
+
+```mermaid
+flowchart TD
+    S(["__start__"]) --> sup["supervisor"]
+    analyst["analyst"] -->|"add_edge"| sup
+    sup -.->|"route"| analyst
+    sup -.->|"route"| counselor["counselor"]
+    sup -.->|"route"| E(["__end__"])
+```
+
+- 위 선언과 1:1입니다. **실선은 고정 엣지, 점선은 조건부 엣지.**
+- 문서용 그림을 따로 그려서 코드와 어긋나는 일이 없습니다.
+  그래프가 곧 그림이고, 그림이 곧 코드입니다.
+
+</Slide>
+
+<Slide>
+
 #### 리듀서: 상태를 쌓는 규칙
 
 ```python
