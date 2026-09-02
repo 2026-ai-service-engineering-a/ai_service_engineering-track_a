@@ -51,6 +51,12 @@ import CostGate from '../../../../components/CostGate.astro';
 
 완성된 시연 저장소 **3개를 해부**합니다. 이번 주는 실습 산출물이 없습니다.
 
+
+```mermaid
+flowchart LR
+    A["설계 원칙<br/>언제 나누는가"] --> B["supervisor<br/>중앙이 조율"] --> C["handoff<br/>제어권 이양"] --> D["병렬 실행<br/>계획이 역할을 만든다"]
+```
+
 </Slide>
 
 <Slide>
@@ -101,6 +107,12 @@ flowchart LR
 
 *언제 나누고, 어떻게 잇는가*
 
+
+```mermaid
+flowchart LR
+    A["에이전트 하나"] -->|"신호가 보이면"| B["여럿을 잇는다"]
+```
+
 </Slide>
 
 <Slide>
@@ -113,6 +125,18 @@ flowchart LR
   새로 생각할 것이 생깁니다.
 - 단일 에이전트가 무너지는 신호, 나누는 대가, 두 패턴의 갈림길,
   그리고 LangGraph 최소 문법까지 봅니다.
+
+
+```mermaid
+flowchart LR
+    subgraph L["지난주까지"]
+        A1["에이전트"] --> T1["도구"]
+    end
+    subgraph R["오늘부터"]
+        A2["에이전트"] --> A3["다른 에이전트"]
+    end
+    L --> R
+```
 
 </Slide>
 
@@ -139,6 +163,12 @@ flowchart LR
 4. 두 패턴: supervisor와 handoff
 5. LangGraph 최소 문법
 
+
+```mermaid
+flowchart LR
+    A["신호 셋"] --> B["대가 셋"] --> C["정할 것 넷"] --> D["두 패턴"] --> E["LangGraph<br/>최소 문법"]
+```
+
 </Slide>
 
 <Slide class="center">
@@ -162,6 +192,22 @@ flowchart LR
 - 역할마다 필요한 도구만 쥐여 주면, 목록은 저절로 짧아집니다.
   **볼 수 없는 도구는 잘못 부를 수도 없습니다.**
 
+
+```mermaid
+flowchart LR
+    subgraph ONE["도구 10개를 한 손에"]
+        A["에이전트"] --> t1["조회"] & t2["계산"] & t3["차트"] & t4["검색"] & t5["…6개 더"]
+    end
+    subgraph TWO["역할마다 필요한 만큼만"]
+        B["analyst"] --> u1["조회 4종"]
+        C["visualizer"] --> u2["make_chart"]
+    end
+    ONE -->|"나누면"| TWO
+    style A stroke:#d0453f
+    style B stroke:#0ca30c
+    style C stroke:#0ca30c
+```
+
 </Slide>
 
 <Slide>
@@ -175,6 +221,16 @@ flowchart LR
 
 4장에서 이 낭비를 글자 수로 잽니다.
 
+
+```mermaid
+flowchart LR
+    subgraph P["시스템 프롬프트 한 문서"]
+        a["분석 지침"] <-->|"다툰다"| b["상담 말투"]
+        b <-->|"다툰다"| c["차트 규칙"]
+    end
+    P -->|"한 줄짜리 질문에도 통째로"| Q["매 호출"]
+```
+
 </Slide>
 
 <Slide>
@@ -187,6 +243,14 @@ flowchart LR
 - 역할이 섞이면 거기에 **오염**이 얹힙니다.
   분석용 원자료가 상담 단계까지 따라와,
   뒤 작업이 앞 작업의 찌꺼기를 계속 실어 나릅니다.
+
+
+```mermaid
+flowchart LR
+    s1["스텝 1<br/>810tk"] --> s2["스텝 2<br/>1,116tk"] --> s3["…"] --> s6["스텝 6<br/>1,552tk"]
+    raw["분석 원자료"] -.->|"상담 단계까지 따라온다 (오염)"| s6
+    style raw stroke:#d0453f
+```
 
 </Slide>
 
@@ -212,6 +276,14 @@ flowchart LR
   이상해지지만, 일을 엉뚱한 에이전트에게 보내면
   **그럴듯한 답이 엉뚱한 근거 위에** 세워집니다.
 
+
+```mermaid
+flowchart TB
+    S["나눈다"] --> a["왕복 증가<br/>호출 3회 → 5회"]
+    S --> b["상태 전달 설계<br/>전부? 요약만?"]
+    S --> c["라우팅 실수<br/>새 실패 모드"]
+```
+
 </Slide>
 
 <Slide class="center">
@@ -234,6 +306,15 @@ flowchart LR
 | **이양** | 제어권이 어떻게 움직이는가 | 중앙 복귀냐, 넘겨주고 손 떼기냐 |
 | **화물** | 무엇을 함께 보내는가 | 요약만이냐, 대화 통째로냐 |
 | **정지** | 언제 멈추는가 | 왕복·이양·수정에 숫자 한도 |
+
+
+```mermaid
+flowchart LR
+    D["나누기로 했다"] --> a["경계<br/>누가 무엇을"]
+    D --> b["이양<br/>제어권의 길"]
+    D --> c["화물<br/>무엇을 실어"]
+    D --> d["정지<br/>숫자 한도"]
+```
 
 </Slide>
 
@@ -397,6 +478,14 @@ class State(TypedDict):
 - 결과를 모아야 하면 supervisor, 담당이 바뀌면 handoff
 - LangGraph는 6주차 손 루프의 정식 표기법이다
 
+
+```mermaid
+flowchart LR
+    A["신호 셋"] -->|"보이면, 대가를 알고"| B["나눈다"]
+    B --> C["모아야 하면<br/>supervisor"]
+    B --> D["담당이 바뀌면<br/>handoff"]
+```
+
 </Slide>
 <Slide class="cover">
 
@@ -405,6 +494,12 @@ class State(TypedDict):
 `week07-energy-agent`
 
 *전기 요금 상담 대시보드*
+
+
+```mermaid
+flowchart TB
+    S["supervisor"] --> A["analyst"] & V["visualizer"] & C["counselor"]
+```
 
 </Slide>
 
@@ -417,6 +512,13 @@ class State(TypedDict):
   수치와 그래프로 답하는 상담 대시보드
 - 같은 질문을 **단일 에이전트와 supervisor 구조에 나란히** 던집니다.
 - 라우팅이 흔들리는 사고를 재현하고, 규칙으로 되찾아옵니다.
+
+
+```mermaid
+flowchart LR
+    Q["같은 질문"] --> one["단일 v0.1"] --> M["실측 비교"]
+    Q --> sup["supervisor v0.2"] --> M
+```
 
 </Slide>
 
@@ -437,6 +539,12 @@ class State(TypedDict):
 3. v0.2: supervisor로 나눈다, 그리고 실측
 4. 사고 재현 ①: 라우팅은 흔들린다
 5. v1.0: 하이브리드 라우팅
+
+
+```mermaid
+flowchart LR
+    A["구조·데이터"] --> B["v0.1<br/>기준점"] --> C["v0.2<br/>실측"] --> D["사고 재현 ①"] --> E["v1.0<br/>하이브리드"]
+```
 
 </Slide>
 
@@ -615,6 +723,14 @@ def _run_with_tools(system, question, customer_id, tool_names, agent):
 이 저장소는 시연을 위해 서브 에이전트를 **일부러 얇게** 만들었습니다.
 실제 제품에서는 각 노드가 도구 열 개와 자기 하네스를 지닙니다.
 
+
+```mermaid
+flowchart LR
+    ONE["한 덩어리<br/>지침 + 도구 + 문맥"] --> g1["지침<br/>자기 문장만"]
+    ONE --> g2["도구<br/>필요한 것만"]
+    ONE --> g3["문맥<br/>요약만 위로"]
+```
+
 </Slide>
 
 <Slide>
@@ -738,6 +854,16 @@ flowchart LR
   counselor에게는 도구가 없습니다.
   **자료를 한 번도 조회하지 않은 채 상담문을 쓴 것**입니다.
 
+
+```mermaid
+flowchart LR
+    S["supervisor"] -.->|"건너뜀"| A["analyst<br/>조회 도구 4종"]
+    S ==>|"직행"| C["counselor<br/>도구 없음"]
+    C --> X["조회 없는 상담문<br/>출력만 보면 그럴듯"]
+    style X stroke:#d0453f
+    style C stroke:#d0453f
+```
+
 </Slide>
 
 <Slide class="center">
@@ -815,6 +941,15 @@ def _rule_route(state):
   그것은 화면에서 확인할 방법이 없는 종류의 오류입니다.
 - 4주차의 "원본 한 벌" 규율과 같은 이유입니다.
 
+
+```mermaid
+flowchart LR
+    M["make_chart(months, title)"] --> DB["db 직접 조회"] --> OK["막대 = 원본"]
+    L["LLM이 옮겨 적은 수치"] -.-> NG["어긋나도 모른다"]
+    style OK stroke:#0ca30c
+    style NG stroke:#d0453f
+```
+
 </Slide>
 
 <Slide>
@@ -827,6 +962,13 @@ def _rule_route(state):
 - 요약만 위로 올리고 원자료는 상태에 남긴다
 - 라우팅은 흔들린다. 확실한 것은 코드가 정한다
 
+
+```mermaid
+flowchart LR
+    A["v0.1 단일<br/>지침 1,105자"] -->|"나누면"| B["역할별 199자<br/>호출 3 → 5회"]
+    B --> C["요약만 위로"] --> D["흔들리는 자리는<br/>규칙이 잠근다"]
+```
+
 </Slide>
 <Slide class="cover">
 
@@ -835,6 +977,12 @@ def _rule_route(state):
 `week07-support-agent`
 
 *가상 통신사 누리통신의 고객 상담 채팅*
+
+
+```mermaid
+flowchart LR
+    T["접수"] -->|"Command"| B["요금 담당"] -->|"Command"| R["해지방어 담당"] --> U["고객에게 직접 답한다"]
+```
 
 </Slide>
 
@@ -846,6 +994,14 @@ def _rule_route(state):
 - 접수 상담원이 문의를 받아 요금·기술지원·해지방어 담당에게 넘깁니다.
 - 넘긴다는 것이 **코드에서 무엇인지**, 넘긴 뒤 무엇이 망가지는지,
   그 자유를 어디까지 규칙으로 묶어야 하는지를 실측으로 봅니다.
+
+
+```mermaid
+flowchart LR
+    U["고객"] --> T["접수"]
+    T -->|"넘기면 손을 뗀다"| B["요금 · 기술 · 해지방어"]
+    B -->|"직접 답변"| U
+```
 
 </Slide>
 
@@ -867,6 +1023,12 @@ def _rule_route(state):
 4. 사고 재현 ②: 핑퐁과 말로만 넘김
 5. v0.3: 라우팅 기준 셋
 6. v1.0: RAG가 부품이 된다
+
+
+```mermaid
+flowchart LR
+    A["두 패턴<br/>비교"] --> B["v0.1<br/>분류만"] --> C["v0.2<br/>Command"] --> D["사고 재현 ②"] --> E["v0.3<br/>기준 셋"] --> F["v1.0<br/>RAG 부품"]
+```
 
 </Slide>
 
@@ -1282,6 +1444,14 @@ completion(..., tools=schemas, tool_choice="required")   # 둘 중 하나는 반
 - 규칙 셋: 반드시 도구로, 되돌리지 않기, 섞이면 되묻기
 - RAG는 부품이 된다. 인용은 번호로, 검증은 코드로
 
+
+```mermaid
+flowchart LR
+    A["transfer_to_*"] --> B["Command(goto)"] --> C["담당이 대화를 쥔다"] --> D["체크포인터에 남는다"]
+    D -.->|"매 턴 덮어쓰면"| X["매 턴 접수부터"]
+    style X stroke:#d0453f
+```
+
 </Slide>
 <Slide class="cover">
 
@@ -1290,6 +1460,12 @@ completion(..., tools=schemas, tool_choice="required")   # 둘 중 하나는 반
 `week07-coding-agent`
 
 *SPEC 한 장을 웹 앱으로*
+
+
+```mermaid
+flowchart LR
+    P["planner"] --> W1["worker"] & W2["worker"] & W3["worker"] --> I["integrator"]
+```
 
 </Slide>
 
@@ -1302,6 +1478,12 @@ completion(..., tools=schemas, tool_choice="required")   # 둘 중 하나는 반
   브랜치에서 코드를 짜고, 머지해서 테스트하고, 도커로 띄웁니다.
 - 새 개념은 둘뿐입니다. `Send`와 `git worktree`
 - 나머지는 전부 배운 것이 각자의 자리를 찾은 것입니다.
+
+
+```mermaid
+flowchart LR
+    S["SPEC 한 장"] --> P["태스크 3분해"] --> W["병렬 코딩"] --> M["머지 · 테스트"] --> D["docker로 뜬다"]
+```
 
 </Slide>
 
@@ -1339,6 +1521,12 @@ completion(..., tools=schemas, tool_choice="required")   # 둘 중 하나는 반
 5. 사고 재현 ③: 실패한 뒤가 진짜 일이다
 6. v1.0: 전체 실행
 
+
+```mermaid
+flowchart LR
+    A["경계 긋기"] --> B["v0.1<br/>순차"] --> C["v0.2<br/>Send·worktree"] --> D["v0.3<br/>비용 게이트"] --> E["사고 재현 ③"] --> F["v1.0<br/>전체 실행"]
+```
+
 </Slide>
 
 <Slide>
@@ -1375,6 +1563,15 @@ flowchart LR
 
 - 소유권 밖의 파일에 쓰려 하면 **코드가 거부**합니다.
 - 엔드포인트 규약(CONTRACT)은 골격이 정해 세 프롬프트에 그대로 실립니다.
+
+
+```mermaid
+flowchart TB
+    K["CONTRACT · 공유 규약"] --> b["backend → app.py"]
+    K --> f["frontend → index.html"]
+    K --> t["tests → test_api.py"]
+    H["골격·하네스<br/>Dockerfile · git · 빌드"] -.-|"모델이 만지지 않는다"| K
+```
 
 </Slide>
 
@@ -1449,6 +1646,19 @@ flowchart LR
 
 SPEC이 태스크 다섯으로 쪼개지면 worker도 다섯이 됩니다.
 그래프를 다시 그리지 않습니다. **계획이 역할을 만듭니다.**
+
+
+```mermaid
+flowchart LR
+    subgraph FIX["미리 그린 엣지"]
+        s1["상태"] --> w1["worker A"]
+        s1 --> w2["worker B"]
+    end
+    subgraph RUN["Send"]
+        p["계획: tasks N건"] -->|"N개만큼 띄운다"| wn["worker × N<br/>각자 페이로드"]
+    end
+    FIX --> RUN
+```
 
 </Slide>
 
@@ -1690,6 +1900,14 @@ backend는 생성에 201을 돌려주고 tests는 200을 기대했습니다.
 - 비용은 실행 전에 묻는다. 거절할 수 있어야 문이다
 - 실패하면 로그를 되먹여 한 파일씩 고치고, 안 되면 재계획하고, 한도를 넘으면 멈춘다
 
+
+```mermaid
+flowchart LR
+    I["실패 로그"] --> FX["fixer<br/>한 파일씩 ≤2"] --> J["다시 판정"]
+    J -.->|"그래도 실패"| RP["재계획 ≤1"] -.-> STOP["포기"]
+    style STOP stroke:#d0453f
+```
+
 </Slide>
 
 <Slide class="center">
@@ -1726,6 +1944,13 @@ backend는 생성에 201을 돌려주고 tests는 200을 기대했습니다.
 - 라우팅은 흔들린다. **확실한 것은 코드가 정한다**
 - 병렬이 파는 물건은 시간뿐이다. 격리는 작업 공간에서 온다
 - 서브 에이전트의 안쪽은 6주차의 그 루프다. **새것은 잇는 방법뿐이다**
+
+
+```mermaid
+flowchart LR
+    L["6주차의 루프"] --> S["supervisor"] & H["handoff"] & P["병렬"]
+    S & H & P --> N["다음 주<br/>서버 안으로"]
+```
 
 </Slide>
 
