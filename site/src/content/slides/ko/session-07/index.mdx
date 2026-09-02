@@ -10,6 +10,9 @@ toc_open: false
 
 import Slide from 'stack-site-builder/components/Slide.astro';
 import AgentMap from '../../../../components/AgentMap.astro';
+import WeightSplit from '../../../../components/WeightSplit.astro';
+import HandoffReplay from '../../../../components/HandoffReplay.astro';
+import ParallelTimeline from '../../../../components/ParallelTimeline.astro';
 import RoutingRules from '../../../../components/RoutingRules.astro';
 import HandoffRules from '../../../../components/HandoffRules.astro';
 import CostGate from '../../../../components/CostGate.astro';
@@ -664,6 +667,14 @@ supervisor 532자 · analyst 140자 · visualizer 147자 · counselor 199자
 
 <Slide>
 
+#### 직접 견줘 보기: 무게는 어디로 갔나
+
+<WeightSplit />
+
+</Slide>
+
+<Slide>
+
 #### 왜 요약만 위로 올리는가
 
 ```mermaid
@@ -1081,6 +1092,14 @@ def new_turn(customer_id, customer_name, message):
   보냈더니, 체크포인터의 담당을 덮어써 **매 턴 접수부터** 다시 시작했습니다.
 - 화면상으로는 잘 도는 것처럼 보였고, 트레이스를 세어야 보였습니다.
 - 상태에 남길 것과 매 턴 새로 보낼 것을 나누는 일이 설계의 일부입니다.
+
+</Slide>
+
+<Slide>
+
+#### 직접 재생해 보기: 같은 세 마디, 세 구조
+
+<HandoffReplay />
 
 </Slide>
 
@@ -1506,6 +1525,14 @@ frontend     2.5s →   6.7s                 ███████████�
 tests        2.5s →   4.9s                 ██████████████
 전체 8.8초 · $0.0085 · 기동 True
 ```
+
+</Slide>
+
+<Slide>
+
+#### 직접 재생해 보기: 절약은 어디서 나오나
+
+<ParallelTimeline />
 
 </Slide>
 

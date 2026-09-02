@@ -1,0 +1,247 @@
+---
+/**
+ * 순차와 병렬 타임라인 (7주차 6장).
+ *
+ * week07-coding-agent demos/{sequential,parallel}_run.py의 실측 스팬을
+ * 타임라인으로 재생한다. 워커 세 구간은 데모 출력의 실측이고, 머리(계획)와
+ * 꼬리(통합) 구간은 전체 시간에서 남는 구간이다. 재생을 누르면 시간
+ * 커서가 흐르며 같은 일이 두 배치로 어떻게 흐르는지 보인다.
+ */
+const AXIS_MAX = 14; // 초
+const SPEED = 220; // ms per second of real time
+
+const MODES = {
+  seq: {
+    label: '순차 (v0.1)',
+    total: 13.4,
+    cost: '$0.0086',
+    lede: '한 워커가 끝나야 다음이 시작합니다. 전체 13.4초.',
+    spans: [
+      { lane: '계획·게이트', from: 0, to: 2.0, kind: 'infra' },
+      { lane: 'backend', from: 2.0, to: 3.9, kind: 'work' },
+      { lane: 'frontend', from: 3.9, to: 8.6, kind: 'work' },
+      { lane: 'tests', from: 8.6, to: 11.2, kind: 'work' },
+      { lane: '통합 (머지·pytest·docker)', from: 11.2, to: 13.4, kind: 'infra' },
+    ],
+  },
+  par: {
+    label: '병렬 (v0.2 · Send + worktree)',
+    total: 8.8,
+    cost: '$0.0085',
+    lede: '워커 셋이 같은 순간에 시작합니다. 전체 8.8초, 비용은 그대로.',
+    ghost: 13.4,
+    spans: [
+      { lane: '계획·게이트', from: 0, to: 2.5, kind: 'infra' },
+      { lane: 'backend', from: 2.5, to: 4.8, kind: 'work' },
+      { lane: 'frontend', from: 2.5, to: 6.7, kind: 'work' },
+      { lane: 'tests', from: 2.5, to: 4.9, kind: 'work' },
+      { lane: '통합 (머지·pytest·docker)', from: 6.7, to: 8.8, kind: 'infra' },
+    ],
+  },
+};
+---
+
+<div class="ptl" data-ptl data-modes={JSON.stringify(MODES)} data-axis={AXIS_MAX} data-speed={SPEED}>
+  <div class="ptl-head">
+    <strong>같은 일, 두 타임라인</strong>
+    <span>
+      워커 세 구간은 실측이고, 계획과 통합은 전체 시간에서 남는 구간입니다.
+      재생을 눌러 시간이 실제로 어디서 절약되는지 보세요.
+    </span>
+  </div>
+
+  <div class="ptl-controls">
+    <div class="ptl-seg" role="group">
+      <button type="button" data-mode="seq" class="is-active">순차 (v0.1)</button>
+      <button type="button" data-mode="par">병렬 (v0.2)</button>
+    </div>
+    <button type="button" class="ptl-play" data-play>▶ 재생</button>
+  </div>
+
+  <p class="ptl-lede" data-lede></p>
+
+  <div class="ptl-board">
+    <div class="ptl-chart" data-chart></div>
+    <div class="ptl-axis" data-axis-row></div>
+  </div>
+
+  <div class="ptl-foot">
+    <span data-clock>0.0초</span>
+    <span data-total></span>
+    <span data-cost></span>
+    <span class="ptl-punch">병렬이 판 것은 시간뿐입니다</span>
+  </div>
+</div>
+
+<script>
+  document.querySelectorAll<HTMLElement>('[data-ptl]').forEach(init);
+
+  function init(root: HTMLElement) {
+    const MODES = JSON.parse(root.dataset.modes ?? '{}') as Record<string, {
+      label: string; total: number; cost: string; lede: string; ghost?: number;
+      spans: { lane: string; from: number; to: number; kind: string }[];
+    }>;
+    const AXIS = Number(root.dataset.axis ?? 14);
+    const SPEED = Number(root.dataset.speed ?? 220);
+    const $ = <T extends HTMLElement>(s: string) => root.querySelector<T>(s)!;
+    const chart = $('[data-chart]');
+    const clock = $('[data-clock]');
+    let mode = 'seq';
+    let timer = 0;
+
+    root.querySelectorAll<HTMLButtonElement>('[data-mode]').forEach((button) =>
+      button.addEventListener('click', () => {
+        mode = button.dataset.mode ?? 'seq';
+        root.querySelectorAll('[data-mode]').forEach((b) =>
+          b.classList.toggle('is-active', b === button));
+        render(false);
+      }));
+    $('[data-play]').addEventListener('click', () => render(true));
+
+    const axisRow = $('[data-axis-row]');
+    axisRow.innerHTML = Array.from({ length: AXIS / 2 + 1 }, (_, i) =>
+      `<span style="left: ${((i * 2) / AXIS) * 100}%">${i * 2}s</span>`).join('');
+    render(false);
+
+    function render(play: boolean) {
+      window.clearInterval(timer);
+      const m = MODES[mode];
+      $('[data-lede]').textContent = m.lede;
+      $('[data-total]').textContent = `전체 ${m.total}초`;
+      $('[data-cost]').textContent = `비용 ${m.cost}`;
+
+      chart.innerHTML = m.spans
+        .map((span) => {
+          const left = (span.from / AXIS) * 100;
+          const width = ((span.to - span.from) / AXIS) * 100;
+          const dur = (span.to - span.from) * SPEED;
+          const delay = span.from * SPEED;
+          const style = play
+            ? `left:${left}%; width:0%; transition: width ${dur}ms linear ${delay}ms;`
+            : `left:${left}%; width:${width}%;`;
+          return `<div class="ptl-lane">
+            <span class="ptl-lane-name">${span.lane}</span>
+            <div class="ptl-track">
+              ${m.ghost ? `<span class="ptl-ghost" style="left:${(m.ghost / AXIS) * 100}%"></span>` : ''}
+              <div class="ptl-bar is-${span.kind}" data-w="${width}" style="${style}"></div>
+              <span class="ptl-span-label" style="left:${left + width}%">${(span.to - span.from).toFixed(1)}s</span>
+            </div>
+          </div>`;
+        })
+        .join('');
+      if (m.ghost) {
+        chart.insertAdjacentHTML('beforeend',
+          `<div class="ptl-ghost-note">점선: 순차의 ${m.ghost}초가 끝나던 자리</div>`);
+      }
+
+      if (!play) { clock.textContent = `${m.total.toFixed(1)}초`; return; }
+
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        chart.querySelectorAll<HTMLElement>('.ptl-bar').forEach((bar) => {
+          bar.style.width = `${bar.dataset.w}%`;
+        });
+      }));
+      const started = performance.now();
+      clock.textContent = '0.0초';
+      timer = window.setInterval(() => {
+        const t = (performance.now() - started) / SPEED;
+        if (t >= m.total) {
+          clock.textContent = `${m.total.toFixed(1)}초`;
+          window.clearInterval(timer);
+          return;
+        }
+        clock.textContent = `${t.toFixed(1)}초`;
+      }, 80);
+    }
+  }
+</script>
+
+<style>
+  .ptl {
+    margin: 2rem 0;
+    padding: 1.1rem 1.1rem 0.9rem;
+    border: 1px solid var(--aas-border);
+    border-radius: 14px;
+    background: var(--aas-panel);
+    box-shadow: var(--aas-shadow);
+    font-family: var(--aas-sans);
+    container-type: inline-size;
+    --ptl-work: #2f81f7;
+    --ptl-infra: color-mix(in srgb, var(--aas-muted) 45%, transparent);
+    font-size: clamp(0.85rem, 1.5cqw, 1.2rem);
+  }
+
+  .ptl-head { display: flex; flex-direction: column; gap: 0.3em; margin-bottom: 0.8em; }
+  .ptl-head strong { font-size: 1.15em; color: var(--aas-text); }
+  .ptl-head span { font-size: 0.88em; line-height: 1.65; color: var(--aas-muted); }
+
+  .ptl-controls {
+    display: flex; align-items: center; justify-content: space-between;
+    flex-wrap: wrap; gap: 0.6em; margin-bottom: 0.5em;
+  }
+  .ptl-seg { display: inline-flex; border: 1px solid var(--aas-border); border-radius: 999px; overflow: hidden; }
+  .ptl-seg button {
+    padding: 0.35em 1em; border: none; background: var(--aas-bg);
+    color: var(--aas-muted); font-family: inherit; font-size: 0.88em; cursor: pointer;
+  }
+  .ptl-seg button.is-active { background: var(--ptl-work); color: #fff; font-weight: 650; }
+  .ptl-play {
+    padding: 0.35em 1.1em; border-radius: 999px;
+    border: 1px solid var(--ptl-work); background: var(--ptl-work);
+    color: #fff; font-family: inherit; font-size: 0.88em; font-weight: 650; cursor: pointer;
+  }
+
+  .ptl-lede { margin: 0 0 0.7em; font-size: 0.86em; color: var(--aas-muted); }
+
+  .ptl-board {
+    padding: 0.9em 0.9em 0.4em;
+    border: 1px solid var(--aas-border); border-radius: 10px;
+    background: var(--aas-bg);
+  }
+  .ptl-chart { display: grid; gap: 0.5em; }
+  .ptl-chart :global(.ptl-lane) {
+    display: grid; grid-template-columns: 11em 1fr; gap: 0.7em; align-items: center;
+  }
+  .ptl-chart :global(.ptl-lane-name) { font-size: 0.8em; color: var(--aas-muted); text-align: right; }
+  .ptl-chart :global(.ptl-track) {
+    position: relative; height: 1.15em; border-radius: 6px;
+    background: color-mix(in srgb, var(--aas-muted) 10%, transparent);
+  }
+  .ptl-chart :global(.ptl-bar) {
+    position: absolute; top: 0; bottom: 0; border-radius: 6px;
+  }
+  .ptl-chart :global(.ptl-bar.is-work) { background: var(--ptl-work); }
+  .ptl-chart :global(.ptl-bar.is-infra) { background: var(--ptl-infra); }
+  .ptl-chart :global(.ptl-span-label) {
+    position: absolute; top: 50%; transform: translate(0.4em, -50%);
+    font-size: 0.7em; color: var(--aas-muted); white-space: nowrap;
+  }
+  .ptl-chart :global(.ptl-ghost) {
+    position: absolute; top: -0.2em; bottom: -0.2em; width: 0;
+    border-left: 2px dashed color-mix(in srgb, var(--aas-muted) 55%, transparent);
+  }
+  .ptl-chart :global(.ptl-ghost-note) {
+    grid-column: 1 / -1; font-size: 0.74em; color: var(--aas-muted); text-align: right;
+  }
+
+  .ptl-axis {
+    position: relative; height: 1.5em; margin-top: 0.4em; margin-left: 11.7em;
+  }
+  .ptl-axis :global(span) {
+    position: absolute; transform: translateX(-50%);
+    font-size: 0.72em; color: var(--aas-muted);
+  }
+
+  .ptl-foot {
+    display: flex; gap: 1em; align-items: baseline; flex-wrap: wrap;
+    margin-top: 0.7em; font-size: 0.86em; color: var(--aas-muted);
+  }
+  .ptl-foot [data-clock] { font-weight: 700; color: var(--aas-text); min-width: 3.6em; }
+  .ptl-punch { margin-left: auto; font-weight: 650; color: var(--aas-text); }
+
+  @media (max-width: 34rem) {
+    .ptl-chart :global(.ptl-lane) { grid-template-columns: 6.5em 1fr; }
+    .ptl-axis { margin-left: 7.2em; }
+    .ptl-punch { margin-left: 0; }
+  }
+</style>
