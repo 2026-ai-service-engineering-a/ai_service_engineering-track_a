@@ -6,6 +6,34 @@ AI 서비스 엔지니어링 Track A 강의 사이트의 주요 변경 사항을
 [유의적 버전](https://semver.org/lang/ko/)을 준수한다. 릴리스는 저장소 루트의
 git 태그(`vX.Y`)로, 사이트 버전은 `site/package.json`으로 관리한다.
 
+## [1.10.0] - 2026-09-02
+
+### 추가
+
+- **7주차 멀티 에이전트 패턴 교안·슬라이드**: LangGraph 기반
+  supervisor(`energy`)·handoff(`support`)·parallel Send+worktree(`coding`)
+  세 시연 저장소를 축으로 교안(데모 스크린샷 포함)과 슬라이드 덱을 새로
+  썼다. 6주차의 for 루프·최소 문법과 1:1 대응표를 두고, LangGraph의
+  `Command`는 5장, `Send`는 6장에서 도입한다
+- **에이전트 해부도 지도 `<AgentMap />`**: 클릭하면 원 안에서 노드·엣지·
+  상태가 펼쳐지는 지도를 추가하고, 곧이어 줌 가능한 캔버스로 다시 그려
+  위젯 글자 크기가 컨테이너에 맞춰 스케일되게 했다
+- **`<WeightSplit />`·`<ParallelTimeline />`**: 라우팅 가중치·handoff 재현과
+  병렬 실행 타임라인을 만져 보는 데모 두 개를 추가했다
+- **`<RoutingRules />`·`<HandoffRules />` 포팅, 6주차 `<CostGate />`와 함께
+  애니메이션 시뮬레이터로 전환**: 정적 표였던 세 위젯이 동작하는 시뮬레이터가
+  됐다. handoff 데스크는 다이아몬드형으로 펼쳐 문이 가려지지 않게 했다
+- **glossary에 langgraph·supervisor·handoff 등 7주차 용어 등록**
+- **`AGENTS.md` 추가**: AI 도구가 관례적으로 찾는 파일명으로 `CLAUDE.md`를
+  미러링
+
+### 변경
+
+- **7주차를 "트랙별 미니 실습 + 트랙 가결정"에서 멀티 에이전트 패턴
+  회차로 재편**: 5·6주차에서 에이전트 기초를 먼저 다뤘기 때문이다. 산출물과
+  트랙 가결정은 10주차로 미루고 `about.mdx`에서도 관련 문구를 뺐다
+- **stack-site-builder를 1.26.0으로 올렸다**
+
 ## [1.9.0] - 2026-08-21
 
 ### 추가
