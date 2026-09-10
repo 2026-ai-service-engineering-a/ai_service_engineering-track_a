@@ -21,7 +21,7 @@ git 태그(`vX.Y`)로, 사이트 버전은 `site/package.json`으로 관리한�
 - **인터랙티브 셋과 mermaid 14장**: `<DoorMap />`(문을 눌러 코드로 가는 지도),
   `<RequestTimeline />`(def·async def·SSE 세 타임라인 재생),
   `<KeyPlacement />`(키가 어디 있고 무엇이 실려 가는지, 한도 소진 시 429까지)
-  셋을 더했다. 경계의 import 방향, 스키마 한 물건의 네 얼굴, 예외의 상태 코드 번역, 그래프
+  셋을 더했다. 경계의 import 방향, 스키마 하나의 쓰임 넷, 예외의 상태 코드 번역, 그래프
   배치, 전송 두 가지, 붙이기의 거리 같은 것들을 그림으로 옮겼다
 - **구경용 화면 한 장**: 실습 저장소에 `ui`(8501)를 붙였다. React와
   [shadcn/ui](https://ui.shadcn.com/)로 만들고 nginx가 낸다. 만드는 법은
