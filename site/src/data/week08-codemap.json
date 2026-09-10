@@ -1,0 +1,2071 @@
+{
+ "repo": "week08-service-lab",
+ "layers": {
+  "door": "문 — 이번 주에 다는 껍데기",
+  "core": "코어 — 6주차에 만든 것",
+  "client": "붙이는 쪽 — 남이 우리를 부른다"
+ },
+ "modules": [
+  {
+   "module": "core.config",
+   "file": "core/config.py",
+   "layer": "core"
+  },
+  {
+   "module": "core.errors",
+   "file": "core/errors.py",
+   "layer": "core"
+  },
+  {
+   "module": "core.harness",
+   "file": "core/harness.py",
+   "layer": "core"
+  },
+  {
+   "module": "core.llm",
+   "file": "core/llm.py",
+   "layer": "core"
+  },
+  {
+   "module": "core.offline",
+   "file": "core/offline.py",
+   "layer": "core"
+  },
+  {
+   "module": "core.react",
+   "file": "core/react.py",
+   "layer": "core"
+  },
+  {
+   "module": "core.service",
+   "file": "core/service.py",
+   "layer": "core"
+  },
+  {
+   "module": "core.tools",
+   "file": "core/tools.py",
+   "layer": "core"
+  },
+  {
+   "module": "api.errors",
+   "file": "api/errors.py",
+   "layer": "door"
+  },
+  {
+   "module": "api.main",
+   "file": "api/main.py",
+   "layer": "door"
+  },
+  {
+   "module": "api.schemas",
+   "file": "api/schemas.py",
+   "layer": "door"
+  },
+  {
+   "module": "mcp_server.server",
+   "file": "mcp_server/server.py",
+   "layer": "door"
+  },
+  {
+   "module": "clients.py_client",
+   "file": "clients/py_client.py",
+   "layer": "client"
+  }
+ ],
+ "symbols": [
+  {
+   "id": "core.config:gateway",
+   "module": "core.config",
+   "name": "gateway",
+   "kind": "function",
+   "extra": "",
+   "signature": "def gateway() -> str",
+   "line": 23,
+   "doc": "게이트웨이 주소. 비어 있으면 각본 대역으로 돈다.",
+   "params": [],
+   "returns": "str",
+   "bases": [],
+   "fields": [],
+   "ai": false,
+   "reaches": false
+  },
+  {
+   "id": "core.config:gateway_key",
+   "module": "core.config",
+   "name": "gateway_key",
+   "kind": "function",
+   "extra": "",
+   "signature": "def gateway_key() -> str",
+   "line": 28,
+   "doc": "앱이 쥔 가상키. 진짜 프로바이더 키가 아니다.",
+   "params": [],
+   "returns": "str",
+   "bases": [],
+   "fields": [],
+   "ai": false,
+   "reaches": false
+  },
+  {
+   "id": "core.config:mode",
+   "module": "core.config",
+   "name": "mode",
+   "kind": "function",
+   "extra": "",
+   "signature": "def mode() -> str",
+   "line": 33,
+   "doc": "이번 호출을 무엇으로 처리할지: \"live\" 또는 \"offline\".",
+   "params": [],
+   "returns": "str",
+   "bases": [],
+   "fields": [],
+   "ai": false,
+   "reaches": false
+  },
+  {
+   "id": "core.config:pick_model",
+   "module": "core.config",
+   "name": "pick_model",
+   "kind": "function",
+   "extra": "",
+   "signature": "def pick_model() -> str",
+   "line": 41,
+   "doc": "사용할 모델 이름. 게이트웨이가 없으면 각본 대역의 이름을 돌려준다.",
+   "params": [],
+   "returns": "str",
+   "bases": [],
+   "fields": [],
+   "ai": false,
+   "reaches": false
+  },
+  {
+   "id": "core.errors:CoreError",
+   "module": "core.errors",
+   "name": "CoreError",
+   "kind": "class",
+   "extra": "",
+   "signature": "class CoreError(Exception)",
+   "line": 9,
+   "doc": "이 저장소가 스스로 만들어 던지는 실패의 뿌리.",
+   "params": [],
+   "returns": "",
+   "bases": [
+    "Exception"
+   ],
+   "fields": [],
+   "ai": false,
+   "reaches": false
+  },
+  {
+   "id": "core.errors:UpstreamError",
+   "module": "core.errors",
+   "name": "UpstreamError",
+   "kind": "class",
+   "extra": "",
+   "signature": "class UpstreamError(CoreError)",
+   "line": 13,
+   "doc": "모델 쪽(상류)이 실패했다. 우리 잘못이 아니다 — 502로 옮겨진다.",
+   "params": [],
+   "returns": "",
+   "bases": [
+    "CoreError"
+   ],
+   "fields": [],
+   "ai": false,
+   "reaches": false
+  },
+  {
+   "id": "core.errors:UpstreamTimeout",
+   "module": "core.errors",
+   "name": "UpstreamTimeout",
+   "kind": "class",
+   "extra": "",
+   "signature": "class UpstreamTimeout(CoreError)",
+   "line": 17,
+   "doc": "모델 쪽이 제때 답하지 않았다 — 504로 옮겨진다.",
+   "params": [],
+   "returns": "",
+   "bases": [
+    "CoreError"
+   ],
+   "fields": [],
+   "ai": false,
+   "reaches": false
+  },
+  {
+   "id": "core.harness:wrap_tool_result",
+   "module": "core.harness",
+   "name": "wrap_tool_result",
+   "kind": "function",
+   "extra": "",
+   "signature": "def wrap_tool_result(tool: str, content: str) -> str",
+   "line": 38,
+   "doc": "도구 결과를 경계 마커로 감싼다. 모든 observation이 여기를 지난다.",
+   "params": [
+    {
+     "name": "tool",
+     "annotation": "str",
+     "default": ""
+    },
+    {
+     "name": "content",
+     "annotation": "str",
+     "default": ""
+    }
+   ],
+   "returns": "str",
+   "bases": [],
+   "fields": [],
+   "ai": false,
+   "reaches": false
+  },
+  {
+   "id": "core.harness:scan_injection",
+   "module": "core.harness",
+   "name": "scan_injection",
+   "kind": "function",
+   "extra": "",
+   "signature": "def scan_injection(text: str) -> list[str]",
+   "line": 54,
+   "doc": "인젝션 흔적을 찾아 라벨 목록으로 돌려준다. 비어 있으면 깨끗한 것.",
+   "params": [
+    {
+     "name": "text",
+     "annotation": "str",
+     "default": ""
+    }
+   ],
+   "returns": "list[str]",
+   "bases": [],
+   "fields": [],
+   "ai": false,
+   "reaches": false
+  },
+  {
+   "id": "core.harness:BudgetExceeded",
+   "module": "core.harness",
+   "name": "BudgetExceeded",
+   "kind": "class",
+   "extra": "",
+   "signature": "class BudgetExceeded(Exception)",
+   "line": 62,
+   "doc": "누적 비용이 중단 임계를 넘었다.",
+   "params": [],
+   "returns": "",
+   "bases": [
+    "Exception"
+   ],
+   "fields": [],
+   "ai": false,
+   "reaches": false
+  },
+  {
+   "id": "core.harness:BudgetGuard",
+   "module": "core.harness",
+   "name": "BudgetGuard",
+   "kind": "class",
+   "extra": "",
+   "signature": "class BudgetGuard",
+   "line": 66,
+   "doc": "호출마다 비용을 장부에 더하고, 경고/중단 2단 임계로 판정한다.",
+   "params": [],
+   "returns": "",
+   "bases": [],
+   "fields": [],
+   "ai": false,
+   "reaches": false
+  },
+  {
+   "id": "core.harness:BudgetGuard.__init__",
+   "module": "core.harness",
+   "name": "__init__",
+   "kind": "method",
+   "extra": "",
+   "signature": "def __init__(self, warn_usd: float = 0.05, stop_usd: float = 0.2)",
+   "line": 69,
+   "doc": "",
+   "params": [
+    {
+     "name": "self",
+     "annotation": "",
+     "default": ""
+    },
+    {
+     "name": "warn_usd",
+     "annotation": "float",
+     "default": "0.05"
+    },
+    {
+     "name": "stop_usd",
+     "annotation": "float",
+     "default": "0.2"
+    }
+   ],
+   "returns": "",
+   "bases": [],
+   "fields": [],
+   "ai": false,
+   "reaches": false
+  },
+  {
+   "id": "core.harness:BudgetGuard.add_response",
+   "module": "core.harness",
+   "name": "add_response",
+   "kind": "method",
+   "extra": "",
+   "signature": "def add_response(self, response) -> None",
+   "line": 75,
+   "doc": "",
+   "params": [
+    {
+     "name": "self",
+     "annotation": "",
+     "default": ""
+    },
+    {
+     "name": "response",
+     "annotation": "",
+     "default": ""
+    }
+   ],
+   "returns": "None",
+   "bases": [],
+   "fields": [],
+   "ai": false,
+   "reaches": false
+  },
+  {
+   "id": "core.harness:BudgetGuard.add",
+   "module": "core.harness",
+   "name": "add",
+   "kind": "method",
+   "extra": "",
+   "signature": "def add(self, cost_usd: float) -> None",
+   "line": 84,
+   "doc": "",
+   "params": [
+    {
+     "name": "self",
+     "annotation": "",
+     "default": ""
+    },
+    {
+     "name": "cost_usd",
+     "annotation": "float",
+     "default": ""
+    }
+   ],
+   "returns": "None",
+   "bases": [],
+   "fields": [],
+   "ai": false,
+   "reaches": false
+  },
+  {
+   "id": "core.harness:TraceLogger",
+   "module": "core.harness",
+   "name": "TraceLogger",
+   "kind": "class",
+   "extra": "",
+   "signature": "class TraceLogger",
+   "line": 98,
+   "doc": "한 실행의 이벤트를 traces/<run_id>.jsonl에 남긴다. 한 줄 = 한 이벤트.",
+   "params": [],
+   "returns": "",
+   "bases": [],
+   "fields": [],
+   "ai": false,
+   "reaches": false
+  },
+  {
+   "id": "core.harness:TraceLogger.__init__",
+   "module": "core.harness",
+   "name": "__init__",
+   "kind": "method",
+   "extra": "",
+   "signature": "def __init__(self, run_id: str | None = None, directory: str = 'traces')",
+   "line": 101,
+   "doc": "",
+   "params": [
+    {
+     "name": "self",
+     "annotation": "",
+     "default": ""
+    },
+    {
+     "name": "run_id",
+     "annotation": "str | None",
+     "default": "None"
+    },
+    {
+     "name": "directory",
+     "annotation": "str",
+     "default": "'traces'"
+    }
+   ],
+   "returns": "",
+   "bases": [],
+   "fields": [],
+   "ai": false,
+   "reaches": false
+  },
+  {
+   "id": "core.harness:TraceLogger.log",
+   "module": "core.harness",
+   "name": "log",
+   "kind": "method",
+   "extra": "",
+   "signature": "def log(self, kind: str, **fields) -> None",
+   "line": 107,
+   "doc": "",
+   "params": [
+    {
+     "name": "self",
+     "annotation": "",
+     "default": ""
+    },
+    {
+     "name": "kind",
+     "annotation": "str",
+     "default": ""
+    },
+    {
+     "name": "**fields",
+     "annotation": "",
+     "default": ""
+    }
+   ],
+   "returns": "None",
+   "bases": [],
+   "fields": [],
+   "ai": false,
+   "reaches": false
+  },
+  {
+   "id": "core.llm:completion",
+   "module": "core.llm",
+   "name": "completion",
+   "kind": "function",
+   "extra": "",
+   "signature": "def completion(*, simulate: str | None = None, **kwargs)",
+   "line": 19,
+   "doc": "모델 호출 한 번. 어느 경로로 가든 응답의 모양은 같다.",
+   "params": [
+    {
+     "name": "*",
+     "annotation": "",
+     "default": ""
+    },
+    {
+     "name": "simulate",
+     "annotation": "str | None",
+     "default": "None"
+    },
+    {
+     "name": "**kwargs",
+     "annotation": "",
+     "default": ""
+    }
+   ],
+   "returns": "",
+   "bases": [],
+   "fields": [],
+   "ai": true,
+   "reaches": true
+  },
+  {
+   "id": "core.offline:_fake_tool_call",
+   "module": "core.offline",
+   "name": "_fake_tool_call",
+   "kind": "function",
+   "extra": "",
+   "signature": "def _fake_tool_call(name: str, arguments: dict, call_id: str)",
+   "line": 36,
+   "doc": "",
+   "params": [
+    {
+     "name": "name",
+     "annotation": "str",
+     "default": ""
+    },
+    {
+     "name": "arguments",
+     "annotation": "dict",
+     "default": ""
+    },
+    {
+     "name": "call_id",
+     "annotation": "str",
+     "default": ""
+    }
+   ],
+   "returns": "",
+   "bases": [],
+   "fields": [],
+   "ai": false,
+   "reaches": false
+  },
+  {
+   "id": "core.offline:_fake_response",
+   "module": "core.offline",
+   "name": "_fake_response",
+   "kind": "function",
+   "extra": "",
+   "signature": "def _fake_response(*, content = None, tool_calls = None, prompt_tokens = 600, completion_tokens = 90, cost = FAKE_COST_PER_CALL)",
+   "line": 46,
+   "doc": "",
+   "params": [
+    {
+     "name": "*",
+     "annotation": "",
+     "default": ""
+    },
+    {
+     "name": "content",
+     "annotation": "",
+     "default": "None"
+    },
+    {
+     "name": "tool_calls",
+     "annotation": "",
+     "default": "None"
+    },
+    {
+     "name": "prompt_tokens",
+     "annotation": "",
+     "default": "600"
+    },
+    {
+     "name": "completion_tokens",
+     "annotation": "",
+     "default": "90"
+    },
+    {
+     "name": "cost",
+     "annotation": "",
+     "default": "FAKE_COST_PER_CALL"
+    }
+   ],
+   "returns": "",
+   "bases": [],
+   "fields": [],
+   "ai": false,
+   "reaches": false
+  },
+  {
+   "id": "core.offline:_question",
+   "module": "core.offline",
+   "name": "_question",
+   "kind": "function",
+   "extra": "",
+   "signature": "def _question(messages: list[dict]) -> str",
+   "line": 86,
+   "doc": "",
+   "params": [
+    {
+     "name": "messages",
+     "annotation": "list[dict]",
+     "default": ""
+    }
+   ],
+   "returns": "str",
+   "bases": [],
+   "fields": [],
+   "ai": false,
+   "reaches": false
+  },
+  {
+   "id": "core.offline:_plan_args",
+   "module": "core.offline",
+   "name": "_plan_args",
+   "kind": "function",
+   "extra": "",
+   "signature": "def _plan_args(question: str) -> tuple[str, dict]",
+   "line": 93,
+   "doc": "질문에서 도시·박수·인원·스타일을 뽑는다. 없으면 무난한 기본값.",
+   "params": [
+    {
+     "name": "question",
+     "annotation": "str",
+     "default": ""
+    }
+   ],
+   "returns": "tuple[str, dict]",
+   "bases": [],
+   "fields": [],
+   "ai": false,
+   "reaches": false
+  },
+  {
+   "id": "core.offline:_observations",
+   "module": "core.offline",
+   "name": "_observations",
+   "kind": "function",
+   "extra": "",
+   "signature": "def _observations(messages: list[dict]) -> list[dict]",
+   "line": 107,
+   "doc": "되먹여진 도구 결과들을 다시 읽는다 (경계 마커 안쪽의 JSON).",
+   "params": [
+    {
+     "name": "messages",
+     "annotation": "list[dict]",
+     "default": ""
+    }
+   ],
+   "returns": "list[dict]",
+   "bases": [],
+   "fields": [],
+   "ai": false,
+   "reaches": false
+  },
+  {
+   "id": "core.offline:completion",
+   "module": "core.offline",
+   "name": "completion",
+   "kind": "function",
+   "extra": "",
+   "signature": "def completion(*, messages: list[dict], simulate: str | None = None, **_kwargs)",
+   "line": 127,
+   "doc": "다음 행동을 고른다: 장소 검색 → 예산 계산 → 최종 답.",
+   "params": [
+    {
+     "name": "*",
+     "annotation": "",
+     "default": ""
+    },
+    {
+     "name": "messages",
+     "annotation": "list[dict]",
+     "default": ""
+    },
+    {
+     "name": "simulate",
+     "annotation": "str | None",
+     "default": "None"
+    },
+    {
+     "name": "**_kwargs",
+     "annotation": "",
+     "default": ""
+    }
+   ],
+   "returns": "",
+   "bases": [],
+   "fields": [],
+   "ai": false,
+   "reaches": false
+  },
+  {
+   "id": "core.offline:_compose_answer",
+   "module": "core.offline",
+   "name": "_compose_answer",
+   "kind": "function",
+   "extra": "",
+   "signature": "def _compose_answer(city: str, budget_args: dict, observations: list[dict]) -> str",
+   "line": 153,
+   "doc": "도구가 물어온 것만으로 답을 짓는다. 없는 수치는 지어내지 않는다.",
+   "params": [
+    {
+     "name": "city",
+     "annotation": "str",
+     "default": ""
+    },
+    {
+     "name": "budget_args",
+     "annotation": "dict",
+     "default": ""
+    },
+    {
+     "name": "observations",
+     "annotation": "list[dict]",
+     "default": ""
+    }
+   ],
+   "returns": "str",
+   "bases": [],
+   "fields": [],
+   "ai": false,
+   "reaches": false
+  },
+  {
+   "id": "core.react:StepRecord",
+   "module": "core.react",
+   "name": "StepRecord",
+   "kind": "dataclass",
+   "extra": "",
+   "signature": "class StepRecord",
+   "line": 43,
+   "doc": "루프 한 바퀴의 기록 — 트레이스의 최소 단위.",
+   "params": [],
+   "returns": "",
+   "bases": [],
+   "fields": [
+    {
+     "name": "tool",
+     "annotation": "str | None",
+     "default": ""
+    },
+    {
+     "name": "args",
+     "annotation": "str | None",
+     "default": ""
+    },
+    {
+     "name": "observation",
+     "annotation": "str | None",
+     "default": ""
+    },
+    {
+     "name": "prompt_tokens",
+     "annotation": "int",
+     "default": ""
+    },
+    {
+     "name": "completion_tokens",
+     "annotation": "int",
+     "default": ""
+    }
+   ],
+   "ai": false,
+   "reaches": false
+  },
+  {
+   "id": "core.react:ReactResult",
+   "module": "core.react",
+   "name": "ReactResult",
+   "kind": "dataclass",
+   "extra": "",
+   "signature": "class ReactResult",
+   "line": 54,
+   "doc": "",
+   "params": [],
+   "returns": "",
+   "bases": [],
+   "fields": [
+    {
+     "name": "answer",
+     "annotation": "str | None",
+     "default": ""
+    },
+    {
+     "name": "stopped_by",
+     "annotation": "str",
+     "default": ""
+    },
+    {
+     "name": "model",
+     "annotation": "str",
+     "default": "''"
+    },
+    {
+     "name": "steps",
+     "annotation": "list[StepRecord]",
+     "default": "field(default_factory=list)"
+    }
+   ],
+   "ai": false,
+   "reaches": false
+  },
+  {
+   "id": "core.react:run_iter",
+   "module": "core.react",
+   "name": "run_iter",
+   "kind": "function",
+   "extra": "",
+   "signature": "def run_iter(question: str, *, model: str | None = None, max_steps: int = 6, system: str | None = None, guard: BudgetGuard | None = None, logger: TraceLogger | None = None, simulate: str | None = None) -> Iterator[dict]",
+   "line": 61,
+   "doc": "질문 하나를 풀면서 스텝마다 이벤트를 내놓는다.",
+   "params": [
+    {
+     "name": "question",
+     "annotation": "str",
+     "default": ""
+    },
+    {
+     "name": "*",
+     "annotation": "",
+     "default": ""
+    },
+    {
+     "name": "model",
+     "annotation": "str | None",
+     "default": "None"
+    },
+    {
+     "name": "max_steps",
+     "annotation": "int",
+     "default": "6"
+    },
+    {
+     "name": "system",
+     "annotation": "str | None",
+     "default": "None"
+    },
+    {
+     "name": "guard",
+     "annotation": "BudgetGuard | None",
+     "default": "None"
+    },
+    {
+     "name": "logger",
+     "annotation": "TraceLogger | None",
+     "default": "None"
+    },
+    {
+     "name": "simulate",
+     "annotation": "str | None",
+     "default": "None"
+    }
+   ],
+   "returns": "Iterator[dict]",
+   "bases": [],
+   "fields": [],
+   "ai": false,
+   "reaches": true
+  },
+  {
+   "id": "core.react:run",
+   "module": "core.react",
+   "name": "run",
+   "kind": "function",
+   "extra": "",
+   "signature": "def run(question: str, **kwargs) -> ReactResult",
+   "line": 165,
+   "doc": "`run_iter`를 끝까지 소비해 결과 하나로 만든다. 6주차의 `run`과 같은 자리.",
+   "params": [
+    {
+     "name": "question",
+     "annotation": "str",
+     "default": ""
+    },
+    {
+     "name": "**kwargs",
+     "annotation": "",
+     "default": ""
+    }
+   ],
+   "returns": "ReactResult",
+   "bases": [],
+   "fields": [],
+   "ai": false,
+   "reaches": true
+  },
+  {
+   "id": "core.service:PlanResult",
+   "module": "core.service",
+   "name": "PlanResult",
+   "kind": "dataclass",
+   "extra": "",
+   "signature": "class PlanResult",
+   "line": 23,
+   "doc": "한 요청의 결과 전부 — 답 + 무슨 일이 있었는지 + 얼마를 썼는지.",
+   "params": [],
+   "returns": "",
+   "bases": [],
+   "fields": [
+    {
+     "name": "answer",
+     "annotation": "str",
+     "default": ""
+    },
+    {
+     "name": "stopped_by",
+     "annotation": "str",
+     "default": ""
+    },
+    {
+     "name": "model",
+     "annotation": "str",
+     "default": ""
+    },
+    {
+     "name": "steps",
+     "annotation": "list[dict]",
+     "default": "field(default_factory=list)"
+    },
+    {
+     "name": "usage",
+     "annotation": "dict",
+     "default": "field(default_factory=dict)"
+    },
+    {
+     "name": "spent_usd",
+     "annotation": "float",
+     "default": "0.0"
+    }
+   ],
+   "ai": false,
+   "reaches": false
+  },
+  {
+   "id": "core.service:PlanResult.to_dict",
+   "module": "core.service",
+   "name": "to_dict",
+   "kind": "method",
+   "extra": "",
+   "signature": "def to_dict(self) -> dict",
+   "line": 33,
+   "doc": "",
+   "params": [
+    {
+     "name": "self",
+     "annotation": "",
+     "default": ""
+    }
+   ],
+   "returns": "dict",
+   "bases": [],
+   "fields": [],
+   "ai": false,
+   "reaches": false
+  },
+  {
+   "id": "core.service:_guard",
+   "module": "core.service",
+   "name": "_guard",
+   "kind": "function",
+   "extra": "",
+   "signature": "def _guard(max_cost_usd: float) -> BudgetGuard",
+   "line": 37,
+   "doc": "",
+   "params": [
+    {
+     "name": "max_cost_usd",
+     "annotation": "float",
+     "default": ""
+    }
+   ],
+   "returns": "BudgetGuard",
+   "bases": [],
+   "fields": [],
+   "ai": false,
+   "reaches": false
+  },
+  {
+   "id": "core.service:plan_events",
+   "module": "core.service",
+   "name": "plan_events",
+   "kind": "function",
+   "extra": "",
+   "signature": "def plan_events(question: str, *, max_steps: int = DEFAULT_MAX_STEPS, max_cost_usd: float = DEFAULT_MAX_COST_USD, simulate: str | None = None, trace: bool = False) -> Iterator[dict]",
+   "line": 42,
+   "doc": "여행 계획을 세우면서 진행 이벤트를 내놓는다 (SSE가 그대로 흘린다).",
+   "params": [
+    {
+     "name": "question",
+     "annotation": "str",
+     "default": ""
+    },
+    {
+     "name": "*",
+     "annotation": "",
+     "default": ""
+    },
+    {
+     "name": "max_steps",
+     "annotation": "int",
+     "default": "DEFAULT_MAX_STEPS"
+    },
+    {
+     "name": "max_cost_usd",
+     "annotation": "float",
+     "default": "DEFAULT_MAX_COST_USD"
+    },
+    {
+     "name": "simulate",
+     "annotation": "str | None",
+     "default": "None"
+    },
+    {
+     "name": "trace",
+     "annotation": "bool",
+     "default": "False"
+    }
+   ],
+   "returns": "Iterator[dict]",
+   "bases": [],
+   "fields": [],
+   "ai": false,
+   "reaches": true
+  },
+  {
+   "id": "core.service:plan",
+   "module": "core.service",
+   "name": "plan",
+   "kind": "function",
+   "extra": "",
+   "signature": "def plan(question: str, *, max_steps: int = DEFAULT_MAX_STEPS, max_cost_usd: float = DEFAULT_MAX_COST_USD, simulate: str | None = None, trace: bool = False) -> PlanResult",
+   "line": 60,
+   "doc": "여행 계획을 세워 결과 하나로 돌려준다.",
+   "params": [
+    {
+     "name": "question",
+     "annotation": "str",
+     "default": ""
+    },
+    {
+     "name": "*",
+     "annotation": "",
+     "default": ""
+    },
+    {
+     "name": "max_steps",
+     "annotation": "int",
+     "default": "DEFAULT_MAX_STEPS"
+    },
+    {
+     "name": "max_cost_usd",
+     "annotation": "float",
+     "default": "DEFAULT_MAX_COST_USD"
+    },
+    {
+     "name": "simulate",
+     "annotation": "str | None",
+     "default": "None"
+    },
+    {
+     "name": "trace",
+     "annotation": "bool",
+     "default": "False"
+    }
+   ],
+   "returns": "PlanResult",
+   "bases": [],
+   "fields": [],
+   "ai": false,
+   "reaches": true
+  },
+  {
+   "id": "core.tools:SearchPlacesArgs",
+   "module": "core.tools",
+   "name": "SearchPlacesArgs",
+   "kind": "class",
+   "extra": "",
+   "signature": "class SearchPlacesArgs(BaseModel)",
+   "line": 51,
+   "doc": "도시의 관광지·식당·카페를 검색한다. 지원 도시: 오사카, 교토.",
+   "params": [],
+   "returns": "",
+   "bases": [
+    "BaseModel"
+   ],
+   "fields": [
+    {
+     "name": "city",
+     "annotation": "str",
+     "default": "Field(description='도시 이름 (오사카 또는 교토)')"
+    },
+    {
+     "name": "category",
+     "annotation": "Literal['관광', '식당', '카페'] | None",
+     "default": "Field(default=None, description='장소 분류. 생략하면 전체')"
+    }
+   ],
+   "ai": false,
+   "reaches": false
+  },
+  {
+   "id": "core.tools:search_places",
+   "module": "core.tools",
+   "name": "search_places",
+   "kind": "function",
+   "extra": "",
+   "signature": "def search_places(args: SearchPlacesArgs) -> dict",
+   "line": 60,
+   "doc": "",
+   "params": [
+    {
+     "name": "args",
+     "annotation": "SearchPlacesArgs",
+     "default": ""
+    }
+   ],
+   "returns": "dict",
+   "bases": [],
+   "fields": [],
+   "ai": false,
+   "reaches": false
+  },
+  {
+   "id": "core.tools:TravelTimeArgs",
+   "module": "core.tools",
+   "name": "TravelTimeArgs",
+   "kind": "class",
+   "extra": "",
+   "signature": "class TravelTimeArgs(BaseModel)",
+   "line": 72,
+   "doc": "두 지역 사이의 대략적 이동 시간(분)을 조회한다.",
+   "params": [],
+   "returns": "",
+   "bases": [
+    "BaseModel"
+   ],
+   "fields": [
+    {
+     "name": "from_area",
+     "annotation": "str",
+     "default": "Field(description='출발 지역 (예: 난바)')"
+    },
+    {
+     "name": "to_area",
+     "annotation": "str",
+     "default": "Field(description='도착 지역 (예: 우메다)')"
+    }
+   ],
+   "ai": false,
+   "reaches": false
+  },
+  {
+   "id": "core.tools:estimate_travel_time",
+   "module": "core.tools",
+   "name": "estimate_travel_time",
+   "kind": "function",
+   "extra": "",
+   "signature": "def estimate_travel_time(args: TravelTimeArgs) -> dict",
+   "line": 79,
+   "doc": "",
+   "params": [
+    {
+     "name": "args",
+     "annotation": "TravelTimeArgs",
+     "default": ""
+    }
+   ],
+   "returns": "dict",
+   "bases": [],
+   "fields": [],
+   "ai": false,
+   "reaches": false
+  },
+  {
+   "id": "core.tools:BudgetArgs",
+   "module": "core.tools",
+   "name": "BudgetArgs",
+   "kind": "class",
+   "extra": "",
+   "signature": "class BudgetArgs(BaseModel)",
+   "line": 90,
+   "doc": "숙박·식비·항공을 합쳐 여행 예산(원)을 계산한다.",
+   "params": [],
+   "returns": "",
+   "bases": [
+    "BaseModel"
+   ],
+   "fields": [
+    {
+     "name": "nights",
+     "annotation": "int",
+     "default": "Field(ge=0, le=30, description='숙박 일수')"
+    },
+    {
+     "name": "people",
+     "annotation": "int",
+     "default": "Field(ge=1, le=10, description='인원 수')"
+    },
+    {
+     "name": "style",
+     "annotation": "Literal['절약', '보통', '고급']",
+     "default": "Field(default='보통', description='여행 스타일 — 숙박·식비 단가를 가른다')"
+    },
+    {
+     "name": "include_flight",
+     "annotation": "bool",
+     "default": "Field(default=True, description='항공권 포함 여부')"
+    }
+   ],
+   "ai": false,
+   "reaches": false
+  },
+  {
+   "id": "core.tools:calc_budget",
+   "module": "core.tools",
+   "name": "calc_budget",
+   "kind": "function",
+   "extra": "",
+   "signature": "def calc_budget(args: BudgetArgs) -> dict",
+   "line": 106,
+   "doc": "",
+   "params": [
+    {
+     "name": "args",
+     "annotation": "BudgetArgs",
+     "default": ""
+    }
+   ],
+   "returns": "dict",
+   "bases": [],
+   "fields": [],
+   "ai": false,
+   "reaches": false
+  },
+  {
+   "id": "core.tools:tool_schemas",
+   "module": "core.tools",
+   "name": "tool_schemas",
+   "kind": "function",
+   "extra": "",
+   "signature": "def tool_schemas() -> list[dict]",
+   "line": 129,
+   "doc": "모델에게 보여줄 도구 명세 — pydantic 모델에서 자동 생성한다.",
+   "params": [],
+   "returns": "list[dict]",
+   "bases": [],
+   "fields": [],
+   "ai": false,
+   "reaches": false
+  },
+  {
+   "id": "core.tools:run_tool",
+   "module": "core.tools",
+   "name": "run_tool",
+   "kind": "function",
+   "extra": "",
+   "signature": "def run_tool(name: str, raw_arguments: str) -> str",
+   "line": 144,
+   "doc": "도구 실행의 단일 관문: 검증 → 실행 → JSON 문자열.",
+   "params": [
+    {
+     "name": "name",
+     "annotation": "str",
+     "default": ""
+    },
+    {
+     "name": "raw_arguments",
+     "annotation": "str",
+     "default": ""
+    }
+   ],
+   "returns": "str",
+   "bases": [],
+   "fields": [],
+   "ai": false,
+   "reaches": false
+  },
+  {
+   "id": "api.errors:_payload",
+   "module": "api.errors",
+   "name": "_payload",
+   "kind": "function",
+   "extra": "",
+   "signature": "def _payload(request: Request, kind: str, detail: str) -> dict",
+   "line": 25,
+   "doc": "",
+   "params": [
+    {
+     "name": "request",
+     "annotation": "Request",
+     "default": ""
+    },
+    {
+     "name": "kind",
+     "annotation": "str",
+     "default": ""
+    },
+    {
+     "name": "detail",
+     "annotation": "str",
+     "default": ""
+    }
+   ],
+   "returns": "dict",
+   "bases": [],
+   "fields": [],
+   "ai": false,
+   "reaches": false
+  },
+  {
+   "id": "api.errors:upstream_handler",
+   "module": "api.errors",
+   "name": "upstream_handler",
+   "kind": "function",
+   "extra": "",
+   "signature": "async def upstream_handler(request: Request, exc: Exception) -> JSONResponse",
+   "line": 33,
+   "doc": "",
+   "params": [
+    {
+     "name": "request",
+     "annotation": "Request",
+     "default": ""
+    },
+    {
+     "name": "exc",
+     "annotation": "Exception",
+     "default": ""
+    }
+   ],
+   "returns": "JSONResponse",
+   "bases": [],
+   "fields": [],
+   "ai": false,
+   "reaches": false
+  },
+  {
+   "id": "api.errors:install",
+   "module": "api.errors",
+   "name": "install",
+   "kind": "function",
+   "extra": "",
+   "signature": "def install(app) -> None",
+   "line": 41,
+   "doc": "",
+   "params": [
+    {
+     "name": "app",
+     "annotation": "",
+     "default": ""
+    }
+   ],
+   "returns": "None",
+   "bases": [],
+   "fields": [],
+   "ai": false,
+   "reaches": false
+  },
+  {
+   "id": "api.main:request_id_and_log",
+   "module": "api.main",
+   "name": "request_id_and_log",
+   "kind": "route",
+   "extra": "MIDDLEWARE http",
+   "signature": "async def request_id_and_log(request: Request, call_next)",
+   "line": 60,
+   "doc": "요청 하나에 이름표를 붙이고, 끝나면 한 줄을 남긴다.",
+   "params": [
+    {
+     "name": "request",
+     "annotation": "Request",
+     "default": ""
+    },
+    {
+     "name": "call_next",
+     "annotation": "",
+     "default": ""
+    }
+   ],
+   "returns": "",
+   "bases": [],
+   "fields": [],
+   "ai": false,
+   "reaches": false
+  },
+  {
+   "id": "api.main:health",
+   "module": "api.main",
+   "name": "health",
+   "kind": "route",
+   "extra": "GET /health",
+   "signature": "def health() -> dict",
+   "line": 80,
+   "doc": "",
+   "params": [],
+   "returns": "dict",
+   "bases": [],
+   "fields": [],
+   "ai": false,
+   "reaches": false
+  },
+  {
+   "id": "api.main:read_config",
+   "module": "api.main",
+   "name": "read_config",
+   "kind": "route",
+   "extra": "GET /config",
+   "signature": "def read_config() -> dict",
+   "line": 85,
+   "doc": "지금 이 서버가 무엇으로 도는가. 3주차 `/config`와 같은 자리다.",
+   "params": [],
+   "returns": "dict",
+   "bases": [],
+   "fields": [],
+   "ai": false,
+   "reaches": false
+  },
+  {
+   "id": "api.main:plan",
+   "module": "api.main",
+   "name": "plan",
+   "kind": "route",
+   "extra": "POST /plan",
+   "signature": "def plan(body: PlanRequest, simulate: str | None = SIMULATE) -> PlanResponse",
+   "line": 102,
+   "doc": "계획 하나를 세워 돌려준다.",
+   "params": [
+    {
+     "name": "body",
+     "annotation": "PlanRequest",
+     "default": ""
+    },
+    {
+     "name": "simulate",
+     "annotation": "str | None",
+     "default": "SIMULATE"
+    }
+   ],
+   "returns": "PlanResponse",
+   "bases": [],
+   "fields": [],
+   "ai": false,
+   "reaches": true
+  },
+  {
+   "id": "api.main:plan_stream",
+   "module": "api.main",
+   "name": "plan_stream",
+   "kind": "route",
+   "extra": "POST /plan/stream",
+   "signature": "async def plan_stream(body: PlanRequest, simulate: str | None = SIMULATE)",
+   "line": 119,
+   "doc": "같은 일을 하면서 진행을 흘린다.",
+   "params": [
+    {
+     "name": "body",
+     "annotation": "PlanRequest",
+     "default": ""
+    },
+    {
+     "name": "simulate",
+     "annotation": "str | None",
+     "default": "SIMULATE"
+    }
+   ],
+   "returns": "",
+   "bases": [],
+   "fields": [],
+   "ai": false,
+   "reaches": true
+  },
+  {
+   "id": "api.main:plan_blocking",
+   "module": "api.main",
+   "name": "plan_blocking",
+   "kind": "route",
+   "extra": "POST /plan/blocking",
+   "signature": "async def plan_blocking(body: PlanRequest) -> PlanResponse",
+   "line": 163,
+   "doc": "랩 전용 — **일부러 잘못 만든 문**이다. 절대 따라 쓰지 않는다.",
+   "params": [
+    {
+     "name": "body",
+     "annotation": "PlanRequest",
+     "default": ""
+    }
+   ],
+   "returns": "PlanResponse",
+   "bases": [],
+   "fields": [],
+   "ai": false,
+   "reaches": true
+  },
+  {
+   "id": "api.schemas:PlanRequest",
+   "module": "api.schemas",
+   "name": "PlanRequest",
+   "kind": "class",
+   "extra": "",
+   "signature": "class PlanRequest(BaseModel)",
+   "line": 16,
+   "doc": "여행 계획 요청.",
+   "params": [],
+   "returns": "",
+   "bases": [
+    "BaseModel"
+   ],
+   "fields": [
+    {
+     "name": "question",
+     "annotation": "str",
+     "default": "Field(min_length=2, max_length=500, description='여행 요청 한 줄 (예: 오사카 2박 3일, 2명, 예산 100만원)', examples=['오사카 2박 3일 2명 일정 짜줘'])"
+    },
+    {
+     "name": "max_steps",
+     "annotation": "int",
+     "default": "Field(default=DEFAULT_MAX_STEPS, ge=1, le=12, description='루프 스텝 한도. 성능 손잡이가 아니라 보험이다 (6주차)')"
+    },
+    {
+     "name": "max_cost_usd",
+     "annotation": "float",
+     "default": "Field(default=DEFAULT_MAX_COST_USD, gt=0, le=5.0, description='이 요청 하나에 허용하는 비용 상한(USD)')"
+    }
+   ],
+   "ai": false,
+   "reaches": false
+  },
+  {
+   "id": "api.schemas:StepOut",
+   "module": "api.schemas",
+   "name": "StepOut",
+   "kind": "class",
+   "extra": "",
+   "signature": "class StepOut(BaseModel)",
+   "line": 34,
+   "doc": "",
+   "params": [],
+   "returns": "",
+   "bases": [
+    "BaseModel"
+   ],
+   "fields": [
+    {
+     "name": "n",
+     "annotation": "int",
+     "default": ""
+    },
+    {
+     "name": "tool",
+     "annotation": "str | None",
+     "default": ""
+    },
+    {
+     "name": "args",
+     "annotation": "str | None",
+     "default": ""
+    },
+    {
+     "name": "observation",
+     "annotation": "str | None",
+     "default": ""
+    }
+   ],
+   "ai": false,
+   "reaches": false
+  },
+  {
+   "id": "api.schemas:PlanResponse",
+   "module": "api.schemas",
+   "name": "PlanResponse",
+   "kind": "class",
+   "extra": "",
+   "signature": "class PlanResponse(BaseModel)",
+   "line": 41,
+   "doc": "답만 돌려주지 않는다. 무슨 일이 있었는지와 얼마를 썼는지를 함께 싣는다.",
+   "params": [],
+   "returns": "",
+   "bases": [
+    "BaseModel"
+   ],
+   "fields": [
+    {
+     "name": "answer",
+     "annotation": "str",
+     "default": ""
+    },
+    {
+     "name": "stopped_by",
+     "annotation": "str",
+     "default": "Field(description='\"final\" · \"max_steps\" · \"budget\"')"
+    },
+    {
+     "name": "model",
+     "annotation": "str",
+     "default": ""
+    },
+    {
+     "name": "steps",
+     "annotation": "list[StepOut]",
+     "default": ""
+    },
+    {
+     "name": "usage",
+     "annotation": "dict",
+     "default": ""
+    },
+    {
+     "name": "spent_usd",
+     "annotation": "float",
+     "default": ""
+    }
+   ],
+   "ai": false,
+   "reaches": false
+  },
+  {
+   "id": "mcp_server.server:plan_trip",
+   "module": "mcp_server.server",
+   "name": "plan_trip",
+   "kind": "tool",
+   "extra": "MCP 도구",
+   "signature": "def plan_trip(question: str, max_steps: int = 6) -> dict",
+   "line": 41,
+   "doc": "여행 요청 한 줄로 일정과 예산을 세운다. 안에서 에이전트 루프가 돈다.",
+   "params": [
+    {
+     "name": "question",
+     "annotation": "str",
+     "default": ""
+    },
+    {
+     "name": "max_steps",
+     "annotation": "int",
+     "default": "6"
+    }
+   ],
+   "returns": "dict",
+   "bases": [],
+   "fields": [],
+   "ai": false,
+   "reaches": true
+  },
+  {
+   "id": "mcp_server.server:search_places",
+   "module": "mcp_server.server",
+   "name": "search_places",
+   "kind": "tool",
+   "extra": "MCP 도구",
+   "signature": "def search_places(city: str, category: str | None = None) -> dict",
+   "line": 56,
+   "doc": "도시의 관광지·식당·카페를 검색한다. 지원 도시: 오사카, 교토.",
+   "params": [
+    {
+     "name": "city",
+     "annotation": "str",
+     "default": ""
+    },
+    {
+     "name": "category",
+     "annotation": "str | None",
+     "default": "None"
+    }
+   ],
+   "returns": "dict",
+   "bases": [],
+   "fields": [],
+   "ai": false,
+   "reaches": false
+  },
+  {
+   "id": "mcp_server.server:estimate_travel_time",
+   "module": "mcp_server.server",
+   "name": "estimate_travel_time",
+   "kind": "tool",
+   "extra": "MCP 도구",
+   "signature": "def estimate_travel_time(from_area: str, to_area: str) -> dict",
+   "line": 62,
+   "doc": "두 지역 사이의 대략적 이동 시간(분)을 조회한다.",
+   "params": [
+    {
+     "name": "from_area",
+     "annotation": "str",
+     "default": ""
+    },
+    {
+     "name": "to_area",
+     "annotation": "str",
+     "default": ""
+    }
+   ],
+   "returns": "dict",
+   "bases": [],
+   "fields": [],
+   "ai": false,
+   "reaches": false
+  },
+  {
+   "id": "mcp_server.server:calc_budget",
+   "module": "mcp_server.server",
+   "name": "calc_budget",
+   "kind": "tool",
+   "extra": "MCP 도구",
+   "signature": "def calc_budget(nights: int, people: int, style: str = '보통', include_flight: bool = True) -> dict",
+   "line": 70,
+   "doc": "숙박·식비·항공을 합쳐 여행 예산(원)을 계산한다. style: 절약·보통·고급.",
+   "params": [
+    {
+     "name": "nights",
+     "annotation": "int",
+     "default": ""
+    },
+    {
+     "name": "people",
+     "annotation": "int",
+     "default": ""
+    },
+    {
+     "name": "style",
+     "annotation": "str",
+     "default": "'보통'"
+    },
+    {
+     "name": "include_flight",
+     "annotation": "bool",
+     "default": "True"
+    }
+   ],
+   "returns": "dict",
+   "bases": [],
+   "fields": [],
+   "ai": false,
+   "reaches": false
+  },
+  {
+   "id": "mcp_server.server:main",
+   "module": "mcp_server.server",
+   "name": "main",
+   "kind": "function",
+   "extra": "",
+   "signature": "def main() -> None",
+   "line": 81,
+   "doc": "",
+   "params": [],
+   "returns": "None",
+   "bases": [],
+   "fields": [],
+   "ai": false,
+   "reaches": false
+  },
+  {
+   "id": "clients.py_client:use",
+   "module": "clients.py_client",
+   "name": "use",
+   "kind": "function",
+   "extra": "",
+   "signature": "async def use(session: ClientSession) -> None",
+   "line": 25,
+   "doc": "",
+   "params": [
+    {
+     "name": "session",
+     "annotation": "ClientSession",
+     "default": ""
+    }
+   ],
+   "returns": "None",
+   "bases": [],
+   "fields": [],
+   "ai": false,
+   "reaches": false
+  },
+  {
+   "id": "clients.py_client:main",
+   "module": "clients.py_client",
+   "name": "main",
+   "kind": "function",
+   "extra": "",
+   "signature": "async def main() -> None",
+   "line": 44,
+   "doc": "",
+   "params": [],
+   "returns": "None",
+   "bases": [],
+   "fields": [],
+   "ai": false,
+   "reaches": false
+  }
+ ],
+ "edges": [
+  {
+   "from": "core.config:mode",
+   "to": "core.config:gateway",
+   "kind": "call"
+  },
+  {
+   "from": "core.config:pick_model",
+   "to": "core.config:mode",
+   "kind": "call"
+  },
+  {
+   "from": "core.config:pick_model",
+   "to": "core.config:gateway",
+   "kind": "call"
+  },
+  {
+   "from": "core.errors:UpstreamError",
+   "to": "core.errors:CoreError",
+   "kind": "inherits"
+  },
+  {
+   "from": "core.errors:UpstreamTimeout",
+   "to": "core.errors:CoreError",
+   "kind": "inherits"
+  },
+  {
+   "from": "core.harness:BudgetGuard.add",
+   "to": "core.harness:BudgetExceeded",
+   "kind": "construct"
+  },
+  {
+   "from": "core.llm:completion",
+   "to": "core.config:gateway",
+   "kind": "call"
+  },
+  {
+   "from": "core.llm:completion",
+   "to": "core.config:gateway_key",
+   "kind": "call"
+  },
+  {
+   "from": "core.llm:completion",
+   "to": "core.errors:UpstreamError",
+   "kind": "construct"
+  },
+  {
+   "from": "core.llm:completion",
+   "to": "core.errors:UpstreamTimeout",
+   "kind": "construct"
+  },
+  {
+   "from": "core.llm:completion",
+   "to": "core.config:mode",
+   "kind": "call"
+  },
+  {
+   "from": "core.llm:completion",
+   "to": "core.offline:completion",
+   "kind": "call"
+  },
+  {
+   "from": "core.offline:completion",
+   "to": "core.offline:_question",
+   "kind": "call"
+  },
+  {
+   "from": "core.offline:completion",
+   "to": "core.offline:_plan_args",
+   "kind": "call"
+  },
+  {
+   "from": "core.offline:completion",
+   "to": "core.offline:_fake_response",
+   "kind": "call"
+  },
+  {
+   "from": "core.offline:completion",
+   "to": "core.offline:_compose_answer",
+   "kind": "call"
+  },
+  {
+   "from": "core.offline:completion",
+   "to": "core.offline:_observations",
+   "kind": "call"
+  },
+  {
+   "from": "core.offline:completion",
+   "to": "core.offline:_fake_tool_call",
+   "kind": "call"
+  },
+  {
+   "from": "core.react:run_iter",
+   "to": "core.harness:BudgetGuard",
+   "kind": "param"
+  },
+  {
+   "from": "core.react:run_iter",
+   "to": "core.harness:TraceLogger",
+   "kind": "param"
+  },
+  {
+   "from": "core.react:run_iter",
+   "to": "core.llm:completion",
+   "kind": "call"
+  },
+  {
+   "from": "core.react:run_iter",
+   "to": "core.config:pick_model",
+   "kind": "call"
+  },
+  {
+   "from": "core.react:run_iter",
+   "to": "core.tools:run_tool",
+   "kind": "call"
+  },
+  {
+   "from": "core.react:run_iter",
+   "to": "core.harness:scan_injection",
+   "kind": "call"
+  },
+  {
+   "from": "core.react:run_iter",
+   "to": "core.tools:tool_schemas",
+   "kind": "call"
+  },
+  {
+   "from": "core.react:run_iter",
+   "to": "core.harness:wrap_tool_result",
+   "kind": "call"
+  },
+  {
+   "from": "core.react:run",
+   "to": "core.react:ReactResult",
+   "kind": "returns"
+  },
+  {
+   "from": "core.react:run",
+   "to": "core.react:ReactResult",
+   "kind": "construct"
+  },
+  {
+   "from": "core.react:run",
+   "to": "core.react:run_iter",
+   "kind": "call"
+  },
+  {
+   "from": "core.react:run",
+   "to": "core.react:StepRecord",
+   "kind": "construct"
+  },
+  {
+   "from": "core.service:_guard",
+   "to": "core.harness:BudgetGuard",
+   "kind": "returns"
+  },
+  {
+   "from": "core.service:_guard",
+   "to": "core.harness:BudgetGuard",
+   "kind": "construct"
+  },
+  {
+   "from": "core.service:plan_events",
+   "to": "core.react:run_iter",
+   "kind": "call"
+  },
+  {
+   "from": "core.service:plan_events",
+   "to": "core.service:_guard",
+   "kind": "call"
+  },
+  {
+   "from": "core.service:plan_events",
+   "to": "core.harness:TraceLogger",
+   "kind": "construct"
+  },
+  {
+   "from": "core.service:plan",
+   "to": "core.service:PlanResult",
+   "kind": "returns"
+  },
+  {
+   "from": "core.service:plan",
+   "to": "core.service:plan_events",
+   "kind": "call"
+  },
+  {
+   "from": "core.service:plan",
+   "to": "core.service:PlanResult",
+   "kind": "construct"
+  },
+  {
+   "from": "core.tools:search_places",
+   "to": "core.tools:SearchPlacesArgs",
+   "kind": "param"
+  },
+  {
+   "from": "core.tools:estimate_travel_time",
+   "to": "core.tools:TravelTimeArgs",
+   "kind": "param"
+  },
+  {
+   "from": "core.tools:calc_budget",
+   "to": "core.tools:BudgetArgs",
+   "kind": "param"
+  },
+  {
+   "from": "api.errors:upstream_handler",
+   "to": "api.errors:_payload",
+   "kind": "call"
+  },
+  {
+   "from": "api.main:read_config",
+   "to": "core.config:mode",
+   "kind": "call"
+  },
+  {
+   "from": "api.main:read_config",
+   "to": "core.config:pick_model",
+   "kind": "call"
+  },
+  {
+   "from": "api.main:read_config",
+   "to": "core.config:gateway",
+   "kind": "call"
+  },
+  {
+   "from": "api.main:plan",
+   "to": "api.schemas:PlanResponse",
+   "kind": "returns"
+  },
+  {
+   "from": "api.main:plan",
+   "to": "api.schemas:PlanRequest",
+   "kind": "param"
+  },
+  {
+   "from": "api.main:plan",
+   "to": "core.service:plan",
+   "kind": "call"
+  },
+  {
+   "from": "api.main:plan",
+   "to": "api.schemas:PlanResponse",
+   "kind": "construct"
+  },
+  {
+   "from": "api.main:plan_stream",
+   "to": "api.schemas:PlanRequest",
+   "kind": "param"
+  },
+  {
+   "from": "api.main:plan_stream",
+   "to": "core.service:plan_events",
+   "kind": "call"
+  },
+  {
+   "from": "api.main:plan_blocking",
+   "to": "api.schemas:PlanResponse",
+   "kind": "returns"
+  },
+  {
+   "from": "api.main:plan_blocking",
+   "to": "api.schemas:PlanRequest",
+   "kind": "param"
+  },
+  {
+   "from": "api.main:plan_blocking",
+   "to": "core.service:plan",
+   "kind": "call"
+  },
+  {
+   "from": "api.main:plan_blocking",
+   "to": "api.schemas:PlanResponse",
+   "kind": "construct"
+  },
+  {
+   "from": "mcp_server.server:plan_trip",
+   "to": "core.service:plan",
+   "kind": "call"
+  },
+  {
+   "from": "mcp_server.server:search_places",
+   "to": "core.tools:search_places",
+   "kind": "call"
+  },
+  {
+   "from": "mcp_server.server:search_places",
+   "to": "core.tools:SearchPlacesArgs",
+   "kind": "construct"
+  },
+  {
+   "from": "mcp_server.server:estimate_travel_time",
+   "to": "core.tools:estimate_travel_time",
+   "kind": "call"
+  },
+  {
+   "from": "mcp_server.server:estimate_travel_time",
+   "to": "core.tools:TravelTimeArgs",
+   "kind": "construct"
+  },
+  {
+   "from": "mcp_server.server:calc_budget",
+   "to": "core.tools:calc_budget",
+   "kind": "call"
+  },
+  {
+   "from": "mcp_server.server:calc_budget",
+   "to": "core.tools:BudgetArgs",
+   "kind": "construct"
+  },
+  {
+   "from": "clients.py_client:main",
+   "to": "clients.py_client:use",
+   "kind": "call"
+  }
+ ]
+}

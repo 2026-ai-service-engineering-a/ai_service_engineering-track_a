@@ -1,0 +1,411 @@
+---
+/**
+ * 심볼 지도 (8주차 여러 절).
+ *
+ * 한 모듈과 그 모듈이 닿는 것만 그린다. 저장소 전체를 늘어놓지 않는다.
+ * 데이터는 `scripts/build-week08-codemap.py`가 저장소를 파싱해 만든
+ * `src/data/week08-codemap.json`이다.
+ *
+ *   <SymbolMap modules={['core.service']} />
+ *   <SymbolMap modules={['api.main', 'api.schemas']} neighbors={false} />
+ *
+ * 카드를 누르면 파라미터와 리턴이 펼쳐지고, 그 심볼이 닿는 곳으로 화살표가
+ * 그려진다. 화살표의 모양이 관계의 종류다 (호출·사용·리턴·파라미터·상속).
+ */
+import codemap from '../data/week08-codemap.json';
+
+interface Props {
+  modules: string[];
+  neighbors?: boolean;
+  caption?: string;
+}
+const { modules, neighbors = true, caption } = Astro.props;
+
+// caption은 평문으로 들어오므로 코드 스팬과 볼드만 손으로 풀어 준다
+const inline = (s: string) => s
+  .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+  .replace(/`([^`]+)`/g, '<code>$1</code>')
+  .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+
+// 한 쪽에 지도가 여럿이라 marker id가 겹치면 안 된다
+const uid = modules.join('-').replace(/[^a-z0-9]+/gi, '-');
+
+const fileOf = new Map(codemap.modules.map((m) => [m.module, m.file]));
+const own = codemap.symbols.filter((s) => modules.includes(s.module));
+const ownIds = new Set(own.map((s) => s.id));
+
+const touched = new Set<string>();
+if (neighbors) {
+  for (const edge of codemap.edges) {
+    if (ownIds.has(edge.from) && !ownIds.has(edge.to)) touched.add(edge.to);
+    if (ownIds.has(edge.to) && !ownIds.has(edge.from)) touched.add(edge.from);
+  }
+}
+
+const shown = [...own, ...codemap.symbols.filter((s) => touched.has(s.id))];
+const shownIds = new Set(shown.map((s) => s.id));
+const edges = codemap.edges.filter((e) => shownIds.has(e.from) && shownIds.has(e.to));
+
+const groups = [...new Set(shown.map((s) => s.module))]
+  .sort((a, b) => Number(modules.includes(b)) - Number(modules.includes(a)))
+  .map((module) => ({
+    module,
+    file: fileOf.get(module) ?? module,
+    isOwn: modules.includes(module),
+    symbols: shown.filter((s) => s.module === module).sort((a, b) => a.line - b.line),
+  }));
+
+// AI 배지는 **그림마다** 정한다. 모델로 이어지는 심볼(reaches) 중에서,
+// 이 그림 안에 더 깊은 다음 단이 없는 것 — 즉 여기서 보이는 마지막 단이다.
+// 실제 litellm 호출은 언제나 core/llm.py의 completion 한 곳이지만, 그것이
+// 그려지지 않은 그림에서는 그 바로 앞 단이 마지막 단이 된다
+const reaching = new Set(shown.filter((s) => s.reaches).map((s) => s.id));
+const hasDeeper = new Set(
+  edges.filter((e) => (e.kind === 'call' || e.kind === 'construct')
+                   && reaching.has(e.from) && reaching.has(e.to))
+       .map((e) => e.from),
+);
+const aiMark = new Set([...reaching].filter((id) => !hasDeeper.has(id)));
+
+const KIND: Record<string, { label: string; tone: string }> = {
+  dataclass: { label: 'data', tone: 'blue' },
+  class: { label: 'class', tone: 'blue' },
+  route: { label: 'route', tone: 'orange' },
+  tool: { label: 'tool', tone: 'purple' },
+  method: { label: 'method', tone: 'green' },
+  function: { label: 'function', tone: 'green' },
+};
+
+const detail = Object.fromEntries(shown.map((s) => [s.id, {
+  name: s.name, kind: s.kind, extra: s.extra, doc: s.doc, line: s.line,
+  file: fileOf.get(s.module), params: s.params, returns: s.returns,
+  fields: s.fields, bases: s.bases,
+}]));
+---
+
+<div class="smap" data-smap data-uid={uid} data-detail={JSON.stringify(detail)} data-edges={JSON.stringify(edges)}>
+  <div class="smap-legend">
+    <span><i class="ln is-call"></i>호출</span>
+    <span><i class="ln is-construct"></i>사용 (인스턴스)</span>
+    <span><i class="ln is-returns"></i>리턴</span>
+    <span><i class="ln is-param"></i>파라미터</span>
+    <span><i class="ln is-inherits"></i>상속</span>
+    <span><i class="smap-ai is-legend">AI</i>모델로 가는 마지막 단</span>
+  </div>
+
+  <div class="smap-canvas" data-canvas>
+    <svg class="smap-arrows" data-svg aria-hidden="true">
+      <defs>
+        {['call', 'construct', 'returns', 'param', 'inherits'].map((kind) => (
+          <marker id={`smap-head-${kind}-${uid}`} viewBox="0 0 8 8" refX="7" refY="4"
+                  markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M 0 0 L 8 4 L 0 8 z" class={`smap-head is-${kind}`}></path>
+          </marker>
+        ))}
+      </defs>
+    </svg>
+
+    {groups.map((group) => (
+      <div class={group.isOwn ? 'smap-mod is-own' : 'smap-mod'}>
+        <p class="smap-mod-name">{group.file}</p>
+        <div class="smap-cards">
+          {group.symbols.map((sym) => (
+            <button type="button" class={`smap-card is-${KIND[sym.kind]?.tone ?? 'green'}`}
+                    data-card={sym.id}>
+              {aiMark.has(sym.id) && (
+                <span class="smap-ai" title={sym.ai
+                  ? '이 함수 안에서 litellm 호출이 일어난다'
+                  : '이 그림에서 모델로 가는 마지막 단이다. 실제 호출은 core/llm.py의 completion 안에 있다'}>AI</span>
+              )}
+              <span class="smap-kind">{KIND[sym.kind]?.label ?? sym.kind}</span>
+              <span class="smap-name">{sym.name}</span>
+              <span class="smap-body" data-body hidden></span>
+            </button>
+          ))}
+        </div>
+      </div>
+    ))}
+  </div>
+
+  <p class="smap-caption" set:html={inline(caption ?? '카드를 누르면 파라미터와 리턴이 펼쳐지고, 닿는 곳으로 화살표가 그려집니다.')} />
+</div>
+
+<script>
+  document.querySelectorAll<HTMLElement>('[data-smap]').forEach(init);
+
+  function init(root: HTMLElement) {
+    type Param = { name: string; annotation: string; default: string };
+    type Detail = {
+      name: string; kind: string; extra: string; doc: string; line: number;
+      file: string; params: Param[]; returns: string;
+      fields: Param[]; bases: string[];
+    };
+    type Edge = { from: string; to: string; kind: string };
+
+    const DETAIL = JSON.parse(root.dataset.detail ?? '{}') as Record<string, Detail>;
+    const EDGES = JSON.parse(root.dataset.edges ?? '[]') as Edge[];
+    const uid = root.dataset.uid ?? '';
+    const canvas = root.querySelector<HTMLElement>('[data-canvas]')!;
+    const svg = root.querySelector<SVGSVGElement>('[data-svg]')!;
+    const cards = [...root.querySelectorAll<HTMLButtonElement>('[data-card]')];
+    let open = '';
+
+    function block(title: string, rows: string[]): string {
+      if (!rows.length) return '';
+      return `<b>${title}</b>${rows.map((r) => `<span>${r}</span>`).join('')}`;
+    }
+
+    function fill(id: string): string {
+      const d = DETAIL[id];
+      const param = (p: Param) =>
+        `${p.name}${p.annotation ? `: ${p.annotation}` : ''}${p.default ? ` = ${p.default}` : ''}`;
+      const parts = [
+        d.doc ? `<i>${d.doc}</i>` : '',
+        block('Parameter', d.params.map(param)),
+        block('Field', d.fields.map(param)),
+        d.returns ? block('Return', [d.returns]) : '',
+        d.bases.length ? block('Base', d.bases) : '',
+        `<u>${d.file}:${d.line}</u>`,
+      ];
+      return parts.filter(Boolean).join('');
+    }
+
+    function draw(id: string) {
+      const box = canvas.getBoundingClientRect();
+      svg.setAttribute('viewBox', `0 0 ${box.width} ${box.height}`);
+      svg.querySelectorAll('path[data-edge]').forEach((p) => p.remove());
+      if (!id) return;
+
+      const anchors = new Map<string, DOMRect>();
+      cards.forEach((c) => anchors.set(c.dataset.card ?? '', c.getBoundingClientRect()));
+
+      EDGES.filter((e) => e.from === id || e.to === id).forEach((edge) => {
+        const a = anchors.get(edge.from);
+        const b = anchors.get(edge.to);
+        if (!a || !b) return;
+        const from = { x: a.left - box.left + a.width / 2, y: a.top - box.top + a.height / 2 };
+        const to = { x: b.left - box.left + b.width / 2, y: b.top - box.top + b.height / 2 };
+        const dx = to.x - from.x;
+        const dy = to.y - from.y;
+        const len = Math.hypot(dx, dy) || 1;
+        const ux = dx / len;
+        const uy = dy / len;
+
+        // 중심에서 쏜 선이 **카드 사각형**과 만나는 지점. 예전에는 min(폭,높이)를
+        // 반지름으로 삼는 원이었는데, 펼친 카드처럼 길쭉해지면 위아래로 가는 선의
+        // 끝이 카드 안쪽에 박혀 화살촉이 카드에 가려졌다
+        const onEdge = (r: DOMRect, cx0: number, cy0: number, sign: number, pad: number) => {
+          const hw = r.width / 2 + pad;
+          const hh = r.height / 2 + pad;
+          const tx = Math.abs(ux) < 1e-6 ? Infinity : hw / Math.abs(ux);
+          const ty = Math.abs(uy) < 1e-6 ? Infinity : hh / Math.abs(uy);
+          const t = Math.min(tx, ty);
+          return { x: cx0 + ux * sign * t, y: cy0 + uy * sign * t };
+        };
+
+        let s = onEdge(a, from.x, from.y, 1, 8);
+        let e = onEdge(b, to.x, to.y, -1, 8);
+        // 카드가 바짝 붙어 있으면 여백 때문에 두 끝이 서로를 지나쳐 화살표가
+        // 거꾸로 돌아간다. 그럴 때는 여백 없이 경계에서 경계로 잇는다
+        if ((e.x - s.x) * ux + (e.y - s.y) * uy < 6) {
+          s = onEdge(a, from.x, from.y, 1, 0);
+          e = onEdge(b, to.x, to.y, -1, 0);
+        }
+        const sx = s.x, sy = s.y, ex = e.x, ey = e.y;
+        const bow = Math.min(0.12, 24 / Math.max(len, 1));
+        const cx = (sx + ex) / 2 + (ey - sy) * bow;
+        const cy = (sy + ey) / 2 - (ex - sx) * bow;
+
+        const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        path.setAttribute('d', `M ${sx} ${sy} Q ${cx} ${cy} ${ex} ${ey}`);
+        path.setAttribute('class', `smap-edge is-${edge.kind}`);
+        path.setAttribute('marker-end', `url(#smap-head-${edge.kind}-${uid})`);
+        path.dataset.edge = edge.kind;
+        svg.appendChild(path);
+      });
+    }
+
+    function select(id: string) {
+      open = id;
+      const related = new Set<string>([id]);
+      EDGES.forEach((e) => {
+        if (e.from === id) related.add(e.to);
+        if (e.to === id) related.add(e.from);
+      });
+      cards.forEach((card) => {
+        const cid = card.dataset.card ?? '';
+        const body = card.querySelector<HTMLElement>('[data-body]')!;
+        const isOpen = cid === id;
+        card.classList.toggle('is-open', isOpen);
+        card.classList.toggle('is-linked', related.has(cid) && !isOpen);
+        card.classList.toggle('is-off', !related.has(cid));
+        body.hidden = !isOpen;
+        if (isOpen) body.innerHTML = fill(cid);
+      });
+      draw(id);
+    }
+
+    function clear() {
+      open = '';
+      cards.forEach((card) => {
+        card.classList.remove('is-open', 'is-linked', 'is-off');
+        card.querySelector<HTMLElement>('[data-body]')!.hidden = true;
+      });
+      draw('');
+    }
+
+    cards.forEach((card) => {
+      card.addEventListener('click', () => {
+        const id = card.dataset.card ?? '';
+        if (open === id) clear();
+        else select(id);
+      });
+    });
+
+    // 크기가 실제로 바뀐 경우에만 다시 그린다. 그리기가 다시 관찰을
+    // 깨우는 되먹임(ResizeObserver loop)을 끊는 장치다.
+    let last = { w: 0, h: 0 };
+    let scheduled = false;
+    new ResizeObserver((entries) => {
+      const rect = entries[0].contentRect;
+      if (Math.abs(rect.width - last.w) < 1 && Math.abs(rect.height - last.h) < 1) return;
+      last = { w: rect.width, h: rect.height };
+      if (!open || scheduled) return;
+      scheduled = true;
+      draw(open);
+      scheduled = false;
+    }).observe(canvas);
+  }
+</script>
+
+<style>
+  .smap {
+    margin: 2rem 0;
+    padding: 1rem;
+    border: 1px solid var(--aas-border);
+    border-radius: 14px;
+    background: var(--aas-panel);
+    font-family: var(--aas-sans);
+    container-type: inline-size;
+    font-size: clamp(0.85rem, 1.4cqw, 1.1rem);
+    --smap-blue: #2f81f7;
+    --smap-green: #16a34a;
+    --smap-orange: #d97706;
+    --smap-purple: #7c3aed;
+    --smap-amber: #b45309;
+  }
+
+  .smap-legend {
+    display: flex; flex-wrap: wrap; gap: 0.9em; margin-bottom: 0.8em;
+    font-size: 0.72em; color: var(--aas-muted);
+  }
+  .smap-legend .ln {
+    display: inline-block; width: 1.6em; height: 0; margin-right: 0.35em;
+    vertical-align: middle; border-top: 2px solid var(--aas-muted);
+  }
+  .smap-legend .ln.is-construct { border-top-style: dashed; }
+  .smap-legend .ln.is-returns { border-top-style: dotted; }
+  .smap-legend .ln.is-param { border-top-style: dotted; opacity: 0.5; }
+  .smap-legend .ln.is-inherits { border-top-width: 3px; border-top-style: double; }
+
+  .smap-canvas { position: relative; display: flex; flex-wrap: wrap; gap: 0.9em; align-items: flex-start; }
+  /* 카드가 position: relative(배지 때문)라 그냥 두면 선이 카드 뒤로 숨는다.
+     사이에 낀 카드에서 선이 시작하는 것처럼 보여서 위로 올린다 */
+  .smap-arrows {
+    position: absolute; inset: 0; width: 100%; height: 100%;
+    pointer-events: none; overflow: visible; z-index: 3;
+  }
+
+  .smap-head.is-call { fill: var(--smap-green); }
+  .smap-head.is-construct, .smap-head.is-returns { fill: var(--smap-blue); }
+  .smap-head.is-param { fill: var(--aas-muted); }
+  .smap-head.is-inherits { fill: var(--smap-purple); }
+
+  .smap-arrows :global(.smap-edge) { fill: none; stroke-width: 1.6; color: var(--aas-muted); stroke: currentColor; }
+  .smap-arrows :global(.smap-edge.is-call) { color: var(--smap-green); }
+  .smap-arrows :global(.smap-edge.is-construct) { color: var(--smap-blue); stroke-dasharray: 6 4; }
+  .smap-arrows :global(.smap-edge.is-returns) { color: var(--smap-blue); stroke-dasharray: 2 4; }
+  .smap-arrows :global(.smap-edge.is-param) { color: var(--aas-muted); stroke-dasharray: 2 5; }
+  .smap-arrows :global(.smap-edge.is-inherits) { color: var(--smap-purple); stroke-width: 2.4; }
+
+  .smap-mod {
+    flex: 1 1 15em; min-width: 13em;
+    padding: 0.8em 0.8em 0.9em;
+    border: 1px dashed color-mix(in srgb, var(--aas-muted) 45%, transparent);
+    border-radius: 14px;
+  }
+  .smap-mod.is-own { border-color: color-mix(in srgb, var(--aas-muted) 70%, transparent); }
+  .smap-mod-name {
+    margin: 0 0 0.6em; font-family: ui-monospace, monospace;
+    font-size: 0.78em; color: var(--aas-muted);
+  }
+  .smap-cards { display: flex; flex-direction: column; gap: 0.6em; }
+
+  .smap-card {
+    display: block; width: 100%; text-align: left;
+    position: relative;
+    padding: 0.6em 0.8em; border-radius: 12px; cursor: pointer;
+    border: 1px solid var(--aas-border); background: var(--aas-bg);
+    transition: opacity 0.15s, box-shadow 0.15s, border-color 0.15s;
+  }
+  .smap-card.is-blue { border-color: color-mix(in srgb, var(--smap-blue) 55%, var(--aas-border)); }
+  .smap-card.is-green { border-color: color-mix(in srgb, var(--smap-green) 55%, var(--aas-border)); }
+  .smap-card.is-orange { border-color: color-mix(in srgb, var(--smap-orange) 55%, var(--aas-border)); }
+  .smap-card.is-purple { border-color: color-mix(in srgb, var(--smap-purple) 55%, var(--aas-border)); }
+  .smap-card.is-off { opacity: 0.35; }
+  .smap-card.is-open { box-shadow: 0 0 0 2px color-mix(in srgb, var(--aas-text) 12%, transparent); }
+
+  .smap-ai {
+    position: absolute; top: 0.5em; right: 0.6em;
+    padding: 0.1em 0.4em; border-radius: 5px;
+    background: color-mix(in srgb, var(--smap-amber) 14%, transparent);
+    border: 1px solid color-mix(in srgb, var(--smap-amber) 50%, transparent);
+    color: var(--smap-amber);
+    font-size: 0.62em; font-weight: 700; letter-spacing: 0.04em;
+  }
+  .smap-ai.is-legend { position: static; margin-right: 0.35em; font-style: normal; }
+
+  .smap-kind { display: block; font-size: 0.72em; font-weight: 600; }
+  .smap-card.is-blue .smap-kind { color: var(--smap-blue); }
+  .smap-card.is-green .smap-kind { color: var(--smap-green); }
+  .smap-card.is-orange .smap-kind { color: var(--smap-orange); }
+  .smap-card.is-purple .smap-kind { color: var(--smap-purple); }
+
+  .smap-name {
+    display: block; font-family: ui-monospace, monospace;
+    font-size: 1.05em; color: var(--aas-text);
+  }
+
+  .smap-body { display: block; margin-top: 0.6em; }
+  .smap-body :global(i) {
+    display: block; margin-bottom: 0.5em; font-style: normal;
+    font-size: 0.76em; line-height: 1.6; color: var(--aas-muted);
+  }
+  .smap-body :global(b) {
+    display: block; margin: 0.5em 0 0.15em; font-size: 0.72em;
+    color: var(--aas-muted); font-weight: 700;
+  }
+  .smap-body :global(span) {
+    display: block; padding-left: 0.6em;
+    font-family: ui-monospace, monospace; font-size: 0.72em;
+    line-height: 1.7; color: var(--aas-text); word-break: break-all;
+  }
+  .smap-body :global(u) {
+    display: block; margin-top: 0.6em; text-decoration: none;
+    font-family: ui-monospace, monospace; font-size: 0.68em; color: var(--aas-muted);
+  }
+
+  .smap-caption { margin: 0.9em 0 0; font-size: 0.78em; line-height: 1.6; color: var(--aas-muted); }
+  .smap-caption code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.94em;
+    padding: 0.08em 0.32em;
+    border-radius: 5px;
+    background: color-mix(in srgb, var(--aas-muted) 14%, transparent);
+  }
+  .smap-caption strong { color: var(--aas-text); font-weight: 650; }
+
+  @container (max-width: 32rem) {
+    .smap-mod { flex: 1 1 100%; }
+  }
+</style>

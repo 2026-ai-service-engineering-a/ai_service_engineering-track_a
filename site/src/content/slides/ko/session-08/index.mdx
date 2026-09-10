@@ -1,0 +1,2239 @@
+---
+title: "8주차: 서비스 경계, 두 개의 문과 자동화"
+description: "8주차 라이브 세션 슬라이드: 진입 함수 하나로 좁히는 서비스 경계, 사람이 부르는 HTTP 문과 다른 AI가 부르는 MCP 문, 이벤트가 부르는 n8n 세 번째 문, 그리고 앱이 진짜 키를 모르게 하는 게이트웨이까지"
+presenter: CodeCompose
+date: "2026-09-11"
+transition: none
+toc_level: 4
+toc_open: false
+---
+
+import Slide from 'stack-site-builder/components/Slide.astro';
+import DoorMap from '../../../../components/DoorMap.astro';
+import GatewayCase from '../../../../components/GatewayCase.astro';
+import SymbolMap from '../../../../components/SymbolMap.astro';
+import McpTools from '../../../../components/McpTools.astro';
+import RequestTimeline from '../../../../components/RequestTimeline.astro';
+import KeyPlacement from '../../../../components/KeyPlacement.astro';
+
+{/* 슬라이드 작성 규칙은 docs/writing-rules.md의 "슬라이드 규칙"을 따릅니다. */}
+
+<Slide class="cover">
+
+# AI 서비스 엔지니어링: Track A
+
+8주차 · 서비스 경계, 두 개의 문과 자동화
+
+*CodeCompose · 2026-09-11*
+
+</Slide>
+
+<Slide class="center">
+
+## 지난주의 마지막 그림
+
+**다음: 서버 안으로**
+
+오늘 그 안으로 들어갑니다
+
+</Slide>
+
+<Slide>
+
+### 7주 동안 무엇이 있었나
+::sub[전부 터미널에서 돌았습니다]
+
+```bash
+python -m agent.main
+```
+
+- 이 줄을 치는 사람이 있어야 움직였습니다.
+- 그 사람은 **언제나 우리**였습니다.
+- 오늘 그것이 끝납니다.
+
+</Slide>
+
+<Slide class="center">
+
+## 오늘 한 문장
+
+**내가 만든 AI 기능을, 남이 부를 수 있게 만든다**
+
+</Slide>
+
+<Slide>
+
+### 오늘 하는 일
+::sub[문을 셋 달고, 뒤에 하나를 더 답니다]
+
+- **경계**: 내 기능과 바깥 사이에 계약을 하나 세운다
+- **두 개의 앞문**: 사람이 부르는 HTTP, 다른 AI가 부르는 MCP
+- **세 번째 문**: 누가 부르지 않아도 열린다. 이벤트가 우리를 부른다
+- **뒷문**: 앱이 진짜 키를 모르게 한다
+
+
+```mermaid
+flowchart LR
+    A["3장<br/>경계"] --> B["4장<br/>HTTP 문"] --> C["5장<br/>MCP 문"] --> D["6장<br/>붙이기"] --> E["7장<br/>n8n"] --> F["8장<br/>키와 지갑"]
+```
+
+</Slide>
+
+<Slide>
+
+### 오늘 새로 배우는 것은 둘뿐입니다
+::sub[나머지는 이미 배운 것을 제자리에 놓는 일입니다]
+
+| 층 | 배운 곳 | 오늘의 자리 |
+| --- | --- | --- |
+| Pydantic | 3주차 | 요청 검증 = 도구 스키마 = MCP 명세 |
+| 헤드리스 API · SSE | 3주차 | 그대로 다시 씁니다 |
+| LiteLLM | 5주차 | 라이브러리였던 것이 **서버**로 섭니다 |
+| 도구 | 5주차 | 데코레이터 한 줄로 MCP 도구가 됩니다 |
+| 루프 · 하네스 | 6주차 | 요청 하나가 루프 한 번 |
+| MCP 클라이언트 | 6주차 | 미뤄 둔 **내어주기**를 오늘 합니다 |
+| LangGraph | 7주차 | 서버에 얹을 때 무엇이 달라지나 |
+
+**새것은 서비스 경계와 자동화 둘입니다.**
+
+</Slide>
+
+<Slide>
+
+### 이번 주의 진행 방식
+
+| | 무엇을 | 어디를 읽나 |
+| --- | --- | --- |
+| 이론 60분 | 경계 · 앞문 · 자동화 · 키 | 3\~8장 |
+| 실습 60분 | 랩을 직접 돌립니다 | 4\~8장의 실행 블록 |
+
+- 교안은 세션에서 말하는 것보다 깁니다.
+- 4 · 5 · 6장은 **10주차부터 자기 프로젝트를 만들 때 다시 펴 보는 장**입니다.
+
+</Slide>
+
+<Slide>
+
+### 오늘의 그림
+
+```mermaid
+flowchart LR
+    P(("사람")) --> U["ui :8501<br/>구경용 화면"]
+    U -->|"HTTP"| A["api :8000<br/>FastAPI"]
+    P -->|"HTTP · /docs"| A
+    AI(("다른 AI<br/>Claude · Codex · ChatGPT")) -->|"MCP"| M["mcp :8010<br/>FastMCP"]
+    E(("이벤트<br/>웹훅 · 정해진 시간")) -->|"트리거"| N["n8n :5678<br/>워크플로"]
+    N -->|"HTTP · MCP"| A
+    A --> C["core/<br/>6주차 여행 플래너"]
+    M --> C
+    C -->|"모델 호출"| G["litellm-proxy :4000<br/>게이트웨이"]
+    G --> L(("모델 제공자"))
+```
+
+**문이 셋이고 코어는 하나입니다.**
+
+</Slide>
+
+<Slide class="center">
+
+### 오늘의 핵심 문장
+
+**문은 껍데기고, 껍데기는 얼마든지 더 달 수 있다**
+
+</Slide>
+
+<Slide>
+
+#### 직접 눌러 보기: 문 넷의 안쪽
+
+<DoorMap />
+
+</Slide>
+
+<Slide>
+
+### 게이트웨이는 왜 있나
+::sub[앱이 하나뿐이라면 이 칸은 없어도 됩니다]
+
+```mermaid
+flowchart LR
+    A1["api"] -->|"진짜 키"| P(("모델 제공자"))
+    A2["배치 잡"] -->|"진짜 키 (복사본)"| P
+    A3["n8n"] -->|"진짜 키 (복사본)"| P
+    A4["동료의 노트북"] -->|"진짜 키 (복사본)"| P
+```
+
+부르는 곳이 늘면 **진짜 키가 복사됩니다.** 하나가 새면 전부 폐기해야 합니다.
+
+</Slide>
+
+<Slide>
+
+### 게이트웨이를 두면
+
+```mermaid
+flowchart LR
+    B1["api"] -->|"가상키 A"| G["게이트웨이<br/>litellm-proxy :4000"]
+    B2["배치 잡"] -->|"가상키 B · 상한 $5"| G
+    B3["n8n"] -->|"가상키 C"| G
+    B4["동료의 노트북"] -->|"가상키 D · 상한 $1"| G
+    G -->|"진짜 키 하나"| P(("모델 제공자"))
+```
+
+- 키가 새면 **그 가상키 하나만** 폐기합니다.
+- 상한을 앱마다, 사람마다 다르게 겁니다.
+- 누가 얼마 썼는지가 한 장부에 쌓입니다.
+
+</Slide>
+
+<Slide>
+
+#### 직접 늘려 보기: 부르는 곳이 둘이 되면
+
+<GatewayCase />
+
+</Slide>
+
+<Slide class="center">
+
+### 대가는 분명합니다
+
+**장애점이 하나 늘어난다**
+
+게이트웨이가 죽으면 그것을 쓰는 앱이 전부 모델을 못 부릅니다
+
+</Slide>
+
+<Slide>
+
+### 그래서 언제 두는가
+
+- **앱이 하나면 직접 호출이 맞습니다.** 10\~14주차 개인 프로젝트는 대개 그쪽입니다.
+- 부르는 곳이 **둘 이상**이 되거나, 키를 **남에게 나눠줘야** 할 때부터 값을 합니다.
+- 실제 운영에서는 이중화하거나 폴백을 둡니다. 5주차 폴백 체인과 같은 생각입니다.
+
+> `litellm`이 두 번 나옵니다. 5주차의 것은 **라이브러리**, `:4000`의 것은 같은
+> 프로젝트의 **프록시 서버**입니다. 앱은 여전히 라이브러리로 호출하고,
+> 향하는 주소만 바뀝니다.
+
+</Slide>
+
+<Slide>
+
+### 저장소 기동
+
+- 실행
+
+```bash
+git clone https://github.com/2026-ai-service-engineering-a/week08-service-lab.git
+cd week08-service-lab
+cp .env.sample .env
+cp gateway/.env.sample gateway/.env
+docker compose up --build -d
+docker compose exec api pytest
+```
+
+- 결과
+
+```plaintext
+20 passed, 2 warnings in 1.28s
+```
+
+- 화면 `:8501` · API 문서 `:8000/docs` · MCP `:8010` · n8n `:5678` · 게이트웨이 `:4000`
+
+</Slide>
+
+<Slide>
+
+### 키가 하나도 없어도 전부 돌아갑니다
+::sub[가짜인 것은 모델뿐입니다]
+
+- 실행
+
+```bash
+curl -s localhost:8000/config
+```
+
+- 결과
+
+```json
+{"mode":"offline","model":"offline/scripted-planner","gateway":null,
+ "defaults":{"max_steps":6,"max_cost_usd":0.2}}
+```
+
+- 도구는 **진짜로** 실행되고, 결과는 **진짜로** 되먹여지고, 예산도 **진짜로** 쌓입니다.
+- 가짜인 부분은 **무엇을 부를지 정하는 판단** 하나입니다.
+- 3장부터 7장까지는 이 상태 그대로 갑니다. 진짜 모델이 필요한 것은 8장뿐입니다.
+
+</Slide>
+
+<Slide class="cover">
+
+## 3장 · 경계 정하기
+
+*문을 달기 전에 할 일*
+
+
+```mermaid
+flowchart LR
+    F["내 기능"] --> S["함수 하나"] --> D["문 몇 개든"]
+```
+
+</Slide>
+
+<Slide>
+
+### 3장이 하는 일
+::sub[이 일이 8주차 작업의 8할입니다]
+
+- 내 기능이 무엇인지를 **함수 하나로 말합니다**.
+- 스트리밍과 동기 응답이 갈라지지 않게 묶습니다.
+- 3주차부터 써 온 스키마 하나가 네 곳에서 쓰인다는 것을 봅니다.
+
+나머지는 거의 기계적입니다.
+
+</Slide>
+
+<Slide class="center">
+
+### 핵심 문장
+
+**문을 달기 전에 할 일은 내 기능을 함수 하나로 말하는 것이다**
+
+</Slide>
+
+<Slide>
+
+### 오늘의 순서
+
+1. 진입 함수 하나로 좁힌다
+2. 스트리밍과 동기 응답이 갈라지면 안 된다
+3. 스키마 하나가 네 곳에서 쓰인다
+
+
+```mermaid
+flowchart LR
+    A["진입 함수"] --> B["갈라지지 않게"] --> C["스키마 하나<br/>쓰이는 곳 넷"]
+```
+
+</Slide>
+
+<Slide>
+
+### `core/service.py`에 함수는 둘뿐입니다
+
+```python
+def plan(question: str, *, max_steps=6, max_cost_usd=0.20) -> PlanResult
+def plan_events(question: str, ...) -> Iterator[dict]
+```
+
+- 앞의 것은 **답 하나**를 돌려줍니다.
+- 뒤의 것은 같은 일을 하면서 **스텝마다 이벤트**를 내놓습니다.
+- 문이 몇 개가 되든 부르는 것은 이 둘입니다.
+
+</Slide>
+
+<Slide>
+
+### 눌러 보면 닿는 곳이 보입니다
+
+<SymbolMap modules={['core.service']} caption="`plan`을 눌러 보세요. 부르는 곳이 셋(HTTP 라우트 둘과 MCP 도구 하나)입니다." />
+
+</Slide>
+
+<Slide>
+
+### AI 표시는 모델로 가는 마지막 단입니다
+
+- `plan`도 `plan_events`도 결국 모델까지 이어집니다.
+- 그 둘은 `run_iter`에게 시킬 뿐이라 표시가 없습니다.
+- `run_iter`도 진짜 끝은 아닙니다. 한 칸만 더 갑니다.
+
+<SymbolMap modules={['core.llm']} caption="이 저장소에서 litellm을 실제로 부르는 자리는 `completion` 하나입니다. 추출기가 찾아 표시하므로 손으로 붙인 것이 아닙니다." />
+
+</Slide>
+
+<Slide class="center">
+
+### 그래서 이런 말이 성립합니다
+
+**표시가 둘이 되는 순간이 경계가 새는 순간이다**
+
+</Slide>
+
+<Slide>
+
+### 경계를 그었다는 증거는 import 방향에 있습니다
+
+```mermaid
+flowchart TB
+    subgraph doors["문 · 이번 주에 다는 껍데기"]
+        A["api/main.py"]
+        M["mcp_server/server.py"]
+    end
+    subgraph core["core/ · 6주차에 만든 것"]
+        S["service.py<br/>plan() · plan_events()"]
+        R["react.py · tools.py · harness.py"]
+    end
+    A -->|"import"| S
+    M -->|"import"| S
+    S --> R
+    core -.->|"import 하지 않는다"| doors
+    linkStyle 3 stroke-dasharray:5 5,opacity:0.45
+```
+
+**코어가 문을 알기 시작하면 문을 하나 더 달 때마다 코어를 고쳐야 합니다.**
+
+</Slide>
+
+<Slide>
+
+### 스트리밍과 동기 응답이 갈라지면 안 됩니다
+
+```python
+def plan(question, **kwargs) -> PlanResult:
+    for event in plan_events(question, **kwargs):
+        ...   # 이벤트를 모아 결과 하나로 조립한다
+```
+
+둘이 각자 다른 코드를 돌면 그 순간부터 **둘 중 하나는 거짓말을 시작합니다.**
+
+- 스트림에는 보이는데 응답에는 없는 스텝
+- 응답에는 있는데 스트림에는 안 흐른 경고
+
+</Slide>
+
+<Slide>
+
+### 그래서 테스트가 둘의 답을 봅니다
+
+```python
+def test_events_and_result_agree():
+    events = list(service.plan_events("오사카 2박 3일 2명"))
+    result = service.plan("오사카 2박 3일 2명")
+
+    assert events[-1]["answer"] == result.answer
+```
+
+</Slide>
+
+<Slide>
+
+### 스키마 하나가 네 곳에서 쓰인다
+
+| 쓰이는 곳 | 어디서 | 무엇을 하나 |
+| --- | --- | --- |
+| 요청 검증 | `api/schemas.py` | 계약을 어긴 요청을 422로 막는다 |
+| 도구 스키마 | `core/tools.py` | 모델에게 도구를 설명한다 |
+| MCP 도구 명세 | `mcp_server/server.py` | 다른 AI에게 도구를 설명한다 |
+| OpenAPI 문서 | `/docs` | 사람에게 계약을 설명한다 |
+
+
+```mermaid
+flowchart LR
+    P["pydantic 모델 하나<br/>BudgetArgs · PlanRequest"]
+    P --> A["요청 검증<br/>422로 막는다"]
+    P --> B["도구 스키마<br/>모델에게 설명"]
+    P --> C["MCP 도구 명세<br/>다른 AI에게 설명"]
+    P --> D["OpenAPI /docs<br/>사람에게 설명"]
+```
+
+</Slide>
+
+<Slide>
+
+### 그래서 8주차에 스키마를 새로 쓸 일이 거의 없습니다
+
+- 넷 다 **같은 스키마를 다른 쪽에서 본 것**입니다.
+- `core/tools.py`는 6주차 파일 그대로이고, 한 줄도 고치지 않았습니다.
+
+</Slide>
+
+<Slide>
+
+### 3장이 남기는 것
+
+- 문을 달기 전에 할 일은 **내 기능을 함수 하나로 말하는 것**이다. 그게 8할이다
+- 코어는 문을 모른다. **import 방향이 그 증거**다
+- 스트리밍과 동기 응답이 다른 코드를 돌면 둘 중 하나는 거짓말을 시작한다
+- 스키마 하나가 네 곳에서 쓰인다
+
+
+```mermaid
+flowchart LR
+    S["core/service.py<br/>함수 둘"] --> H["HTTP 문"] & M["MCP 문"] & N["n8n"]
+```
+
+</Slide>
+
+<Slide class="cover">
+
+## 4장 · 앞문 ①: HTTP 서버
+
+*사람이 부르는 문*
+
+
+```mermaid
+flowchart LR
+    P(("사람")) -->|"curl · 브라우저"| A["api :8000<br/>FastAPI"] --> C["core"]
+```
+
+</Slide>
+
+<Slide>
+
+### 4장이 하는 일
+::sub[절반은 3주차 복습입니다]
+
+3주차 식단 플래너에서 이미 한 것
+
+- **헤드리스 구조**: UI와 API가 다른 컨테이너, 대화는 HTTP뿐
+- **입출구의 타입 보증**: 입구는 `PlanRequest`, 출구는 instructor
+- **SSE 진행 이벤트**: 서버에 작업 상태를 저장하지 않았습니다
+- **관측**: 응답에 `llm_calls`를 실었습니다
+
+그러니 **진짜 새로운 것 셋**만 짚습니다.
+
+</Slide>
+
+<Slide class="center">
+
+### 핵심 문장
+
+**상류의 장애는 500이 아니다. 500은 우리가 깨졌다는 뜻이다**
+
+</Slide>
+
+<Slide>
+
+### 오늘의 순서
+
+1. 검증: 계약이 없으면 무슨 일이 생기는가
+2. 에러: 500이 아니라는 것이 중요하다
+3. 그래프를 얹을 때 달라지는 것: 상태
+4. 동시성: `async def` 한 줄의 대가
+5. 스트리밍: 첫 글자까지의 시간
+
+
+```mermaid
+flowchart LR
+    A["검증"] --> B["에러"] --> C["상태"] --> D["동시성"] --> E["스트리밍"]
+```
+
+</Slide>
+
+<Slide>
+
+### 계약이 없으면 무슨 일이 생기는가
+::sub[같은 일을 하는 엔드포인트 둘에 잘못된 요청 다섯 개]
+
+- 실행
+
+```bash
+docker compose exec api python examples/01_no_validation.py
+```
+
+- 결과
+
+```plaintext
+요청                   /naive (계약 없음)                     /checked (계약 있음)
+--------------------------------------------------------------------------------
+정상                   200 {'length': 9, 'steps': 6       200
+빈 질문                 200 {'length': 0, 'steps': 6       422 string_too_short
+질문 없음                200 {'length': 0, 'steps': 3       422 missing
+스텝 9999              200 {'length': 3, 'steps': 9       422 less_than_equal
+질문이 소설 한 권           200 {'length': 100000, 'step    422 string_too_long
+```
+
+**왼쪽은 전부 200입니다.** 10만 자짜리 질문이 핸들러 안까지 들어갑니다.
+
+</Slide>
+
+<Slide>
+
+### 계약은 핸들러 앞에 섭니다
+
+```mermaid
+flowchart LR
+    Q(["요청"]) --> V{"pydantic<br/>계약 검사"}
+    V -->|"어긋남"| E["422<br/>핸들러에 닿지 못한다"]
+    V -->|"통과"| H["핸들러"]
+    H --> C["core.service.plan()"]
+```
+
+**오른쪽 핸들러에는 방어 코드가 한 줄도 없습니다.** 그럴 필요가 없기 때문입니다.
+
+</Slide>
+
+<Slide>
+
+### 계약은 이게 전부입니다
+
+```python
+class PlanRequest(BaseModel):
+    question: str = Field(min_length=2, max_length=500)
+    max_steps: int = Field(default=6, ge=1, le=12)
+    max_cost_usd: float = Field(default=0.20, gt=0, le=5.0)
+```
+
+`max_steps`에 **상한**이 있는 것을 봐 두세요.
+
+- 6주차에서 스텝 한도는 성능 손잡이가 아니라 **보험**이라고 했습니다.
+- 사용자가 9999로 올릴 수 있으면 보험이 아닙니다.
+
+</Slide>
+
+<Slide>
+
+### 에러: 코어는 HTTP를 모릅니다
+
+```python
+# core/errors.py
+class UpstreamError(CoreError): ...      # 모델 쪽이 실패했다
+class UpstreamTimeout(CoreError): ...    # 제때 답하지 않았다
+
+# api/errors.py
+STATUS = {UpstreamTimeout: 504, UpstreamError: 502}
+```
+
+**코어는 무엇이 실패했는지만 말하고, 그것이 몇 번인지는 문이 정합니다.**
+
+</Slide>
+
+<Slide>
+
+### 번역표
+
+```mermaid
+flowchart LR
+    subgraph core["core/ · HTTP를 모른다"]
+        U["UpstreamError"]
+        T["UpstreamTimeout"]
+        B["예산 초과"]
+    end
+    subgraph door["api/errors.py · 번역표"]
+        U --> S1["502 Bad Gateway"]
+        T --> S2["504 Gateway Timeout"]
+        B --> S3["200 + stopped_by: budget"]
+    end
+    S1 --> L["요청 로그 한 줄<br/>request_id 포함"]
+    S2 --> L
+    S3 --> L
+```
+
+</Slide>
+
+<Slide>
+
+### 예외 셋과 번역표가 전부입니다
+
+<SymbolMap modules={['api.errors', 'core.errors']} neighbors={false} caption="`UpstreamError`를 눌러 보세요. 상속 화살표가 `CoreError`로 올라갑니다." />
+
+</Slide>
+
+<Slide>
+
+### 5초 만에 재현합니다
+::sub[랩 전용 스위치입니다. 실제 서비스에는 두지 않습니다]
+
+- 실행
+
+```bash
+curl -s -w "\nstatus=%{http_code}\n" -X POST "localhost:8000/plan?simulate=upstream" \
+  -H 'content-type: application/json' -d '{"question":"오사카 2박"}'
+```
+
+- 결과
+
+```json
+{"error":"UpstreamError","detail":"모의 상류 장애: 모델 제공자가 500을 돌려줬다",
+ "request_id":"0acf2c7a8dbd"}
+status=502
+```
+
+`simulate=timeout`이면 504가 옵니다.
+
+</Slide>
+
+<Slide>
+
+### request_id 열두 글자
+
+```plaintext
+2026-09-10 07:41:02 INFO POST /plan -> 502 12ms request_id=0acf2c7a8dbd
+```
+
+- 사고가 났을 때 사용자가 들고 오는 것은 **이 열두 글자 하나**입니다.
+- 서버 로그에 같은 값이 남습니다.
+- 6주차 트레이스가 "한 줄이 한 이벤트"였다면, 여기서는 **한 줄이 한 요청**입니다.
+
+</Slide>
+
+<Slide>
+
+### 그래프를 얹으면 상태가 생깁니다
+
+```python
+# app/agent/graph.py · 그래프는 프로세스가 뜰 때 한 번만 만든다
+checkpointer = PostgresSaver(pool)
+checkpointer.setup()
+graph = build_graph().compile(checkpointer=checkpointer)
+
+# app/main.py · 요청마다 어느 대화인지를 끼운다
+def _config(mode: str, thread_id: str) -> dict:
+    return {"configurable": {"thread_id": f"{mode}:{thread_id}"}}
+```
+
+`week07-support-agent`의 코드가 이미 답을 갖고 있습니다.
+
+</Slide>
+
+<Slide>
+
+### 상태는 프로세스가 아니라 DB에 삽니다
+
+```mermaid
+flowchart TB
+    subgraph proc["서버 프로세스 · 뜰 때 한 번"]
+        G["compile된 그래프"]
+    end
+    R1["요청 A<br/>thread_id=alice"] --> G
+    R2["요청 B<br/>thread_id=bob"] --> G
+    G <-->|"checkpointer"| DB[("PostgreSQL<br/>대화 상태")]
+    G -.->|"재시작해도"| DB
+```
+
+- **뜰 때 한 번 compile한다.** 요청마다 만들면 연결과 스키마 준비를 매번 다시 합니다
+- **상태는 DB에 산다.** 파이썬 딕셔너리에 담으면 재시작과 다중 워커에서 깨집니다
+- **thread_id는 요청이 가져온다.** 모델이 정하게 두지 않습니다
+
+</Slide>
+
+<Slide class="center">
+
+### 7주차에는 그래프만 보고 이 층을 지나쳤습니다
+
+**서비스가 되는 순간 이 층이 전부입니다**
+
+</Slide>
+
+<Slide>
+
+### 동시성: 일부러 잘못 만든 문이 하나 있습니다
+::sub[`/plan`은 def, `/plan/blocking`은 async def. 안에서 부르는 코드는 똑같습니다]
+
+- 실행
+
+```bash
+docker compose exec api python examples/02_blocking_worker.py
+```
+
+- 결과
+
+```plaintext
+/plan            1건       →  1.22s   (한 요청의 원래 시간)
+/plan            5건 동시  →  1.21s   def → 워커 스레드로 나간다
+/plan/blocking   5건 동시  →  6.06s   async def → 줄을 선다
+
+같은 코어, 같은 일. 차이는 5.0배.
+```
+
+</Slide>
+
+<Slide>
+
+#### 직접 재생해 보기: def와 async def
+::sub[5건 모드를 번갈아 눌러 보세요. 같은 코어가 같은 일을 합니다]
+
+<RequestTimeline />
+
+</Slide>
+
+<Slide>
+
+### 왜 그런가
+
+- FastAPI는 동기 핸들러(`def`)를 **워커 스레드**로 보냅니다.
+- `async def` 안에서 동기 호출을 하면 **이벤트 루프가 그 자리에 묶입니다.**
+- 서버는 죽지 않은 채로 **한 사람만 상대합니다.**
+
+| 핸들러 | 안에서 하는 일 | 결과 |
+| --- | --- | --- |
+| `def` | 동기 호출 (우리 코어) | 워커 스레드로 나간다. 올바름 |
+| `async def` | `await` 하는 비동기 호출 | 올바름 |
+| `async def` | 동기 호출 | **이벤트 루프가 멈춘다** |
+
+</Slide>
+
+<Slide class="center">
+
+### LLM 호출은 대개 몇 초씩 걸립니다
+
+**이 실수 하나로 동시 사용자 5명이 5배 느린 서비스를 씁니다**
+
+</Slide>
+
+<Slide>
+
+### 스트리밍: 총 시간이 아니라 첫 글자까지의 시간
+
+- 실행
+
+```bash
+docker compose exec api python examples/03_stream_buffered.py
+```
+
+- 결과
+
+```plaintext
+/plan          첫 응답  1.21s · 완료  1.21s
+     0.00s  start  start
+     0.41s  step   search_places
+     0.81s  step   calc_budget
+     1.22s  step   step
+     1.22s  final  final
+/plan/stream   첫 응답  0.00s · 완료  1.22s
+```
+
+**총 시간은 같습니다.** 빈 화면을 보는 시간이 1.21초에서 0초가 됐습니다.
+
+</Slide>
+
+<Slide class="center">
+
+### 스트리밍은 비용을 1원도 줄이지 않습니다
+
+**체감만 바꿉니다**
+
+</Slide>
+
+<Slide>
+
+### 그리고 흐르는 내용을 보세요
+
+```plaintext
+0.41s  step   search_places
+0.81s  step   calc_budget
+```
+
+- `search_places`, `calc_budget`은 **6주차에 트레이스로 읽던 그 스텝들**입니다.
+- **로그였던 것이 화면이 됩니다.**
+
+</Slide>
+
+<Slide>
+
+### 조심할 곳 둘
+
+```python
+async def event_source():
+    iterator = service.plan_events(...)
+    try:
+        # ① 동기 제너레이터를 async 안에서 그냥 돌리면 이벤트 루프가 멈춘다
+        async for event in iterate_in_threadpool(iterator):
+            yield {"event": event["event"], "data": json.dumps(event, ensure_ascii=False)}
+    except Exception as e:
+        # ② 헤더가 이미 나간 뒤에는 상태 코드로 실패를 알릴 수 없다
+        yield {"event": "error", "data": json.dumps({"error": type(e).__name__})}
+```
+
+</Slide>
+
+<Slide>
+
+### 스트림이 시작되면 상태 코드는 이미 200입니다
+
+```python
+def test_stream_reports_failure_as_an_event_not_a_status(client):
+    with client.stream("POST", "/plan/stream", params={"simulate": "upstream"}, ...) as r:
+        assert r.status_code == 200          # 200으로 시작해 버렸다
+        ...
+    assert kinds[-1] == "error"
+```
+
+- 그 뒤에 상류가 죽어도 502로 고칠 방법이 없습니다. **실패도 이벤트로 보냅니다.**
+- 프록시가 스트림을 모았다가 한 번에 주는 사고도 흔합니다.
+  `Cache-Control: no-cache`와 `X-Accel-Buffering: no`를 함께 보냅니다.
+
+</Slide>
+
+<Slide>
+
+### 4장이 남기는 것
+
+- 계약이 있으면 핸들러는 잘못된 값을 한 번도 보지 않는다
+- 상류의 장애는 500이 아니라 502다. **500은 우리가 깨졌다는 뜻**이다
+- 그래프를 얹으면 상태가 생긴다. 상태는 프로세스가 아니라 **DB에 산다**
+- `async def` 안의 동기 호출 한 줄이 동시 5건을 **5배 느리게** 만든다
+- 스트리밍은 총 시간을 줄이지 않는다. **첫 글자까지의 시간**을 줄인다
+- 스트림이 시작된 뒤의 실패는 상태 코드가 아니라 **이벤트로** 알린다
+
+</Slide>
+
+<Slide class="cover">
+
+## 5장 · 앞문 ②: MCP 서버
+
+*다른 AI가 부르는 문*
+
+
+```mermaid
+flowchart LR
+    AI(("다른 AI")) -->|"MCP"| M["mcp :8010<br/>FastMCP"] --> C["core"]
+```
+
+</Slide>
+
+<Slide>
+
+### 5장이 하는 일
+::sub[6주차에 미뤄 둔 내어주기를 오늘 합니다]
+
+6주차 6장의 마지막 문장
+
+> `@mcp.tool()` 데코레이터에 우리 함수를 붙이고 HTTP로 띄우면, 남의
+> 클라이언트가 우리 도구를 부릅니다. 가져오기를 이해했다면 **내어주기는 같은
+> 그림을 뒤집어 보는 일**입니다.
+
+오늘 그 문장을 실행합니다. 그때는 함수 둘이었고, 지금은 **에이전트 하나와
+도구 셋**입니다.
+
+</Slide>
+
+<Slide class="center">
+
+### 핵심 문장
+
+**손으로 쓴 스키마가 한 줄도 없다.**
+
+**시그니처와 docstring이 그대로 명세가 된다**
+
+</Slide>
+
+<Slide>
+
+### 오늘의 순서
+
+1. 데코레이터 한 줄이 무엇이 되는가
+2. 도구를 어디서 자를 것인가
+3. stdio냐 HTTP냐는 붙는 쪽이 정한다
+4. 내어줄 때의 안전
+
+
+```mermaid
+flowchart LR
+    A["데코레이터"] --> B["자르는 자리"] --> C["전송"] --> D["안전"]
+```
+
+</Slide>
+
+<Slide>
+
+### 달라지는 것은 데코레이터에 무엇을 붙이느냐뿐입니다
+
+```python
+mcp = FastMCP("travel-planner", host="0.0.0.0", port=8010)
+
+@mcp.tool()
+def plan_trip(question: str, max_steps: int = 6) -> dict:
+    """여행 요청 한 줄로 일정과 예산을 세운다. 안에서 에이전트 루프가 돈다."""
+    result = service.plan(question, max_steps=max_steps)
+    return {"answer": result.answer, "stopped_by": result.stopped_by, ...}
+```
+
+</Slide>
+
+<Slide>
+
+### 붙는 쪽은 이렇게 만납니다
+::sub[왕복 세 종류가 전부입니다]
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant C as 붙는 쪽<br/>Claude Code · Inspector
+    participant S as 우리 MCP 서버<br/>travel-planner
+    C->>S: initialize · protocolVersion · clientInfo
+    S-->>C: serverInfo · capabilities
+    C->>S: notifications/initialized
+    Note over C,S: 여기까지가 악수. 마지막 것에는 답이 없다
+    C->>S: tools/list
+    S-->>C: 도구 넷 · 이름 · 설명 · inputSchema
+    Note over C: 모델이 이 목록만 읽고 무엇을 부를지 고른다
+    C->>S: tools/call · name · arguments
+    S-->>C: content[0].text
+```
+
+</Slide>
+
+<Slide class="center">
+
+### 악수 → 목록 → 호출
+
+**MCP 클라이언트가 하는 일은 이 셋뿐입니다**
+
+사람이 Swagger를 읽고 curl을 치는 순서와 같고, 읽는 쪽이 모델이라 문서가 JSON일 뿐입니다
+
+</Slide>
+
+<Slide>
+
+#### 직접 눌러 보기: 코드가 무엇이 되는가
+::sub[돌고 있는 컨테이너에 붙어 받아 적은 실측입니다]
+
+<McpTools compact caption="세 칩을 눌러 보세요. 함수 이름이 도구 이름이 되고, docstring이 통째로 설명이 되고, 타입 힌트와 기본값이 `inputSchema`가 됩니다." />
+
+</Slide>
+
+<Slide class="center">
+
+### docstring은 주석이 아니라 인터페이스입니다
+
+**`description`이 비어 있으면 모델은 이름만 보고 고릅니다**
+
+5주차에 도구 설명을 다듬어 선택 품질을 올렸던 것과 같은 자리입니다
+
+</Slide>
+
+<Slide>
+
+### 도구를 어디서 자를 것인가
+::sub[정답이 없고 갈림길이 있습니다]
+
+| | 에이전트를 통째로 | 도구를 낱개로 |
+| --- | --- | --- |
+| 부르는 쪽이 하는 일 | 한 번 부르고 답을 받는다 | 자기 루프로 조합한다 |
+| 루프는 누가 도나 | 우리 | 부르는 쪽 AI |
+| 통제 | 우리가 스텝 · 예산 · 하네스를 쥔다 | 넘어간다 |
+| 유연함 | 우리가 설계한 만큼 | 부르는 쪽이 상상한 만큼 |
+| 비용 | **우리 지갑** | **부르는 쪽 지갑** |
+
+</Slide>
+
+<Slide>
+
+### 그림으로
+
+```mermaid
+flowchart LR
+    subgraph one["에이전트를 통째로"]
+        A1(("남의 AI")) -->|"plan_trip 1회"| A2["우리 루프가<br/>3번 돈다"]
+        A2 --> A3["우리 지갑"]
+    end
+    subgraph many["도구를 낱개로"]
+        B1(("남의 AI")) -->|"search_places"| B2["조회"]
+        B1 -->|"calc_budget"| B3["계산"]
+        B1 -->|"추론은 저쪽 루프"| B4["남의 지갑"]
+    end
+```
+
+우리는 둘 다 내어놓고 **부르는 쪽이 고르게** 했습니다.
+
+</Slide>
+
+<Slide>
+
+### 통째로와 낱개의 차이가 화살표의 길이입니다
+
+<SymbolMap modules={['mcp_server.server']} caption="`plan_trip`은 코어의 `plan` 하나로 이어지고, 나머지 셋은 `core/tools.py`의 함수로 곧장 갑니다." />
+
+</Slide>
+
+<Slide>
+
+### 비용 열이 중요합니다
+
+- 에이전트를 통째로 내어놓으면 **남이 부를 때마다 우리 모델 비용**이 나갑니다.
+- 도구만 내어놓으면 추론은 부르는 쪽 AI가 하므로 우리는 조회 비용만 냅니다.
+- 5주차에 도구 목록이 길수록 선택 품질이 떨어진다고 했습니다.
+  **낱개로 열 개를 내어놓는 것이 늘 좋은 것은 아닙니다.**
+
+</Slide>
+
+<Slide>
+
+### stdio냐 HTTP냐는 붙는 쪽이 정합니다
+
+| | stdio | streamable HTTP |
+| --- | --- | --- |
+| 서버의 수명 | 클라이언트가 띄우고 거둔다 | 먼저 떠서 계속 산다 |
+| 관계 | 1 클라이언트 : 1 전용 서버 | N 클라이언트 : 1 서버 |
+| 쓰임 | 내 기계 안의 도구 | **세상에 내어주는 배포** |
+
+</Slide>
+
+<Slide>
+
+### 둘의 모양
+
+```mermaid
+flowchart TB
+    subgraph s["stdio · 내 기계 안"]
+        C1(("클라이언트")) -->|"하위 프로세스로 띄운다"| S1["서버"]
+    end
+    subgraph h["streamable HTTP · 세상에"]
+        S2["상주 서버 :8010/mcp"]
+        C2(("클라이언트 A")) --> S2
+        C3(("클라이언트 B")) --> S2
+        C4(("ChatGPT")) -->|"공개 HTTPS 필요"| S2
+    end
+```
+
+</Slide>
+
+<Slide>
+
+### 우리 서버는 둘 다 됩니다
+::sub[컨테이너는 HTTP로 뜨고, 필요하면 `--stdio`로 바꿉니다]
+
+```python
+def main() -> None:
+    if "--stdio" in sys.argv:
+        mcp.run()                              # 클라이언트가 이 프로세스를 띄운다
+    else:
+        mcp.run(transport="streamable-http")   # 상주 서버: /mcp 에서 기다린다
+```
+
+</Slide>
+
+<Slide>
+
+### 내어줄 때의 안전
+::sub[우리 코드를 남의 AI가 부르게 한다는 뜻입니다]
+
+- **설명문이 곧 인터페이스다.** docstring이 남의 AI가 읽는 유일한 설명입니다
+- **위험한 도구에는 게이트를 둔다.** 쓰기 · 삭제 · 결제가 붙는 순간
+  6주차 승인 게이트가 필요합니다
+- **인자로 신원을 받지 않는다.** `customer_id`를 스키마에 넣으면 남의 AI가
+  남의 청구서를 조회하겠다고 마음먹을 수 있습니다
+- **공개하면 인증이 필요하다.** 로컬에서는 아무나 붙어도 내 기계 안입니다
+
+</Slide>
+
+<Slide>
+
+### 5장이 남기는 것
+
+- 6주차의 `@mcp.tool()`에 **붙이는 것만** 달라졌다. 함수 둘에서 에이전트 하나로
+- 스키마를 손으로 쓴 곳이 한 군데도 없다. **docstring이 통째로 설명이 된다**
+- 통째로 낼지 낱개로 낼지는 통제 · 유연함 · **비용**의 문제다
+- stdio냐 HTTP냐는 붙는 쪽이 정한다. 서버 코드는 그대로다
+
+</Slide>
+
+<Slide class="cover">
+
+## 6장 · 붙이기 다섯 가지
+
+*뒤로 갈수록 우리 서버가 멀리 나갑니다*
+
+
+```mermaid
+flowchart LR
+    L["내 기계 안"] --> M["내 AI 도구"] --> W["세상"]
+```
+
+</Slide>
+
+<Slide>
+
+### 다섯 가지
+
+| 부르는 쪽 | 무엇으로 | 필요한 것 |
+| --- | --- | --- |
+| 사람 | `curl` · Swagger UI(`/docs`) | 없음 |
+| 검사기 | MCP Inspector | 없음. 전원 가능 |
+| 프로그램 | 파이썬 MCP 클라이언트 | 없음 |
+| 다른 AI | Claude Code · Codex · Desktop | 로컬로 충분 |
+| 다른 AI | **ChatGPT** | **공개 HTTPS 또는 터널** |
+| 자동화 | n8n | n8n 컨테이너 (7장) |
+
+</Slide>
+
+<Slide>
+
+### 사람: curl과 Swagger
+
+```bash
+sh clients/curl.sh
+```
+
+- `/docs`를 브라우저로 열면 같은 일을 화면으로 합니다.
+- 9주차에 UI를 고르기 전까지, **이 화면이 이미 데모입니다.**
+- 3주차의 "curl이나 Swagger로 불러도 똑같이 동작한다"가 헤드리스의 증명이었습니다.
+
+</Slide>
+
+<Slide>
+
+### 화면도 한 장 붙여 뒀습니다
+::sub[`:8501` · React와 shadcn/ui, nginx가 냅니다]
+
+- 이번 주의 주제는 화면이 아니라 문이라서 **만드는 법은 다루지 않습니다.**
+- 다만 스트리밍이 차오르는 장면은 `curl -N`보다 브라우저가 잘 보여줍니다.
+- **이 화면은 문이 아니라 손님입니다.** `/config`와 `/plan/stream`만 부릅니다.
+- 9주차에 각자 고를 UI가 이 자리에 앉습니다.
+
+</Slide>
+
+<Slide>
+
+### 검사기: MCP Inspector
+
+```bash
+npx @modelcontextprotocol/inspector@latest
+```
+
+- 벤더 중립 도구이고 계정이 필요 없습니다.
+- 도구 목록 · 스키마 · 호출 결과를 눈으로 확인합니다.
+- **서버가 멀쩡한데 안 붙는 것과, 서버가 잘못된 것은 다른 문제입니다.**
+  이 도구가 그 둘을 갈라 줍니다.
+
+</Slide>
+
+<Slide>
+
+### 프로그램: 파이썬 클라이언트
+::sub[6주차 예제 02 · 04와 같은 코드입니다. 방향만 뒤집혔습니다]
+
+- 실행
+
+```bash
+docker compose exec api python clients/py_client.py
+```
+
+- 결과
+
+```plaintext
+[http] 이미 떠 있는 서버에 접속한다: http://mcp:8010/mcp
+
+=== 프로토콜로 받은 도구 4개 ===
+  plan_trip: 여행 요청 한 줄로 일정과 예산을 세운다. …
+  search_places: 도시의 관광지·식당·카페를 검색한다. …
+
+=== 에이전트를 통째로 부르기: plan_trip ===
+  거친 도구: ['search_places', 'calc_budget']
+  답: [각본 대역] 교토 1박 2일, 3명 일정입니다.
+```
+
+</Slide>
+
+<Slide>
+
+### 다른 AI: Claude Code는 한 줄입니다
+
+```bash
+claude mcp add --transport http travel-planner http://localhost:8010/mcp
+```
+
+또는 프로젝트 루트에 `.mcp.json`
+
+```json
+{ "mcpServers": {
+  "travel-planner": { "type": "http", "url": "http://localhost:8010/mcp" }
+} }
+```
+
+**자기가 7주 동안 만든 것을 자기 AI가 도구로 부릅니다.**
+
+</Slide>
+
+<Slide>
+
+### 여기서 한 번은 헷갈립니다
+::sub[`claude mcp add`가 성공했는데 Desktop 설정 화면에는 안 나옵니다]
+
+| | 설정이 사는 곳 | 전송 | 확인하는 곳 |
+| --- | --- | --- | --- |
+| Claude **Code** | `~/.claude.json` 또는 `.mcp.json` | HTTP · stdio | `claude mcp list` · `/mcp` |
+| Claude **Desktop** | `claude_desktop_config.json` | stdio | 설정 → 개발자 → 로컬 MCP 서버 |
+
+**고장이 아니라 둘이 다른 제품이고 설정 파일도 다르기 때문입니다.**
+
+</Slide>
+
+<Slide>
+
+### 명령이 직접 알려 줍니다
+
+- 등록할 때 나온 말
+
+```plaintext
+Added HTTP MCP server travel-planner with URL: http://localhost:8010/mcp to local config
+File modified: /Users/…/.claude.json [project: /Users/…/week08-service-lab]
+```
+
+- 확인
+
+```bash
+claude mcp list
+```
+
+- 결과
+
+```plaintext
+travel-planner: http://localhost:8010/mcp (HTTP) - ✔ Connected
+```
+
+Desktop에 붙이려면 `clients/claude_desktop.json` 견본을 씁니다. 그쪽은 stdio입니다.
+
+</Slide>
+
+<Slide class="center">
+
+### 5장 3절이 여기서 그대로 걸립니다
+
+**서버 코드는 한 줄도 바뀌지 않고 붙는 쪽 설정만 다르다**
+
+</Slide>
+
+<Slide>
+
+### ChatGPT는 다릅니다
+
+- ChatGPT 설정 → 보안 및 로그인 → **개발자 모드**를 켠다
+  (가용 여부는 계정 · 워크스페이스 정책에 따라 다를 수 있습니다)
+- `chatgpt.com/plugins`에서 **+** → MCP 서버 URL을 `/mcp` 경로까지 넣는다
+- 요구사항은 **공개 HTTPS + streamable HTTP**다. 로컬 stdio는 받지 않는다
+- Secure MCP Tunnel을 쓰면 서버를 공개하지 않고도 닿게 할 수 있다
+
+> 2026-09-10에 확인한 절차입니다. 화면과 메뉴 이름은 바뀔 수 있습니다.
+
+</Slide>
+
+<Slide>
+
+### 로컬과 세상의 차이
+
+```mermaid
+flowchart LR
+    L["내 기계 안<br/>curl · Inspector · 파이썬"] --> M["내 AI 도구<br/>Claude Code · Codex"]
+    M --> W["세상<br/>ChatGPT · n8n · 남의 서비스"]
+    L -.->|"주소도 인증도 필요 없다"| L
+    W -.->|"주소 · 인증 · 상한 · 비용"| W
+```
+
+- **stdio는 내 기계 안에서 끝납니다.**
+- 웹 기반 AI에 붙이려면 우리 서버가 밖으로 나가야 하고, 그 순간부터
+  주소 · 인증 · 상한 · 비용이 전부 남의 일이 아니게 됩니다.
+
+</Slide>
+
+<Slide>
+
+### 6장이 남기는 것
+
+- **Inspector가 먼저다.** 서버가 잘못된 것과 안 붙는 것은 다른 문제다
+- 내 AI가 내 도구를 부르는 순간이 7주 작업의 결과를 가장 잘 보여준다
+- 로컬에 붙이는 것과 세상에 내어주는 것은 다르다
+
+8주차는 문을 여는 데까지, **12주차는 그 문을 세상에 두는 데까지**입니다.
+
+</Slide>
+
+<Slide class="cover">
+
+## 7장 · 세 번째 문: n8n
+
+*이벤트가 우리를 부른다*
+
+
+```mermaid
+flowchart LR
+    E(["웹훅 · 09:00 · 메일"]) --> N["n8n :5678"] --> S["우리 서비스"]
+```
+
+</Slide>
+
+<Slide>
+
+### 지금까지의 문은 누군가 부를 때 열렸습니다
+
+- 사람이 브라우저를 열거나
+- 프로그램이 요청을 보내거나
+- AI가 도구를 골랐습니다
+
+전부 **누군가의 의지**가 있어야 움직였습니다.
+
+</Slide>
+
+<Slide class="center">
+
+### 세 번째 문은 다릅니다
+
+**이벤트가 우리를 부른다**
+
+</Slide>
+
+<Slide>
+
+### 무엇이 부르나
+
+```mermaid
+flowchart LR
+    subgraph before["지금까지"]
+        P1(("사람")) -->|"의지"| S1["우리 서비스"]
+        A1(("다른 AI")) -->|"의지"| S1
+    end
+    subgraph after["세 번째 문"]
+        E1(["웹훅 도착"]) --> N["n8n"]
+        E2(["09:00"]) --> N
+        E3(["메일 · 시트 변경"]) --> N
+        N --> S2["우리 서비스"]
+    end
+```
+
+**우리 서비스가 남의 업무 흐름 속의 부품이 됩니다.**
+
+</Slide>
+
+<Slide>
+
+### 오늘의 순서
+
+1. n8n 한 바퀴: 개념 넷
+2. 우리 서비스를 부른다 (웹훅 · 스케줄)
+3. 반대 방향: 워크플로가 MCP 서버가 된다
+4. 얻는 것과 잃는 것
+
+
+```mermaid
+flowchart LR
+    A["개념 넷"] --> B["부른다"] --> C["내어놓는다"] --> D["맞바꾼 것"]
+```
+
+</Slide>
+
+<Slide>
+
+### 워크플로를 불러옵니다
+
+```bash
+docker compose exec n8n n8n import:workflow --separate --input=/workflows
+docker compose exec n8n n8n publish:workflow --id=week08webhook001
+docker compose exec n8n n8n publish:workflow --id=week08mcpsrv0001
+docker compose restart n8n
+```
+
+**불러오기만으로는 트리거가 살지 않습니다.** n8n 2.x는 초안과 발행판이 따로라
+발행해야 웹훅 주소가 생깁니다. 화면에서는 오른쪽 위 토글이 같은 일을 합니다.
+
+</Slide>
+
+<Slide>
+
+### 마지막 줄을 빼먹지 마세요
+
+```plaintext
+Note: Changes will not take effect if n8n is running.
+Please restart n8n for changes to take effect if n8n is currently running.
+```
+
+네 줄을 한꺼번에 붙여 넣을 때 주의할 것이 하나 있습니다.
+
+- **zsh 대화형 셸은 `#` 뒤를 주석으로 보지 않습니다.**
+- 명령 뒤에 설명을 붙이면 그것까지 인자로 들어가 `no such service: #`로 끝납니다.
+- 앞의 세 줄은 성공했는데 마지막 한 줄만 조용히 실패합니다.
+
+</Slide>
+
+<Slide>
+
+### 제대로 살았는지는 불러 보면 압니다
+
+```bash
+curl -s -X POST localhost:5678/webhook/travel \
+  -H 'Content-Type: application/json' \
+  -d '{"question":"오사카 2박 3일 2명, 보통 스타일로"}'
+```
+
+`404 … webhook "POST travel" is not registered`가 오면 **발행이나 재시작 둘 중
+하나가 빠진 것**입니다.
+
+셋 중 `02 · 아침 9시에`만 발행하지 않는 것은 일부러입니다. 발행하면 매일
+아침 9시에 진짜로 돕니다.
+
+</Slide>
+
+<Slide>
+
+### 알아 둘 개념은 넷뿐입니다
+
+| 개념 | 무엇인가 | 우리가 아는 것으로 치면 |
+| --- | --- | --- |
+| 노드 | 한 가지 일을 하는 상자 | 함수 하나 |
+| 트리거 | 워크플로를 시작시키는 노드 | `if __name__ == "__main__"` |
+| 크리덴셜 | 키 · 토큰을 따로 보관하는 곳 | `.env` |
+| 실행 이력 | 매 실행의 입출력이 통째로 남는 기록 | 6주차의 트레이스 |
+
+**실행 이력이 6주차 트레이스와 같은 자리**라는 것을 짚어 두세요.
+
+</Slide>
+
+<Slide>
+
+### 첫 번째 워크플로는 노드 셋입니다
+
+```mermaid
+flowchart LR
+    W["웹훅<br/>POST /webhook/travel"] --> H["HTTP Request<br/>POST http://api:8000/plan"]
+    H --> R["웹훅에 응답<br/>answer · usage"]
+```
+
+주소가 `localhost`가 아니라 `api`인 것을 봐 두세요. compose 네트워크에서는
+**서비스 이름이 곧 호스트명**입니다. 2주차 `app`↔`db`, 3주차 `ui`↔`api`와
+같은 원리입니다.
+
+</Slide>
+
+<Slide>
+
+### 불러 봅니다
+
+- 실행
+
+```bash
+curl -s -X POST http://localhost:5678/webhook/travel \
+  -H 'content-type: application/json' \
+  -d '{"question": "교토 2박 3일 4명 고급 여행"}'
+```
+
+- 결과
+
+```json
+{"answer":"[각본 대역] 교토 2박 3일, 4명 일정입니다. …
+ 예산 합계는 2,980,000원입니다 (숙박 500,000 · 식비 1,080,000 · 항공 1,400,000).",
+ "stopped_by":"final",
+ "usage":{"llm_calls":3,"prompt_tokens":3420,"completion_tokens":460,"total_tokens":3880}}
+```
+
+</Slide>
+
+<Slide class="center">
+
+### 코드를 한 줄도 쓰지 않고
+
+**우리 서비스에 새 입구가 하나 생겼습니다**
+
+이것이 문이 껍데기라는 말의 마지막 증거입니다
+
+</Slide>
+
+<Slide>
+
+### 두 번째 워크플로는 트리거만 바꾼 것입니다
+
+- 매일 아침 9시가 되면 **사람 없이** 같은 요청이 나갑니다.
+- 노드 둘은 그대로입니다. 앞에 선 트리거만 웹훅에서 스케줄로 바뀝니다.
+
+</Slide>
+
+<Slide>
+
+### 화면에서 「Execute workflow」를 누르면
+::sub[웹훅 주소가 둘이기 때문입니다]
+
+| | 주소 | 언제 받나 | 결과가 보이는 곳 |
+| --- | --- | --- | --- |
+| 테스트 | `/webhook-test/travel` | 실행 버튼을 누른 뒤 **딱 한 번** | 캔버스에 바로 |
+| 운영 | `/webhook/travel` | 발행돼 있으면 **항상** | 실행 이력에만 |
+
+```bash
+curl -s -X POST http://localhost:5678/webhook-test/travel \
+  -H 'content-type: application/json' \
+  -d '{"question": "교토 2박 3일 4명 고급 여행"}'
+```
+
+</Slide>
+
+<Slide>
+
+### 버튼을 안 누르면 n8n이 직접 알려 줍니다
+
+```json
+{"code":404,"message":"The requested webhook \"travel\" is not registered.",
+ "hint":"Click the 'Execute workflow' button on the canvas, then try again.
+         (In test mode, the webhook only works for one call after you click this button)"}
+```
+
+**시연은 테스트 주소로, 남에게 주는 주소는 운영 주소로.**
+
+</Slide>
+
+<Slide>
+
+### 반대 방향: 워크플로가 MCP 서버가 됩니다
+
+```mermaid
+flowchart LR
+    C(("Claude Code")) -->|"MCP"| T["MCP Server Trigger<br/>/mcp/travel-tools"]
+    T --- X["HTTP Request Tool<br/>plan_trip"]
+    X --> A["api :8000<br/>우리 에이전트"]
+```
+
+이번에는 n8n이 **도구를 내어놓고**, Claude가 그것을 부릅니다.
+
+</Slide>
+
+<Slide>
+
+### 우리 파이썬 클라이언트로 붙어 봅니다
+
+- 실행
+
+```bash
+docker compose exec -e MCP_URL=http://n8n:5678/mcp/travel-tools \
+  api python clients/py_client.py
+```
+
+- 결과
+
+```plaintext
+n8n이 내어놓은 도구: [('plan_trip', ['question'])]
+호출 결과: [{"answer":"[각본 대역] 오사카 2박 3일, 2명 일정입니다. …
+```
+
+> MCP Server Trigger는 typeVersion 2.1부터 streamable HTTP입니다.
+> 1.x는 SSE라 `/mcp/<path>/sse`로 붙어야 합니다.
+
+</Slide>
+
+<Slide class="center">
+
+### 한 바퀴가 닫혔습니다
+
+**Claude가 n8n을 부르고, n8n이 우리 FastAPI를 부르고,**
+
+**그 안에서 6주차 에이전트가 돕니다**
+
+어느 층도 다른 층의 내부를 모릅니다
+
+</Slide>
+
+<Slide>
+
+### 얻는 것과 잃는 것
+
+| 얻는 것 | 잃는 것 |
+| --- | --- |
+| 연결 (Slack · Gmail · 시트 · cron 수백 종) | 버전 관리와 코드 리뷰 |
+| 속도 (오늘 만들어 오늘 돌린다) | 테스트 (pytest 20개 같은 것) |
+| 화면으로 보이는 흐름 | 세밀한 제어 (하네스 · 게이트 · 재계획) |
+| 실행 이력이 공짜 | 비용 통제 (예산 게이트를 우리가 못 짠다) |
+
+**n8n이 코드를 대체하지 않습니다.**
+
+</Slide>
+
+<Slide>
+
+### 언제 코드로 돌아오나
+::sub[판단 기준은 6주차에 배운 것과 같습니다]
+
+- 실패했을 때 무엇을 할지 **정교하게 정해야 하면** 코드
+- 비용 상한을 **요청 단위로** 지켜야 하면 코드
+- 같은 입력에 **같은 결과를 보장**해야 하면 코드
+
+그 외에는 n8n이 빠릅니다.
+
+</Slide>
+
+<Slide>
+
+### 라이선스를 한 줄 짚고 갑니다
+
+**n8n은 OSI 오픈소스가 아니라 Sustainable Use License(fair-code)입니다.**
+
+- 개인 · 사내 사용과 포트폴리오는 자유입니다.
+- n8n 자체를 호스팅해 되파는 것은 금지되어 있습니다.
+- 개인 프로젝트에 쓰는 데는 문제가 없지만 "오픈소스"라고 뭉뚱그리지는 않습니다.
+
+</Slide>
+
+<Slide>
+
+### 7장이 남기는 것
+
+- 이벤트가 우리를 부른다. 우리 서비스가 **남의 업무 흐름의 부품**이 된다
+- 코드를 한 줄도 쓰지 않고 입구가 하나 늘었다
+- Claude → n8n → 우리 API → 6주차 에이전트. **한 바퀴가 닫힌다**
+- 얻는 것은 연결과 속도, 잃는 것은 테스트 · 버전 관리 · 비용 통제다
+
+</Slide>
+
+<Slide class="cover">
+
+## 8장 · 뒷문: 키와 지갑
+
+*앱이 진짜 키를 모르게 한다*
+
+
+```mermaid
+flowchart LR
+    A["앱<br/>가상키"] --> G["게이트웨이<br/>진짜 키"] --> P(("모델 제공자"))
+```
+
+</Slide>
+
+<Slide>
+
+### 8장이 하는 일
+::sub[지금까지 키는 `.env`에 있었습니다. 배포하는 순간 자리가 달라집니다]
+
+1. 키를 쥐는 세 가지 배치
+2. LiteLLM이 서버로 선다
+3. 관리자 화면: 키와 장부를 눈으로
+4. 소진되면 거절인가, 강등인가
+
+</Slide>
+
+<Slide class="center">
+
+### 핵심 문장
+
+**한도는 코드가 아니라 게이트웨이가 지킨다**
+
+</Slide>
+
+<Slide>
+
+### 키를 쥐는 세 가지 배치
+
+| 배치 | 키를 쥐는 쪽 | 비용 | 무너지는 지점 |
+| --- | --- | --- | --- |
+| 운영자 키 | 서버의 환경변수 · 시크릿 | 운영자 | 데모 URL 하나로 지갑이 열린다 |
+| 사용자 키 (BYOK) | 사용자가 입력, 런타임 주입 | 사용자 | 키를 어디 두나. 로그 · 에러에 새지 않게 |
+| 가상키 | 게이트웨이가 진짜 키를 쥔다 | 운영자 + 사람별 상한 | 게이트웨이가 단일 장애점 |
+
+</Slide>
+
+<Slide>
+
+#### 직접 보내 보기: 배치마다 무엇이 실려 가나
+::sub[가상키 배치에서 「한도 소진」을 켜면 요청이 모델에 닿지 못합니다]
+
+<KeyPlacement />
+
+</Slide>
+
+<Slide>
+
+### BYOK는 구조가 간단합니다
+
+- `.env`에서 오던 키가 **요청에서 올 뿐**입니다.
+- LiteLLM에 `api_key` 인자로 넘기면 됩니다. 호출 코드는 그대로입니다.
+- 다만 둘을 지켜야 합니다.
+  - 키를 **로그에 남기지 않는다**
+  - 키를 **에러 메시지에 실어 보내지 않는다**
+
+설정 화면은 UI 이야기라 9주차에서 다룹니다.
+
+</Slide>
+
+<Slide>
+
+### LiteLLM이 서버로 섭니다
+
+```yaml
+model_list:
+  - model_name: travel-demo         # 키가 없어도 도는 시연용
+    litellm_params:
+      model: openai/gpt-4o-mini
+      api_key: "not-needed"
+      mock_response: "게이트웨이의 모의 응답입니다. 진짜 모델을 부르지 않았습니다."
+general_settings:
+  master_key: os.environ/LITELLM_MASTER_KEY   # 이 키로만 가상키를 발급한다
+```
+
+5주차에 배운 litellm이 이번에는 라이브러리가 아니라 **서버**입니다.
+
+</Slide>
+
+<Slide>
+
+### 여기서 키가 셋이 됩니다
+::sub[이름이 다 비슷해서 헷갈리기 쉽습니다]
+
+| | 진짜 프로바이더 키 | 마스터 키 | 가상키 |
+| --- | --- | --- | --- |
+| 누가 만드나 | 벤더 콘솔 | **우리가 지어낸다** | 게이트웨이가 발급 |
+| 무엇을 여나 | 모델 벤더의 문 | **게이트웨이의 관리자 문** | 게이트웨이의 사용자 문 |
+| 어디 사나 | 게이트웨이의 `.env` | 게이트웨이의 `.env` | 앱 · 사람에게 나눠준다 |
+| 유출되면 | 벤더에서 폐기 + 요금 폭탄 | **무제한 발급 + 전체 열람** | 그 키 하나만 폐기 |
+
+</Slide>
+
+<Slide class="center">
+
+### 한 줄로 하면
+
+**마스터 키는 게이트웨이의 root 비밀번호다**
+
+모델을 부르라고 있는 것이 아니라, 누가 모델을 부를 수 있는지를 정하라고 있습니다
+
+</Slide>
+
+<Slide>
+
+### 직접 두드려 보면 선이 분명합니다
+
+- 실행
+
+```bash
+# ① 마스터 키로 가상키 발급
+curl -s -X POST localhost:4000/key/generate \
+  -H 'Authorization: Bearer sk-week08-master' \
+  -H 'content-type: application/json' \
+  -d '{"models":["travel-demo"],"max_budget":1}'
+```
+
+- 결과
+
+```json
+{"key":"sk-X2YZqszic5CYcfVl5IbXlA", …}
+```
+
+</Slide>
+
+<Slide>
+
+### 가상키로는 키를 찍어낼 수 없습니다
+
+- 실행
+
+```bash
+# ② 방금 받은 가상키로 또 발급을 시도하면
+curl -s -X POST localhost:4000/key/generate \
+  -H 'Authorization: Bearer sk-X2YZqszic5CYcfVl5IbXlA' \
+  -H 'content-type: application/json' -d '{"models":["travel-demo"]}'
+```
+
+- 결과
+
+```json
+401  Only proxy admin can be used to generate, delete, update info
+     for new keys/users/teams. Route=/key/generate. Your role=unknown.
+```
+
+**그 권한이 마스터 키에만 있다는 것이 이 구조의 전부입니다.**
+
+</Slide>
+
+<Slide>
+
+### 셋이 앉는 자리
+
+```bash
+# gateway/.env · 게이트웨이 컨테이너에만 간다
+GEMINI_API_KEY=AIza…                  # 진짜. 돈이 여기서 나간다
+LITELLM_MASTER_KEY=sk-week08-master   # 우리가 지은 값. 벤더와 무관하다
+```
+
+```bash
+# .env · 앱(api·mcp)에 가는 것 전부
+GATEWAY_URL=http://litellm-proxy:4000
+GATEWAY_KEY=sk-…
+```
+
+**마스터 키는 앱에도 수강생에게도 주지 않습니다.**
+
+</Slide>
+
+<Slide>
+
+### 상한을 아주 낮게 걸고 소진시켜 봅니다
+
+- 실행
+
+```bash
+docker compose exec api python examples/04_virtual_key.py
+```
+
+- 결과
+
+```plaintext
+발급된 가상키: sk-gLmQhi_JX…  (진짜 프로바이더 키는 게이트웨이만 안다)
+허용 모델: ['travel-demo'] · 상한: $2e-05
+
+호출 1: 200  게이트웨이의 모의 응답입니다.
+호출 2: 200  게이트웨이의 모의 응답입니다.
+호출 3: 429  Budget has been exceeded! Current cost: 2.6e-05, Max budget: 2e-05
+호출 4: 429  Budget has been exceeded! …
+호출 5: 429  Budget has been exceeded! …
+```
+
+</Slide>
+
+<Slide>
+
+### 여기서 얻는 것이 셋입니다
+
+- **앱에 키를 주지 않는다.** 유출돼도 그 키만 폐기하면 됩니다
+- **사람마다 다른 상한을 건다.** 앱을 고치지 않고 발급 시점에 정합니다
+- **모델 접근을 좁힌다.** 그 키가 부를 수 있는 모델을 제한합니다
+
+앱 쪽 변경은 이게 전부입니다.
+
+```python
+if config.gateway():                       # .env의 GATEWAY_URL
+    kwargs["api_base"] = config.gateway()
+    kwargs["api_key"] = os.environ.get("GATEWAY_KEY", "")
+```
+
+</Slide>
+
+<Slide>
+
+### 말로만 하면 믿기 어려우니 안을 들여다봅니다
+
+- 실행
+
+```bash
+docker compose exec api python -c "
+import os
+for v in ['GEMINI_API_KEY','LITELLM_MASTER_KEY','GATEWAY_URL','GATEWAY_KEY']:
+    print(v, '있음' if os.environ.get(v) else '없음')"
+```
+
+- 결과
+
+```plaintext
+GEMINI_API_KEY     없음
+LITELLM_MASTER_KEY 없음
+GATEWAY_URL        있음
+GATEWAY_KEY        있음
+```
+
+</Slide>
+
+<Slide>
+
+### 그리고 이 컨테이너가 진짜 Gemini의 답을 받아 옵니다
+
+```plaintext
+mode: live | model: openai/travel
+거친 도구: ['calc_budget', 'search_places', 'estimate_travel_time']
+답: 오사카 2박 3일 2명 여행을 위한 추천 일정을 제안해 드립니다. …
+```
+
+**진짜 키가 하나도 없는 컨테이너가 진짜 모델을 썼습니다.**
+
+</Slide>
+
+<Slide>
+
+### compose 파일이 그렇게 되어 있습니다
+
+```yaml
+  api:
+    environment:              # 앱이 쥐는 것은 이게 전부다
+      LLM_MODE: ${LLM_MODE:-auto}
+      GATEWAY_URL: ${GATEWAY_URL:-}
+      GATEWAY_KEY: ${GATEWAY_KEY:-}
+      GATEWAY_MODEL: ${GATEWAY_MODEL:-}
+
+  litellm-proxy:
+    env_file: gateway/.env    # 진짜 키와 마스터 키는 여기에만 있다
+```
+
+**`LITELLM_MASTER_KEY`는 이 목록에 없습니다.** 8장 1절의 표가 compose 파일로
+나타난 것입니다.
+
+</Slide>
+
+<Slide>
+
+### `/config`를 보면 모델 이름이 바뀌어 있습니다
+
+```json
+{"mode": "live", "model": "openai/travel-demo"}
+```
+
+- `gemini/…`가 아니라 **게이트웨이 뒤의 별명**입니다.
+- 앱이 어느 회사 모델을 쓰는지 모른다는 사실이 이 한 줄에 드러납니다.
+- 바꾸는 것은 게이트웨이 설정 파일이고, **앱은 다시 배포하지 않습니다.**
+
+</Slide>
+
+<Slide>
+
+### 관리자 화면은 이미 들어 있습니다
+::sub[우리가 만들 것이 아니라 제품에 딸려 온 것입니다]
+
+```plaintext
+http://localhost:4000/ui/
+아이디 admin · 비밀번호는 LITELLM_MASTER_KEY
+```
+
+- **가상키 발급**: 별명 · 상한 · 허용 모델을 정해 만듭니다
+- **사용액 보기**: `$0.00 of $5`처럼 상한 대비 얼마를 썼는지 막대로 보입니다
+- **허용 모델 확인**: 8장 2절의 모델 허용목록이 이 열입니다
+- 왼쪽에 Usage · Logs · Budgets · Teams. **5주차에 손수 찍던 장부가 화면입니다**
+
+</Slide>
+
+<Slide>
+
+### 발급하고 앱에 물리는 순서
+
+1. `docker compose up -d`. **게이트웨이가 먼저** 떠야 합니다
+2. `:4000/ui/`에서 **+ Create New Key**. Organization 칸에서 `week08`을 고릅니다.
+   키 문자열은 **만든 직후 한 번만** 보입니다
+3. `.env`의 `GATEWAY_URL`과 `GATEWAY_KEY` 둘을 채웁니다
+4. `docker compose up -d --force-recreate api mcp`. 앱만 다시 만듭니다
+
+**닭과 달걀처럼 보이지만 아닙니다.** 가상키는 게이트웨이의 **상태**이고,
+앱에는 그것이 **설정으로** 들어갑니다.
+
+</Slide>
+
+<Slide>
+
+### 키를 바꿀 때도 같은 네 단계입니다
+
+- **`docker compose down`은 필요 없습니다.** 앱 컨테이너 둘만 다시 만듭니다
+- **`restart`로는 안 됩니다.** 환경변수는 컨테이너를 **만들 때** 굳습니다
+
+```plaintext
+docker compose restart api                 → model: openai/travel        (옛 값)
+docker compose up -d --force-recreate api  → model: openai/travel-demo   (새 값)
+```
+
+- **순서가 중요합니다.** 새 키 발급 → 앱에 반영 → **그다음에** 옛 키 폐기
+
+</Slide>
+
+<Slide>
+
+### 다시 만드는 1초는 중단입니다
+
+실제 서비스라면 키를 바꾸느라 서비스가 끊기면 곤란합니다.
+
+- 시크릿을 **파일로 마운트**하고 호출할 때마다 읽습니다
+  (쿠버네티스 시크릿이 환경변수가 아니라 파일인 이유)
+- 시크릿 매니저에서 **런타임에 조회**하고 잠깐 캐시합니다
+- 인스턴스를 **하나씩 교체**합니다
+- 새 키와 옛 키를 **겹쳐 두고** 갈아탄 뒤 옛 키를 지웁니다
+
+무중단 교체는 **12주차 배포**에서 다룹니다.
+
+</Slide>
+
+<Slide>
+
+### 이 화면이 열려 있다는 것
+
+우리 랩의 마스터 키는 `sk-week08-master`입니다. **교안에 적혀 있으니 비밀이
+아닙니다.** 그래서 포트를 이 기계에만 열어 두었습니다.
+
+```yaml
+ports:
+  - "127.0.0.1:4000:4000"   # 같은 망의 다른 기계에서는 보이지 않는다
+```
+
+`0.0.0.0:4000`이었다면 같은 카페 와이파이에 있는 사람이 관리자 화면에 들어와
+키를 찍어낼 수 있습니다.
+
+</Slide>
+
+<Slide class="center">
+
+### 6주차에 이렇게 말했습니다
+
+**프롬프트는 부탁이고 게이트는 물리 법칙이다**
+
+여기서는 **포트 바인딩이 그 물리 법칙**입니다
+
+</Slide>
+
+<Slide>
+
+### 배포할 때 더 해야 할 것
+
+- 마스터 키를 **긴 난수**로 바꿉니다. `.env`에 두고 절대 커밋하지 않습니다
+- 화면 로그인을 마스터 키와 분리합니다 (`UI_USERNAME` · `UI_PASSWORD`),
+  또는 SSO를 붙입니다
+- 공개 주소에 그냥 두지 않습니다. 리버스 프록시 뒤에 놓고 IP를 제한합니다
+
+</Slide>
+
+<Slide>
+
+### 소진되면 거절인가, 강등인가
+::sub[같은 "예산 초과"인데 두 곳에서 다르게 처리됩니다]
+
+| | 6주차 budget guard | 게이트웨이 |
+| --- | --- | --- |
+| 어디 | 루프 안 | 문 앞 |
+| 언제 | 이미 몇 번 부른 뒤 | 모델에 닿기 전 |
+| 무엇을 | 멈추고 **답으로 알린다** | **429로 거절한다** |
+
+</Slide>
+
+<Slide>
+
+### 두 자리가 그림으로는 이렇습니다
+
+```mermaid
+flowchart LR
+    Q(["요청"]) --> GW{"게이트웨이<br/>가상키 상한"}
+    GW -->|"초과"| X["429<br/>모델에 닿지 못한다"]
+    GW -->|"통과"| LOOP["루프 시작"]
+    LOOP --> BG{"budget guard<br/>요청 단위 상한"}
+    BG -->|"초과"| Y["200 + stopped_by: budget<br/>중간까지의 상황을 답으로"]
+    BG -->|"통과"| Z["최종 답"]
+```
+
+</Slide>
+
+<Slide>
+
+### 랩에서 둘 다 볼 수 있습니다
+
+- 실행
+
+```bash
+curl -s -X POST "localhost:8000/plan?simulate=budget" \
+  -H 'content-type: application/json' -d '{"question":"오사카 2박"}'
+```
+
+- 결과
+
+```json
+{"stopped_by":"budget","answer":"[중단] 비용 상한 초과: 누적 $0.5000 ≥ 중단 임계 $0.20",
+ "spent_usd":0.5}
+```
+
+**200입니다.** 사용자는 중간까지의 상황을 답으로 받습니다.
+
+</Slide>
+
+<Slide class="center">
+
+### 어느 쪽이 옳은가는 제품이 정합니다
+
+무료 데모라면 거절, 유료 서비스라면 싼 모델로 강등
+
+**엔지니어링 결정과 사업 결정이 같은 코드 한 줄에서 만납니다**
+
+</Slide>
+
+<Slide>
+
+### 8장이 남기는 것
+
+- **앱은 진짜 키를 몰라도 모델을 쓴다**
+- 한도는 코드가 아니라 게이트웨이가 지킨다. 사람마다 다르게
+- 마스터 키는 게이트웨이의 root 비밀번호다. 앱에 주지 않는다
+- 예산 초과를 답으로 알릴지 문 앞에서 거절할지는 **제품이 정한다**
+
+</Slide>
+
+<Slide class="cover">
+
+## 마무리
+
+*오늘 연 문들*
+
+</Slide>
+
+<Slide>
+
+### 재현할 때 유의할 점
+
+- **포트를 겹치지 않게 합니다.** 8000 · 8010 · 5678 · 4000을 씁니다.
+  7주차 저장소들도 8000 · 8501을 쓰므로 **한 번에 하나만** 띄웁니다
+- **mcp는 1.x에 고정입니다.** 2.x에서 `FastMCP`가 `MCPServer`로 개명됐습니다
+- **n8n은 2.38.5로 고정입니다.** 올리면 노드 파라미터가 바뀔 수 있습니다
+- **불러온 뒤에 발행하고 재시작합니다**
+- **각본 대역에는 일부러 지연이 있습니다.** `OFFLINE_LATENCY_MS` 기본 400
+- **게이트웨이 장부는 볼륨에 남습니다.** 처음부터 하려면 `down -v`
+
+</Slide>
+
+<Slide class="center">
+
+## 오늘 남는 문장
+
+**문은 껍데기다.**
+
+**껍데기는 얼마든지 더 달 수 있다.**
+
+</Slide>
+
+<Slide>
+
+### 이번 주가 얹은 것
+
+| 장 | 더해진 것 |
+| --- | --- |
+| (7주차) | 루프 여럿을 엮은 멀티 에이전트 구조 |
+| 3장 | 진입 함수 하나, import 방향, 스키마 하나의 쓰임 넷 |
+| 4장 | 검증 · 502/504 · 상태 · 동시성 · 스트리밍 |
+| 5장 | `@mcp.tool()`, 통째로와 낱개, stdio와 HTTP |
+| 6장 | 붙이기 다섯 가지, 로컬과 세상의 경계 |
+| 7장 | 이벤트가 부르는 문, 워크플로가 MCP 서버가 되는 방향 |
+| 8장 | 가상키 · 상한 · 장부, 거절과 강등 |
+
+</Slide>
+
+<Slide>
+
+### 이번 주가 남기는 것
+
+- 문을 달기 전에 할 일은 **내 기능을 함수 하나로 말하는 것**이다
+- 코어는 문을 모른다. **import 방향이 그 증거**다
+- 상류의 장애는 500이 아니라 502다
+- `async def` 안의 동기 호출 한 줄이 동시 5건을 5배 느리게 만든다
+- 스트리밍은 총 시간이 아니라 **첫 글자까지의 시간**을 줄인다
+- 통째로 낼지 낱개로 낼지는 통제 · 유연함 · **비용**의 문제다
+- 이벤트가 우리를 부른다. 우리가 **남의 업무 흐름의 부품**이 된다
+- **앱은 진짜 키를 몰라도 모델을 쓴다**
+
+</Slide>
+
+<Slide>
+
+### 한 장으로
+
+```mermaid
+flowchart TB
+    P(("사람")) --> A["HTTP :8000"]
+    AI(("다른 AI")) --> M["MCP :8010"]
+    E(["이벤트"]) --> N["n8n :5678"]
+    N --> A
+    N --> M
+    A --> C["core/service.py<br/>plan() · plan_events()"]
+    M --> C
+    C --> H["6주차 루프 · 하네스 · 도구"]
+    H --> G["게이트웨이 :4000<br/>가상키 · 상한"]
+    G --> L(("모델 제공자"))
+    U(["9주차 UI"]) -.-> A
+```
+
+</Slide>
+
+<Slide>
+
+### 그리고 다음
+
+9주차에는 이 문들 앞에 **화면**을 답니다.
+
+- Streamlit · Gradio · Next.js 중에서 고릅니다.
+- `/docs`만으로도 데모가 성립한다는 것을 이미 봤으니 Swagger UI도 선택지입니다.
+- 오늘 연 MCP 문 덕분에 하나가 더 늘었습니다. ChatGPT 플러그인은 MCP Apps UI
+  표준을 구현해서, **MCP 서버가 UI 컴포넌트를 함께 내보낼 수 있습니다.**
+
+**무엇을 고르든 API는 한 줄도 바뀌지 않습니다.**
+
+</Slide>
+
+<Slide class="center">
+
+## 다음 주
+
+**9주차 · 화면을 고른다**
+
+3주차부터 헤드리스로 만들어 온 이유가 여기서 드러납니다
+
+</Slide>
