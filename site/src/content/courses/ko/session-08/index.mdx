@@ -925,12 +925,39 @@ compose 서비스 하나로 뜹니다.
 docker compose exec n8n n8n import:workflow --separate --input=/workflows
 docker compose exec n8n n8n publish:workflow --id=week08webhook001
 docker compose exec n8n n8n publish:workflow --id=week08mcpsrv0001
-docker compose restart n8n     # 발행 상태는 재시작 후에 반영된다
+docker compose restart n8n
 ```
 
 **불러오기만으로는 트리거가 살지 않습니다.** n8n 2.x는 워크플로에 초안과
 발행판이 따로 있어서, 발행해야 웹훅 주소가 생깁니다. 화면에서는 오른쪽 위
 토글이 같은 일을 합니다.
+
+**마지막 줄을 빼먹지 마세요.** `publish:workflow`가 직접 그렇게 말해 줍니다.
+
+```plaintext
+Note: Changes will not take effect if n8n is running.
+Please restart n8n for changes to take effect if n8n is currently running.
+```
+
+네 줄을 한꺼번에 붙여 넣을 때 주의할 것이 하나 있습니다. **zsh 대화형 셸은
+`#` 뒤를 주석으로 보지 않습니다.** 명령 뒤에 설명을 붙여 두면 그것까지
+인자로 들어가 `no such service: #`로 끝납니다. 앞의 세 줄은 성공했는데
+마지막 한 줄만 조용히 실패해서, 웹훅을 불러 보고서야 알게 됩니다.
+
+셋 중 `02 · 아침 9시에`만 발행하지 않는 것은 일부러입니다. 발행하면 매일
+아침 9시에 진짜로 돕니다. 강의실에서는 7장 4절에서 화면으로 한 번 돌려 보는
+것으로 충분합니다.
+
+제대로 살았는지는 불러 보면 압니다.
+
+```bash
+curl -s -X POST localhost:5678/webhook/travel \
+  -H 'Content-Type: application/json' \
+  -d '{"question":"오사카 2박 3일 2명, 보통 스타일로"}'
+```
+
+`404 … webhook "POST travel" is not registered`가 돌아오면 발행이나 재시작
+둘 중 하나가 빠진 것입니다.
 
 http://localhost:5678 을 엽니다. 처음 열면 계정을 만들라고 하는데, 이
 컨테이너 안에만 있는 로컬 계정입니다.
