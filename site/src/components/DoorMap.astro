@@ -83,7 +83,7 @@ def plan_events(question, ...) -> Iterator[dict]
     <strong>문은 껍데기, 코어는 하나</strong>
     <span>
       상자를 누르면 누가 부르는지와 코드에서 어디인지가 펼쳐집니다.
-      왼쪽 문 셋은 전부 같은 `core/`를 봅니다. 게이트웨이만 방향이 반대로,
+      왼쪽 문 셋은 전부 같은 <code>core/</code>를 봅니다. 게이트웨이만 방향이 반대로,
       코어가 모델을 부를 때 지나갑니다.
     </span>
   </div>
@@ -198,6 +198,11 @@ def plan_events(question, ...) -> Iterator[dict]
   .dmap-head { display: flex; flex-direction: column; gap: 0.3em; margin-bottom: 1em; }
   .dmap-head strong { font-size: 1.15em; color: var(--aas-text); }
   .dmap-head span { font-size: 0.88em; line-height: 1.65; color: var(--aas-muted); }
+  .dmap-head code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.94em; padding: 0.08em 0.32em; border-radius: 5px;
+    background: color-mix(in srgb, var(--aas-muted) 14%, transparent);
+  }
 
   .dmap-board {
     display: grid;
