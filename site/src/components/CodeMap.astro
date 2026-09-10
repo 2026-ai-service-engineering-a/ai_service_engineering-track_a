@@ -1,0 +1,271 @@
+---
+/**
+ * 코드 지도 (8주차 3장).
+ *
+ * week08-service-lab의 심볼과 호출 관계를 그대로 옮긴 것이다. 손으로 그린
+ * 그림이 아니라 `scripts/build-week08-codemap.py`가 저장소를 파싱해 만든
+ * 데이터(`src/data/week08-codemap.json`)를 읽는다. 심볼을 누르면 무엇이
+ * 그것을 부르고 그것이 무엇을 부르는지가 펼쳐진다.
+ *
+ * 이 지도로 확인하려는 문장은 하나다. **문은 코어를 부르고, 코어는 문을
+ * 부르지 않는다.**
+ */
+import codemap from '../data/week08-codemap.json';
+
+const KIND = {
+  route: { icon: '🌐', label: '라우트' },
+  tool: { icon: '🤖', label: 'MCP 도구' },
+  dataclass: { icon: '📦', label: '데이터클래스' },
+  class: { icon: '🧱', label: '클래스' },
+  method: { icon: '·', label: '메서드' },
+  function: { icon: 'ƒ', label: '함수' },
+};
+
+const LAYERS = ['door', 'core', 'client'] as const;
+const layerOf = new Map(codemap.modules.map((m) => [m.module, m.layer]));
+const fileOf = new Map(codemap.modules.map((m) => [m.module, m.file]));
+
+const columns = LAYERS.map((layer) => ({
+  layer,
+  label: codemap.layers[layer],
+  modules: codemap.modules
+    .filter((m) => m.layer === layer)
+    .map((m) => ({
+      ...m,
+      symbols: codemap.symbols
+        .filter((s) => s.module === m.module)
+        .sort((a, b) => a.line - b.line),
+    }))
+    .filter((m) => m.symbols.length > 0),
+}));
+
+const detail = Object.fromEntries(
+  codemap.symbols.map((s) => [
+    s.id,
+    {
+      ...s,
+      file: fileOf.get(s.module),
+      layer: layerOf.get(s.module),
+      callers: codemap.edges.filter((e) => e.to === s.id).map((e) => e.from),
+      callees: codemap.edges.filter((e) => e.from === s.id).map((e) => e.to),
+    },
+  ]),
+);
+const names = Object.fromEntries(codemap.symbols.map((s) => [s.id, s.name]));
+---
+
+<div class="cmap" data-cmap data-detail={JSON.stringify(detail)} data-names={JSON.stringify(names)}>
+  <div class="cmap-head">
+    <strong>코드 지도: 무엇이 무엇을 부르는가</strong>
+    <span>
+      심볼 {codemap.symbols.length}개와 호출 {codemap.edges.length}건입니다.
+      저장소를 파싱해 만든 것이라 코드가 바뀌면 이 지도도 바뀝니다.
+      아무 이름이나 눌러 보세요.
+    </span>
+  </div>
+
+  <div class="cmap-legend">
+    <span><i class="dot is-self"></i>고른 것</span>
+    <span><i class="dot is-caller"></i>이것을 부르는 곳</span>
+    <span><i class="dot is-callee"></i>이것이 부르는 것</span>
+  </div>
+
+  <div class="cmap-board">
+    {columns.map((col) => (
+      <div class={`cmap-col is-${col.layer}`}>
+        <p class="cmap-col-label">{col.label}</p>
+        {col.modules.map((mod) => (
+          <div class="cmap-mod">
+            <p class="cmap-mod-name">{mod.file}</p>
+            <div class="cmap-chips">
+              {mod.symbols.map((sym) => (
+                <button type="button" class="cmap-chip" data-sym={sym.id}
+                        title={sym.signature}>
+                  <i>{KIND[sym.kind]?.icon ?? 'ƒ'}</i>{sym.name}
+                </button>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    ))}
+  </div>
+
+  <div class="cmap-detail" data-panel hidden>
+    <div class="cmap-detail-head">
+      <strong data-d-name></strong>
+      <span class="cmap-kind" data-d-kind></span>
+      <code data-d-file></code>
+    </div>
+    <pre data-d-sig></pre>
+    <p class="cmap-doc" data-d-doc></p>
+    <div class="cmap-rel">
+      <div>
+        <p>이것을 부르는 곳</p>
+        <div class="cmap-rel-chips" data-d-callers></div>
+      </div>
+      <div>
+        <p>이것이 부르는 것</p>
+        <div class="cmap-rel-chips" data-d-callees></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  document.querySelectorAll<HTMLElement>('[data-cmap]').forEach(init);
+
+  function init(root: HTMLElement) {
+    type Detail = {
+      name: string; kind: string; extra: string; signature: string;
+      file: string; line: number; doc: string; callers: string[]; callees: string[];
+    };
+    const DETAIL = JSON.parse(root.dataset.detail ?? '{}') as Record<string, Detail>;
+    const NAMES = JSON.parse(root.dataset.names ?? '{}') as Record<string, string>;
+    const KIND_LABEL: Record<string, string> = {
+      route: '라우트', tool: 'MCP 도구', dataclass: '데이터클래스',
+      class: '클래스', method: '메서드', function: '함수',
+    };
+    const $ = <T extends HTMLElement>(s: string) => root.querySelector<T>(s)!;
+    const panel = $('[data-panel]');
+    const chips = [...root.querySelectorAll<HTMLButtonElement>('[data-sym]')];
+
+    function relChips(box: HTMLElement, ids: string[]) {
+      box.innerHTML = '';
+      if (!ids.length) {
+        const none = document.createElement('span');
+        none.className = 'cmap-none';
+        none.textContent = '없음';
+        box.appendChild(none);
+        return;
+      }
+      ids.forEach((id) => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'cmap-rel-chip';
+        button.dataset.jump = id;
+        button.textContent = id.replace(':', ' · ');
+        button.addEventListener('click', () => select(id, true));
+        box.appendChild(button);
+      });
+    }
+
+    function select(id: string, scroll = false) {
+      const data = DETAIL[id];
+      if (!data) return;
+      const callers = new Set(data.callers);
+      const callees = new Set(data.callees);
+
+      chips.forEach((chip) => {
+        const other = chip.dataset.sym ?? '';
+        chip.classList.toggle('is-self', other === id);
+        chip.classList.toggle('is-caller', callers.has(other));
+        chip.classList.toggle('is-callee', callees.has(other));
+        chip.classList.toggle('is-off', other !== id && !callers.has(other) && !callees.has(other));
+      });
+
+      $('[data-d-name]').textContent = `${data.file.split('/').pop()} · ${data.name}`;
+      $('[data-d-kind]').textContent =
+        (KIND_LABEL[data.kind] ?? data.kind) + (data.extra ? ` · ${data.extra}` : '');
+      $('[data-d-file]').textContent = `${data.file}:${data.line}`;
+      $('[data-d-sig]').textContent = data.signature;
+      $('[data-d-doc]').textContent = data.doc || '설명이 없는 심볼입니다.';
+      relChips($('[data-d-callers]'), data.callers);
+      relChips($('[data-d-callees]'), data.callees);
+      panel.hidden = false;
+      panel.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      void scroll;
+      void NAMES;
+    }
+
+    chips.forEach((chip) => {
+      chip.addEventListener('click', () => {
+        const id = chip.dataset.sym ?? '';
+        if (chip.classList.contains('is-self')) {
+          chips.forEach((c) => c.classList.remove('is-self', 'is-caller', 'is-callee', 'is-off'));
+          panel.hidden = true;
+          return;
+        }
+        select(id);
+      });
+    });
+  }
+</script>
+
+<style>
+  .cmap {
+    margin: 2rem 0;
+    padding: 1.1rem;
+    border: 1px solid var(--aas-border);
+    border-radius: 14px;
+    background: var(--aas-panel);
+    box-shadow: var(--aas-shadow);
+    font-family: var(--aas-sans);
+    container-type: inline-size;
+    font-size: clamp(0.85rem, 1.4cqw, 1.1rem);
+    --cmap-self: #2f81f7;
+    --cmap-caller: #7c3aed;
+    --cmap-callee: #0f9d58;
+  }
+
+  .cmap-head { display: flex; flex-direction: column; gap: 0.3em; margin-bottom: 0.7em; }
+  .cmap-head strong { font-size: 1.15em; color: var(--aas-text); }
+  .cmap-head span { font-size: 0.86em; line-height: 1.65; color: var(--aas-muted); }
+
+  .cmap-legend { display: flex; flex-wrap: wrap; gap: 0.9em; margin-bottom: 0.9em; font-size: 0.76em; color: var(--aas-muted); }
+  .cmap-legend .dot { display: inline-block; width: 0.62em; height: 0.62em; border-radius: 50%; margin-right: 0.35em; }
+  .cmap-legend .dot.is-self { background: var(--cmap-self); }
+  .cmap-legend .dot.is-caller { background: var(--cmap-caller); }
+  .cmap-legend .dot.is-callee { background: var(--cmap-callee); }
+
+  .cmap-board { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.7em; align-items: start; }
+  .cmap-col { display: flex; flex-direction: column; gap: 0.5em; min-width: 0; }
+  .cmap-col-label { margin: 0 0 0.1em; font-size: 0.74em; font-weight: 700; color: var(--aas-muted); }
+
+  .cmap-mod { padding: 0.6em 0.7em; border: 1px solid var(--aas-border); border-radius: 10px; background: var(--aas-bg); }
+  .cmap-col.is-core .cmap-mod { border-color: color-mix(in srgb, var(--cmap-self) 35%, var(--aas-border)); }
+  .cmap-mod-name { margin: 0 0 0.45em; font-size: 0.72em; font-family: ui-monospace, monospace; color: var(--aas-muted); word-break: break-all; }
+  .cmap-chips { display: flex; flex-wrap: wrap; gap: 0.3em; }
+
+  .cmap-chip {
+    display: inline-flex; align-items: baseline; gap: 0.3em;
+    padding: 0.22em 0.55em; border: 1px solid var(--aas-border); border-radius: 999px;
+    background: var(--aas-panel); color: var(--aas-text);
+    font-size: 0.74em; font-family: ui-monospace, monospace; cursor: pointer;
+    transition: border-color 0.15s, opacity 0.15s, background 0.15s;
+  }
+  .cmap-chip i { font-style: normal; opacity: 0.7; }
+  .cmap-chip:hover { border-color: var(--cmap-self); }
+  .cmap-chip.is-self { background: var(--cmap-self); border-color: var(--cmap-self); color: #fff; }
+  .cmap-chip.is-caller { border-color: var(--cmap-caller); color: var(--cmap-caller); }
+  .cmap-chip.is-callee { border-color: var(--cmap-callee); color: var(--cmap-callee); }
+  .cmap-chip.is-off { opacity: 0.32; }
+
+  .cmap-detail { margin-top: 1em; padding: 0.9em 1em; border: 1px solid var(--aas-border); border-radius: 12px; background: var(--aas-bg); }
+  .cmap-detail-head { display: flex; flex-wrap: wrap; gap: 0.55em; align-items: baseline; margin-bottom: 0.5em; }
+  .cmap-detail-head strong { font-size: 1.02em; color: var(--aas-text); }
+  .cmap-kind { font-size: 0.74em; padding: 0.1em 0.5em; border-radius: 999px; background: var(--aas-tint); color: var(--aas-muted); }
+  .cmap-detail-head code { font-size: 0.74em; color: var(--aas-muted); }
+
+  .cmap-detail pre {
+    margin: 0 0 0.5em; font-size: 0.76em; line-height: 1.6; overflow-x: auto;
+    color: #c9d1d9;   /* 테마가 .prose pre 배경을 !important로 어둡게 칠한다 */
+  }
+  .cmap-doc { margin: 0 0 0.8em; font-size: 0.82em; line-height: 1.65; color: var(--aas-muted); }
+
+  .cmap-rel { display: grid; grid-template-columns: 1fr 1fr; gap: 0.8em; }
+  .cmap-rel > div > p { margin: 0 0 0.35em; font-size: 0.74em; font-weight: 700; color: var(--aas-muted); }
+  .cmap-rel-chips { display: flex; flex-wrap: wrap; gap: 0.3em; }
+  .cmap-rel-chips :global(.cmap-rel-chip) {
+    padding: 0.2em 0.5em; border: 1px solid var(--aas-border); border-radius: 6px;
+    background: var(--aas-panel); color: var(--aas-text);
+    font-size: 0.7em; font-family: ui-monospace, monospace; cursor: pointer;
+  }
+  .cmap-rel-chips :global(.cmap-rel-chip:hover) { border-color: var(--cmap-self); }
+  .cmap-rel-chips :global(.cmap-none) { font-size: 0.74em; color: var(--aas-muted); }
+
+  @container (max-width: 44rem) {
+    .cmap-board { grid-template-columns: 1fr; }
+    .cmap-rel { grid-template-columns: 1fr; }
+  }
+</style>
