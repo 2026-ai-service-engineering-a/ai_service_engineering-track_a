@@ -1,0 +1,413 @@
+{
+ "file": "mcp_server/server.py",
+ "server": {
+  "name": "travel-planner",
+  "version": "1.30.0"
+ },
+ "protocol": "2025-06-18",
+ "handshake": [
+  {
+   "request": {
+    "jsonrpc": "2.0",
+    "id": 1,
+    "method": "initialize",
+    "params": {
+     "protocolVersion": "2025-06-18",
+     "capabilities": {},
+     "clientInfo": {
+      "name": "week08-doc-capture",
+      "version": "0"
+     }
+    }
+   },
+   "response": {
+    "jsonrpc": "2.0",
+    "id": 1,
+    "result": {
+     "protocolVersion": "2025-06-18",
+     "capabilities": {
+      "experimental": {},
+      "prompts": {
+       "listChanged": false
+      },
+      "resources": {
+       "subscribe": false,
+       "listChanged": false
+      },
+      "tools": {
+       "listChanged": false
+      }
+     },
+     "serverInfo": {
+      "name": "travel-planner",
+      "version": "1.30.0"
+     }
+    }
+   }
+  },
+  {
+   "request": {
+    "jsonrpc": "2.0",
+    "method": "notifications/initialized"
+   },
+   "response": null
+  },
+  {
+   "request": {
+    "jsonrpc": "2.0",
+    "id": 2,
+    "method": "tools/list"
+   },
+   "response": {
+    "jsonrpc": "2.0",
+    "id": 2,
+    "result": {
+     "tools": [
+      {
+       "name": "plan_trip",
+       "description": "여행 요청 한 줄로 일정과 예산을 세운다. 안에서 에이전트 루프가 돈다.\n\n예: \"오사카 2박 3일 2명, 보통 스타일로\"\n",
+       "inputSchema": {
+        "properties": {
+         "question": {
+          "title": "Question",
+          "type": "string"
+         },
+         "max_steps": {
+          "default": 6,
+          "title": "Max Steps",
+          "type": "integer"
+         }
+        },
+        "required": [
+         "question"
+        ],
+        "title": "plan_tripArguments",
+        "type": "object"
+       }
+      },
+      {
+       "name": "search_places",
+       "description": "도시의 관광지·식당·카페를 검색한다. 지원 도시: 오사카, 교토.",
+       "inputSchema": {
+        "properties": {
+         "city": {
+          "title": "City",
+          "type": "string"
+         },
+         "category": {
+          "anyOf": [
+           {
+            "type": "string"
+           },
+           {
+            "type": "null"
+           }
+          ],
+          "default": null,
+          "title": "Category"
+         }
+        },
+        "required": [
+         "city"
+        ],
+        "title": "search_placesArguments",
+        "type": "object"
+       }
+      },
+      {
+       "name": "estimate_travel_time",
+       "description": "두 지역 사이의 대략적 이동 시간(분)을 조회한다.",
+       "inputSchema": {
+        "properties": {
+         "from_area": {
+          "title": "From Area",
+          "type": "string"
+         },
+         "to_area": {
+          "title": "To Area",
+          "type": "string"
+         }
+        },
+        "required": [
+         "from_area",
+         "to_area"
+        ],
+        "title": "estimate_travel_timeArguments",
+        "type": "object"
+       }
+      },
+      {
+       "name": "calc_budget",
+       "description": "숙박·식비·항공을 합쳐 여행 예산(원)을 계산한다. style: 절약·보통·고급.",
+       "inputSchema": {
+        "properties": {
+         "nights": {
+          "title": "Nights",
+          "type": "integer"
+         },
+         "people": {
+          "title": "People",
+          "type": "integer"
+         },
+         "style": {
+          "default": "보통",
+          "title": "Style",
+          "type": "string"
+         },
+         "include_flight": {
+          "default": true,
+          "title": "Include Flight",
+          "type": "boolean"
+         }
+        },
+        "required": [
+         "nights",
+         "people"
+        ],
+        "title": "calc_budgetArguments",
+        "type": "object"
+       }
+      }
+     ]
+    }
+   }
+  }
+ ],
+ "tools": [
+  {
+   "name": "plan_trip",
+   "line": 40,
+   "source": "@mcp.tool()\ndef plan_trip(question: str, max_steps: int = 6) -> dict:\n    \"\"\"여행 요청 한 줄로 일정과 예산을 세운다. 안에서 에이전트 루프가 돈다.\n\n    예: \"오사카 2박 3일 2명, 보통 스타일로\"\n    \"\"\"\n    result = service.plan(question, max_steps=max_steps)\n    return {\n        \"answer\": result.answer,\n        \"stopped_by\": result.stopped_by,\n        \"steps\": [s[\"tool\"] for s in result.steps if s[\"tool\"]],\n        \"usage\": result.usage,\n    }",
+   "listed": {
+    "name": "plan_trip",
+    "description": "여행 요청 한 줄로 일정과 예산을 세운다. 안에서 에이전트 루프가 돈다.\n\n예: \"오사카 2박 3일 2명, 보통 스타일로\"\n",
+    "inputSchema": {
+     "properties": {
+      "question": {
+       "title": "Question",
+       "type": "string"
+      },
+      "max_steps": {
+       "default": 6,
+       "title": "Max Steps",
+       "type": "integer"
+      }
+     },
+     "required": [
+      "question"
+     ],
+     "title": "plan_tripArguments",
+     "type": "object"
+    }
+   },
+   "call": {
+    "request": {
+     "jsonrpc": "2.0",
+     "id": 3,
+     "method": "tools/call",
+     "params": {
+      "name": "plan_trip",
+      "arguments": {
+       "question": "오사카 2박 3일 2명, 보통 스타일로",
+       "max_steps": 4
+      }
+     }
+    },
+    "response": {
+     "jsonrpc": "2.0",
+     "id": 3,
+     "result": {
+      "content": [
+       {
+        "type": "text",
+        "text": "{\n  \"answer\": \"[각본 대역] 오사카 2박 3일, 2명 일정입니다.\\n\\n- 1일차: 오사카성 → 구로몬 시장\\n- 2일차: 도톤보리 → 이치란 라멘 도톤보리\\n- 3일차: 우메다 공중정원 → 구로몬 시장\\n\\n예산 합계는 1,240,000원입니다 (숙박 240,000 · 식비 300,000 · 항공 700,000).\\n기준: 보통 스타일, 2박 3일, 2명\\n\\n이 답은 API 키가 없을 때 도는 각본 대역이 지었습니다. 장소와 예산 수치는 실제 도구 실행 결과입니다.\",\n  \"stopped_by\": \"final\",\n  \"steps\": [\n    \"search_places\",\n    \"calc_budget\"\n  ],\n  \"usage\": {\n    \"llm_calls\": 3,\n    \"prompt_tokens\": 3420,\n    \"completion_tokens\": 460,\n    \"total_tokens\": 3880\n  }\n}"
+       }
+      ],
+      "isError": false
+     }
+    }
+   }
+  },
+  {
+   "name": "search_places",
+   "line": 55,
+   "source": "@mcp.tool()\ndef search_places(city: str, category: str | None = None) -> dict:\n    \"\"\"도시의 관광지·식당·카페를 검색한다. 지원 도시: 오사카, 교토.\"\"\"\n    return tools.search_places(tools.SearchPlacesArgs(city=city, category=category))",
+   "listed": {
+    "name": "search_places",
+    "description": "도시의 관광지·식당·카페를 검색한다. 지원 도시: 오사카, 교토.",
+    "inputSchema": {
+     "properties": {
+      "city": {
+       "title": "City",
+       "type": "string"
+      },
+      "category": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "default": null,
+       "title": "Category"
+      }
+     },
+     "required": [
+      "city"
+     ],
+     "title": "search_placesArguments",
+     "type": "object"
+    }
+   },
+   "call": {
+    "request": {
+     "jsonrpc": "2.0",
+     "id": 4,
+     "method": "tools/call",
+     "params": {
+      "name": "search_places",
+      "arguments": {
+       "city": "오사카",
+       "category": "관광"
+      }
+     }
+    },
+    "response": {
+     "jsonrpc": "2.0",
+     "id": 4,
+     "result": {
+      "content": [
+       {
+        "type": "text",
+        "text": "{\n  \"city\": \"오사카\",\n  \"places\": [\n    {\n      \"name\": \"오사카성\",\n      \"category\": \"관광\",\n      \"fee_yen\": 600,\n      \"area\": \"주오구\"\n    },\n    {\n      \"name\": \"도톤보리\",\n      \"category\": \"관광\",\n      \"fee_yen\": 0,\n      \"area\": \"난바\"\n    },\n    {\n      \"name\": \"우메다 공중정원\",\n      \"category\": \"관광\",\n      \"fee_yen\": 1500,\n      \"area\": \"우메다\"\n    },\n    {\n      \"name\": \"가이유칸 수족관\",\n      \"category\": \"관광\",\n      \"fee_yen\": 2400,\n      \"area\": \"베이에리어\"\n    }\n  ]\n}"
+       }
+      ],
+      "isError": false
+     }
+    }
+   }
+  },
+  {
+   "name": "estimate_travel_time",
+   "line": 61,
+   "source": "@mcp.tool()\ndef estimate_travel_time(from_area: str, to_area: str) -> dict:\n    \"\"\"두 지역 사이의 대략적 이동 시간(분)을 조회한다.\"\"\"\n    return tools.estimate_travel_time(\n        tools.TravelTimeArgs(from_area=from_area, to_area=to_area)\n    )",
+   "listed": {
+    "name": "estimate_travel_time",
+    "description": "두 지역 사이의 대략적 이동 시간(분)을 조회한다.",
+    "inputSchema": {
+     "properties": {
+      "from_area": {
+       "title": "From Area",
+       "type": "string"
+      },
+      "to_area": {
+       "title": "To Area",
+       "type": "string"
+      }
+     },
+     "required": [
+      "from_area",
+      "to_area"
+     ],
+     "title": "estimate_travel_timeArguments",
+     "type": "object"
+    }
+   },
+   "call": {
+    "request": {
+     "jsonrpc": "2.0",
+     "id": 5,
+     "method": "tools/call",
+     "params": {
+      "name": "estimate_travel_time",
+      "arguments": {
+       "from_area": "난바",
+       "to_area": "우메다"
+      }
+     }
+    },
+    "response": {
+     "jsonrpc": "2.0",
+     "id": 5,
+     "result": {
+      "content": [
+       {
+        "type": "text",
+        "text": "{\n  \"from\": \"난바\",\n  \"to\": \"우메다\",\n  \"minutes\": 20\n}"
+       }
+      ],
+      "isError": false
+     }
+    }
+   }
+  },
+  {
+   "name": "calc_budget",
+   "line": 69,
+   "source": "@mcp.tool()\ndef calc_budget(\n    nights: int, people: int, style: str = \"보통\", include_flight: bool = True\n) -> dict:\n    \"\"\"숙박·식비·항공을 합쳐 여행 예산(원)을 계산한다. style: 절약·보통·고급.\"\"\"\n    return tools.calc_budget(\n        tools.BudgetArgs(\n            nights=nights, people=people, style=style, include_flight=include_flight\n        )\n    )",
+   "listed": {
+    "name": "calc_budget",
+    "description": "숙박·식비·항공을 합쳐 여행 예산(원)을 계산한다. style: 절약·보통·고급.",
+    "inputSchema": {
+     "properties": {
+      "nights": {
+       "title": "Nights",
+       "type": "integer"
+      },
+      "people": {
+       "title": "People",
+       "type": "integer"
+      },
+      "style": {
+       "default": "보통",
+       "title": "Style",
+       "type": "string"
+      },
+      "include_flight": {
+       "default": true,
+       "title": "Include Flight",
+       "type": "boolean"
+      }
+     },
+     "required": [
+      "nights",
+      "people"
+     ],
+     "title": "calc_budgetArguments",
+     "type": "object"
+    }
+   },
+   "call": {
+    "request": {
+     "jsonrpc": "2.0",
+     "id": 6,
+     "method": "tools/call",
+     "params": {
+      "name": "calc_budget",
+      "arguments": {
+       "nights": 2,
+       "people": 2,
+       "style": "보통",
+       "include_flight": true
+      }
+     }
+    },
+    "response": {
+     "jsonrpc": "2.0",
+     "id": 6,
+     "result": {
+      "content": [
+       {
+        "type": "text",
+        "text": "{\n  \"숙박\": 240000,\n  \"식비\": 300000,\n  \"항공\": 700000,\n  \"합계\": 1240000,\n  \"기준\": \"보통 스타일, 2박 3일, 2명\"\n}"
+       }
+      ],
+      "isError": false
+     }
+    }
+   }
+  }
+ ]
+}

@@ -1,0 +1,276 @@
+---
+/**
+ * 게이트웨이를 둘 때와 두지 않을 때 (8주차 2장 3절).
+ *
+ * 부르는 곳을 늘려 가며 두 배치를 비교한다. 앱이 하나뿐이면 게이트웨이는
+ * 서비스 하나와 장애점 하나를 더할 뿐이고, 부르는 곳이 늘면 진짜 키가
+ * 그만큼 복사된다. 사고 둘(키 유출·게이트웨이 장애)을 눌러 보면 두 배치가
+ * 무엇을 맞바꾼 것인지가 드러난다.
+ */
+const APPS = [
+  { name: 'api', note: 'FastAPI 문' },
+  { name: '배치 잡', note: '밤마다 도는 정리' },
+  { name: 'n8n', note: '자동화 워크플로' },
+  { name: '동료의 노트북', note: '실험용' },
+  { name: '사내 챗봇', note: '옆 팀이 만든 것' },
+];
+const KEYS = ['A', 'B', 'C', 'D', 'E'];
+---
+
+<div class="gwc" data-gwc data-apps={JSON.stringify(APPS)} data-keys={JSON.stringify(KEYS)}>
+  <div class="gwc-head">
+    <strong>게이트웨이를 둘까, 두지 말까</strong>
+    <span>
+      부르는 곳을 늘려 보고, 사고를 한 번 내 보세요. 두 배치가 무엇을 맞바꾼
+      것인지는 사고가 났을 때 드러납니다.
+    </span>
+  </div>
+
+  <div class="gwc-controls">
+    <div class="gwc-seg" role="group">
+      <button type="button" data-mode="off" class="is-active">게이트웨이 없음</button>
+      <button type="button" data-mode="on">게이트웨이 있음</button>
+    </div>
+    <button type="button" class="gwc-btn" data-act="add">＋ 부르는 곳 추가</button>
+    <button type="button" class="gwc-btn" data-act="leak">🔓 키 유출</button>
+    <button type="button" class="gwc-btn" data-act="outage">💥 게이트웨이 장애</button>
+    <button type="button" class="gwc-btn is-ghost" data-act="reset">처음으로</button>
+  </div>
+
+  <div class="gwc-board">
+    <div class="gwc-apps">
+      <div class="gwc-app" data-app="0"><b>api</b><i>FastAPI 문</i><span data-carry></span></div>
+      <div class="gwc-app" data-app="1"><b>배치 잡</b><i>밤마다 도는 정리</i><span data-carry></span></div>
+      <div class="gwc-app" data-app="2"><b>n8n</b><i>자동화 워크플로</i><span data-carry></span></div>
+      <div class="gwc-app" data-app="3"><b>동료의 노트북</b><i>실험용</i><span data-carry></span></div>
+      <div class="gwc-app" data-app="4"><b>사내 챗봇</b><i>옆 팀이 만든 것</i><span data-carry></span></div>
+    </div>
+
+    <div class="gwc-mid">
+      <div class="gwc-gate" data-gate>
+        <b>게이트웨이</b>
+        <i>litellm-proxy :4000</i>
+      </div>
+      <div class="gwc-pass" data-pass></div>
+    </div>
+
+    <div class="gwc-provider" data-provider>
+      <b>모델 제공자</b>
+      <i data-provider-carry>진짜 키</i>
+    </div>
+  </div>
+
+  <div class="gwc-verdict" data-verdict></div>
+
+  <div class="gwc-foot">
+    <span>진짜 키 사본 <b data-copies>1</b>개</span>
+    <span>부르는 곳 <b data-count>1</b>곳</span>
+    <span class="gwc-punch" data-punch></span>
+  </div>
+</div>
+
+<script>
+  document.querySelectorAll<HTMLElement>('[data-gwc]').forEach(init);
+
+  function init(root: HTMLElement) {
+    const KEYS = JSON.parse(root.dataset.keys ?? '[]') as string[];
+    const $ = <T extends HTMLElement>(s: string) => root.querySelector<T>(s)!;
+    const apps = [...root.querySelectorAll<HTMLElement>('[data-app]')];
+
+    let mode: 'off' | 'on' = 'off';
+    let count = 1;
+    let incident: '' | 'leak' | 'outage' = '';
+    const LEAKED = 1; // 두 번째 앱에서 샜다고 본다
+
+    function render() {
+      const on = mode === 'on';
+      root.classList.toggle('is-on', on);
+      $('[data-gate]').hidden = !on;
+      $('[data-pass]').hidden = on;
+
+      apps.forEach((app, i) => {
+        const shown = i < count;
+        app.hidden = !shown;
+        const carry = app.querySelector<HTMLElement>('[data-carry]')!;
+        carry.textContent = on ? `가상키 ${KEYS[i]}` : i === 0 ? '진짜 키' : '진짜 키 (복사본)';
+        const leaked = incident === 'leak' && (on ? i === LEAKED && count > LEAKED : true);
+        const dead = incident === 'outage' && on;
+        app.classList.toggle('is-bad', leaked);
+        app.classList.toggle('is-dead', dead);
+      });
+
+      $('[data-gate]').classList.toggle('is-bad', incident === 'outage' && on);
+      $('[data-provider]').classList.toggle('is-dead', incident === 'outage' && on);
+      $('[data-provider-carry]').textContent = on ? '진짜 키 하나' : '진짜 키';
+      $('[data-copies]').textContent = String(on ? 1 : count);
+      $('[data-count]').textContent = String(count);
+      root.querySelector<HTMLButtonElement>('[data-act="outage"]')!.disabled = !on;
+
+      $('[data-verdict]').className = 'gwc-verdict' + (incident ? ' is-alert' : '');
+      $('[data-verdict]').textContent = verdict(on);
+      $('[data-punch]').textContent = punch(on);
+    }
+
+    function verdict(on: boolean): string {
+      if (incident === 'leak') {
+        return on
+          ? `가상키 ${KEYS[LEAKED]} 하나만 폐기하면 됩니다. 나머지 ${count - 1}곳은 그대로 돕니다. ` +
+            '진짜 프로바이더 키는 애초에 앱에 없었습니다.'
+          : `진짜 키가 샜습니다. 그 키를 쓰는 ${count}곳이 전부 영향을 받습니다. ` +
+            '키를 새로 발급하고 그만큼 다시 배포해야 합니다.';
+      }
+      if (incident === 'outage') {
+        return `게이트웨이가 죽으면 ${count}곳이 전부 모델을 못 부릅니다. ` +
+          '키를 한곳에 모은 대가입니다. 실제 운영에서는 이중화하거나, 죽으면 직접 호출로 ' +
+          '떨어지는 폴백을 둡니다 (5주차 폴백 체인과 같은 생각).';
+      }
+      if (!on) {
+        return count === 1
+          ? '부르는 곳이 하나면 이 배치가 맞습니다. 게이트웨이는 서비스 하나와 장애점 하나를 더할 뿐입니다.'
+          : `진짜 키가 ${count}곳에 흩어져 있습니다. 누가 얼마 썼는지 모르고, 한 곳에만 상한을 걸 수도 없습니다.`;
+      }
+      return count === 1
+        ? '부르는 곳이 하나인데 게이트웨이를 두면, 얻는 것 없이 장애점만 하나 늘어납니다.'
+        : `진짜 키는 게이트웨이에만 있습니다. ${count}곳은 각자 다른 가상키를 쥐고, 상한도 각자 다릅니다.`;
+    }
+
+    function punch(on: boolean): string {
+      if (incident === 'outage') return '장애점 하나 더';
+      if (incident === 'leak') return on ? '폐기할 키 1개' : `다시 배포할 곳 ${count}곳`;
+      if (!on && count > 1) return '키가 복사된다';
+      if (on && count > 1) return '키는 하나, 상한은 여럿';
+      return '';
+    }
+
+    root.querySelectorAll<HTMLButtonElement>('[data-mode]').forEach((button) => {
+      button.addEventListener('click', () => {
+        mode = (button.dataset.mode as 'off' | 'on') ?? 'off';
+        incident = '';
+        root.querySelectorAll('[data-mode]').forEach((b) => {
+          b.classList.toggle('is-active', b === button);
+        });
+        render();
+      });
+    });
+
+    root.querySelectorAll<HTMLButtonElement>('[data-act]').forEach((button) => {
+      button.addEventListener('click', () => {
+        const act = button.dataset.act;
+        if (act === 'add') {
+          count = Math.min(count + 1, apps.length);
+          incident = '';
+        } else if (act === 'leak') {
+          incident = 'leak';
+        } else if (act === 'outage') {
+          incident = 'outage';
+        } else {
+          count = 1;
+          incident = '';
+        }
+        render();
+      });
+    });
+
+    render();
+  }
+</script>
+
+<style>
+  .gwc {
+    margin: 2rem 0;
+    padding: 1.1rem;
+    border: 1px solid var(--aas-border);
+    border-radius: 14px;
+    background: var(--aas-panel);
+    box-shadow: var(--aas-shadow);
+    font-family: var(--aas-sans);
+    container-type: inline-size;
+    font-size: clamp(0.85rem, 1.5cqw, 1.15rem);
+    --gwc-accent: #2f81f7;
+    --gwc-bad: #dc2626;
+  }
+
+  .gwc-head { display: flex; flex-direction: column; gap: 0.3em; margin-bottom: 0.8em; }
+  .gwc-head strong { font-size: 1.15em; color: var(--aas-text); }
+  .gwc-head span { font-size: 0.88em; line-height: 1.65; color: var(--aas-muted); }
+
+  .gwc-controls { display: flex; flex-wrap: wrap; gap: 0.5em; align-items: center; margin-bottom: 1em; }
+  .gwc-seg { display: inline-flex; border: 1px solid var(--aas-border); border-radius: 999px; overflow: hidden; }
+  .gwc-seg button {
+    padding: 0.4em 0.9em; border: 0; background: transparent;
+    color: var(--aas-muted); font-size: 0.85em; cursor: pointer;
+  }
+  .gwc-seg button.is-active { background: var(--gwc-accent); color: #fff; }
+  .gwc-btn {
+    padding: 0.4em 0.85em; border: 1px solid var(--aas-border); border-radius: 999px;
+    background: var(--aas-bg); color: var(--aas-text); font-size: 0.82em; cursor: pointer;
+  }
+  .gwc-btn:hover:not(:disabled) { border-color: var(--gwc-accent); }
+  .gwc-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .gwc-btn.is-ghost { color: var(--aas-muted); }
+
+  .gwc-board { display: grid; grid-template-columns: 1fr auto auto; gap: 0.9em; align-items: center; }
+  .gwc-apps { display: flex; flex-direction: column; gap: 0.4em; }
+
+  .gwc-app {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    grid-template-rows: auto auto;
+    gap: 0 0.6em;
+    padding: 0.5em 0.7em;
+    border: 1px solid var(--aas-border);
+    border-radius: 10px;
+    background: var(--aas-bg);
+    transition: border-color 0.2s, opacity 0.2s;
+  }
+  .gwc-app b { grid-column: 1; grid-row: 1; font-size: 0.88em; color: var(--aas-text); }
+  .gwc-app i {
+    grid-column: 1; grid-row: 2;
+    font-style: normal; font-size: 0.74em; color: var(--aas-muted);
+  }
+  .gwc-app span {
+    grid-column: 2; grid-row: 1 / 3; align-self: center; justify-self: end;
+    font-size: 0.72em; color: var(--gwc-accent); white-space: nowrap;
+  }
+  .gwc-app.is-bad { border-color: var(--gwc-bad); }
+  .gwc-app.is-bad span { color: var(--gwc-bad); font-weight: 700; }
+  .gwc-app.is-dead { opacity: 0.35; }
+
+  .gwc-mid { display: flex; align-items: center; justify-content: center; min-width: 6.5em; }
+  .gwc-gate {
+    padding: 0.7em 0.8em; border: 1px solid color-mix(in srgb, var(--gwc-accent) 55%, var(--aas-border));
+    border-radius: 12px; background: var(--aas-bg); text-align: center;
+  }
+  .gwc-gate b { display: block; font-size: 0.88em; color: var(--aas-text); }
+  .gwc-gate i { font-style: normal; font-size: 0.72em; color: var(--aas-muted); }
+  .gwc-gate.is-bad { border-color: var(--gwc-bad); background: color-mix(in srgb, var(--gwc-bad) 8%, var(--aas-bg)); }
+  .gwc-pass { width: 2.5em; height: 1px; background: color-mix(in srgb, var(--aas-muted) 50%, transparent); }
+
+  .gwc-provider {
+    padding: 0.7em 0.8em; border: 1px dashed var(--aas-border);
+    border-radius: 12px; text-align: center; transition: opacity 0.2s;
+  }
+  .gwc-provider b { display: block; font-size: 0.88em; color: var(--aas-text); }
+  .gwc-provider i { font-style: normal; font-size: 0.72em; color: var(--aas-muted); }
+  .gwc-provider.is-dead { opacity: 0.3; }
+
+  .gwc-verdict {
+    margin-top: 1em; padding: 0.7em 0.9em; border-radius: 10px;
+    background: var(--aas-tint); font-size: 0.85em; line-height: 1.7; color: var(--aas-text);
+  }
+  .gwc-verdict.is-alert { background: color-mix(in srgb, var(--gwc-bad) 8%, var(--aas-tint)); }
+
+  .gwc-foot {
+    display: flex; flex-wrap: wrap; gap: 0.9em; align-items: baseline;
+    margin-top: 0.8em; padding-top: 0.7em; border-top: 1px solid var(--aas-border);
+    font-size: 0.8em; color: var(--aas-muted);
+  }
+  .gwc-foot b { color: var(--aas-text); }
+  .gwc-punch { margin-left: auto; font-weight: 700; color: var(--aas-text); }
+
+  @container (max-width: 34rem) {
+    .gwc-board { grid-template-columns: 1fr; }
+    .gwc-mid { min-width: 0; }
+    .gwc-pass { width: 1px; height: 1.4em; }
+  }
+</style>

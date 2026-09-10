@@ -12,6 +12,9 @@ order: "08"
 import DoorMap from '../../../../components/DoorMap.astro';
 import RequestTimeline from '../../../../components/RequestTimeline.astro';
 import KeyPlacement from '../../../../components/KeyPlacement.astro';
+import GatewayCase from '../../../../components/GatewayCase.astro';
+import SymbolMap from '../../../../components/SymbolMap.astro';
+import McpTools from '../../../../components/McpTools.astro';
 
 > 라이브 세션의 상세 교안입니다. 이번 주는 이론 1시간과 실습 1시간으로
 > 나뉩니다.  
@@ -20,7 +23,7 @@ import KeyPlacement from '../../../../components/KeyPlacement.astro';
 
 - **교재**: [week08-service-lab](https://github.com/2026-ai-service-engineering-a/week08-service-lab)
 - **형태**: compose 실습 랩. `api`(8000) · `ui`(8501) · `mcp`(8010) ·
-  `n8n`(5678) · `litellm`(4000) · `db`
+  `n8n`(5678) · `litellm-proxy`(4000) · `db`
 - **앞선 주**: [7주차](/course/session-07/)에서 루프 여럿을 엮은 멀티
   에이전트 구조를 해부했습니다.
 
@@ -80,7 +83,7 @@ flowchart LR
     N -->|"HTTP · MCP"| A
     A --> C["core/<br/>6주차 여행 플래너"]
     M --> C
-    C -->|"모델 호출"| G["litellm :4000<br/>게이트웨이"]
+    C -->|"모델 호출"| G["litellm-proxy :4000<br/>게이트웨이"]
     G --> L(("모델 제공자"))
 ```
 
@@ -96,13 +99,69 @@ flowchart LR
 상자를 눌러 보세요. 문마다 부르는 쪽과 필요한 것이 다르지만, **네 상자가
 가리키는 코드는 전부 `core/service.py`의 함수 둘**입니다.
 
-### 2-3. 저장소 기동
+### 2-3. 게이트웨이는 왜 있나
+
+그림의 오른쪽 끝을 보면 우리 코드와 모델 제공자 사이에 `litellm-proxy :4000`이
+한 칸 끼어 있습니다. **앱이 하나뿐이라면 이 칸은 없어도 됩니다.** FastAPI가
+프로바이더를 직접 부르면 그만이고, 그게 더 단순합니다.
+
+문제는 앱이 하나로 끝나지 않는다는 데 있습니다. 이번 주만 해도 우리 코어를
+부르는 곳이 셋이고, 여기에 배치 잡이나 동료의 실험 노트북이 붙기 시작하면
+같은 일이 벌어집니다. **진짜 키가 복사됩니다.**
+
+```mermaid
+flowchart LR
+    A1["api"] -->|"진짜 키"| P(("모델 제공자"))
+    A2["배치 잡"] -->|"진짜 키 (복사본)"| P
+    A3["n8n"] -->|"진짜 키 (복사본)"| P
+    A4["동료의 노트북"] -->|"진짜 키 (복사본)"| P
+```
+
+이 상태에서 키 하나가 새면 **전부 폐기해야 합니다.** 누가 얼마를 썼는지도
+알 수 없고, 어느 하나에만 상한을 걸 방법도 없습니다. 게이트웨이는 이 그림을
+이렇게 바꿉니다.
+
+```mermaid
+flowchart LR
+    B1["api"] -->|"가상키 A"| G["게이트웨이<br/>litellm-proxy :4000"]
+    B2["배치 잡"] -->|"가상키 B · 상한 $5"| G
+    B3["n8n"] -->|"가상키 C"| G
+    B4["동료의 노트북"] -->|"가상키 D · 상한 $1"| G
+    G -->|"진짜 키 하나"| P(("모델 제공자"))
+```
+
+- 키가 새면 **그 가상키 하나만** 폐기합니다.
+- 상한을 사람마다, 앱마다 다르게 겁니다. 앱을 고치지 않고 발급 시점에 정합니다.
+- 누가 얼마 썼는지가 한 장부에 쌓입니다.
+
+직접 늘려 보고, 사고도 한 번 내 보세요. **두 배치가 무엇을 맞바꾼 것인지는
+사고가 났을 때 드러납니다.**
+
+<GatewayCase />
+
+**대가는 분명합니다. 장애점이 하나 늘어납니다.** 게이트웨이가 죽으면 그것을
+쓰는 앱이 **전부** 모델을 못 부릅니다. 그래서 실제 운영에서는 게이트웨이를
+이중화하거나, 게이트웨이가 죽으면 직접 호출로 떨어지는 폴백을 둡니다. 5주차의
+폴백 체인과 같은 생각입니다. 우리 랩은 컨테이너 하나로 두었습니다.
+
+판단은 단순합니다. **앱이 하나면 직접 호출이 맞습니다.** 10\~14주차 개인
+프로젝트는 대개 그쪽입니다. 게이트웨이는 부르는 곳이 둘 이상이 되거나 키를
+남에게 나눠줘야 할 때부터 값을 합니다. 자세한 것은 8장에서 다룹니다.
+
+> `litellm`이라는 이름이 두 번 나오는 것이 헷갈리기 쉽습니다. 5주차에 배운
+> 것은 **라이브러리**이고, `:4000`에 뜬 `litellm-proxy`는 같은 프로젝트의
+> **프록시 서버**입니다. compose 서비스 이름도 그래서 `litellm-proxy`입니다.
+> 앱은 여전히 라이브러리로 호출하고, 그 호출이 향하는 주소만 프록시로
+> 바뀝니다.
+
+### 2-4. 저장소 기동
 
 ```bash
 git clone https://github.com/2026-ai-service-engineering-a/week08-service-lab.git
 cd week08-service-lab
-cp .env.sample .env           # 키는 없어도 됩니다
-docker compose up --build -d  # api · ui · mcp · n8n · litellm · db
+cp .env.sample .env                   # 앱의 것: 게이트웨이 주소와 가상키 자리
+cp gateway/.env.sample gateway/.env   # 게이트웨이의 것: 진짜 키와 마스터 키
+docker compose up --build -d  # api · ui · mcp · n8n · litellm-proxy · db
 docker compose exec api pytest
 ```
 
@@ -110,7 +169,7 @@ docker compose exec api pytest
 - API 문서: `http://localhost:8000/docs`
 
 ```plaintext
-19 passed, 2 warnings in 1.28s
+20 passed, 2 warnings in 1.28s
 ```
 
 **키가 하나도 없어도 전부 돌아갑니다.** 키가 없으면 `core/offline.py`의 각본
@@ -127,11 +186,25 @@ curl -s localhost:8000/config
 ```
 
 ```json
-{"mode":"offline","model":"offline/scripted-planner","available_providers":[],
+{"mode":"offline","model":"offline/scripted-planner","gateway":null,
  "defaults":{"max_steps":6,"max_cost_usd":0.2}}
 ```
 
-키를 채우면 `mode`가 `live`로 바뀝니다. 코드는 한 줄도 바뀌지 않습니다.
+게이트웨이를 켜면 `mode`가 `live`로 바뀝니다. 코드는 한 줄도 바뀌지 않습니다.
+
+**3장부터 7장까지는 이 상태 그대로 진행합니다.** 검증도, 에러도, 스트리밍도,
+MCP도, n8n도 각본 대역으로 전부 확인됩니다. 진짜 모델이 필요한 것은 8장
+하나뿐입니다.
+
+지금 당장 진짜 모델로 보고 싶다면 [8장 3절](#8-3-관리자-화면-키와-장부를-눈으로)의
+네 단계를 먼저 하고 오세요. 게이트웨이를 띄우고, 화면에서 가상키를 발급하고,
+`.env`에 넣고, 앱만 다시 만드는 것입니다. 급하지 않다면 순서대로 읽는 편이
+낫습니다. 왜 그렇게 하는지를 8장이 설명하기 때문입니다.
+
+**이 랩의 앱에는 프로바이더 키를 넣을 자리가 없습니다.** `.env`를 열어 보면
+`GEMINI_API_KEY` 같은 줄이 아예 없습니다. 앱이 모델을 직접 부르지 않기
+때문이고, 진짜 키는 `gateway/.env`에만 있습니다. 8장에서 왜 이렇게 나눴는지
+봅니다.
 
 ## 3. 경계 정하기
 
@@ -149,6 +222,22 @@ def plan_events(question: str, ...) -> Iterator[dict]
 
 앞의 것은 답 하나를 돌려주고, 뒤의 것은 같은 일을 하면서 스텝마다 이벤트를
 내놓습니다. 문이 몇 개가 되든 부르는 것은 이 둘입니다.
+
+<SymbolMap modules={['core.service']} caption="카드를 누르면 파라미터와 리턴이 펼쳐지고, 그 심볼이 닿는 곳으로 화살표가 그려집니다. `plan`을 눌러 보세요." />
+
+오른쪽 위의 **AI** 표시는 *그 지도에서 모델로 가는 마지막 단*이라는 뜻입니다.
+위 지도에서는 `run_iter` 하나에 붙어 있습니다. `plan`도 `plan_events`도 결국
+모델까지 이어지지만, 그 둘은 `run_iter`에게 시킬 뿐이라 표시가 없습니다.
+
+`run_iter`도 진짜 끝은 아닙니다. 한 칸만 더 가면 이 저장소에서 litellm을
+실제로 부르는 **한 곳**이 나옵니다.
+
+<SymbolMap modules={['core.llm']} caption="이 저장소에서 모델로 나가는 유일한 자리가 **AI** 표시가 붙은 `completion`입니다. 눌러 보면 게이트웨이 주소와 가상키를 어디서 읽는지, 각본 대역으로는 언제 갈라지는지가 보입니다." />
+
+표시는 손으로 붙인 것이 아닙니다. 추출기가 `litellm` 호출을 찾아 그 자리를
+표시하고, 지도마다 거기로 이어지는 마지막 단을 계산합니다. 나중에 누가 다른
+곳에서 모델을 부르면 표시가 하나 더 생깁니다. **표시가 둘이 되는 순간이
+경계가 새는 순간입니다.**
 
 경계를 그었다는 증거는 **import 방향**에 있습니다.
 
@@ -314,6 +403,8 @@ flowchart LR
     S2 --> L
     S3 --> L
 ```
+
+<SymbolMap modules={['api.errors', 'core.errors']} neighbors={false} caption="`UpstreamError`를 눌러 보세요. 상속 화살표가 `CoreError`로 올라갑니다. 코어의 예외 셋과 문의 번역표가 이 그림의 전부입니다." />
 
 랩에는 실패를 5초 만에 재현하는 스위치가 있습니다. 실제 서비스에는 이런
 인자를 두지 않습니다.
@@ -508,6 +599,41 @@ def plan_trip(question: str, max_steps: int = 6) -> dict:
 손으로 쓴 스키마가 한 줄도 없습니다. 시그니처와 docstring이 그대로 명세가
 됩니다.
 
+붙는 쪽은 이 함수를 이렇게 만납니다. 왕복 세 종류가 전부입니다.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant C as 붙는 쪽<br/>Claude Code · Inspector
+    participant S as 우리 MCP 서버<br/>travel-planner
+    C->>S: initialize · protocolVersion · clientInfo
+    S-->>C: serverInfo · capabilities
+    C->>S: notifications/initialized
+    Note over C,S: 여기까지가 악수. 마지막 것에는 답이 없다
+    C->>S: tools/list
+    S-->>C: 도구 넷 · 이름 · 설명 · inputSchema
+    Note over C: 모델이 이 목록만 읽고 무엇을 부를지 고른다
+    C->>S: tools/call · name · arguments
+    S-->>C: content[0].text
+```
+
+**악수 → 목록 → 호출.** MCP 클라이언트가 하는 일은 이 셋뿐입니다. 사람이
+Swagger 문서를 읽고 curl을 치는 순서와 같고, 읽는 쪽이 모델이라 문서가
+JSON이어야 할 뿐입니다.
+
+`tools/list`가 무엇을 돌려주는지는 말로 하는 것보다 보는 편이 빠릅니다.
+아래는 돌고 있는 컨테이너에 붙어 받아 적은 것입니다.
+
+<McpTools caption="위의 세 칩을 눌러 보세요. 함수 이름이 도구 이름이 되고, docstring이 통째로 모델이 읽는 설명이 되고, 타입 힌트와 기본값이 `inputSchema`가 됩니다. 우리가 손으로 쓴 JSON은 한 글자도 없습니다. `plan_trip` 하나만 성격이 다릅니다. 저 한 번의 호출 안에서 우리 에이전트 루프가 돕니다." />
+
+`plan_trip`의 `description`을 보면 docstring이 **통째로** 넘어가 있습니다.
+`예: "오사카 2박 3일 2명, 보통 스타일로"` 한 줄까지 모델이 읽습니다. 반대로
+`description`이 비어 있으면 모델은 이름만 보고 고릅니다. **docstring은 주석이
+아니라 인터페이스입니다.** 5주차에 도구 설명을 다듬어 선택 품질을 올렸던
+것과 같은 자리입니다.
+
+같은 것을 테스트로도 박아 뒀습니다.
+
 ```python
 def test_schemas_come_from_the_function_signature():
     budget = {t.name: t for t in _run(mcp.list_tools())}["calc_budget"]
@@ -552,6 +678,8 @@ flowchart LR
         B1 -->|"추론은 저쪽 루프"| B4["남의 지갑"]
     end
 ```
+
+<SymbolMap modules={['mcp_server.server']} caption="`plan_trip`은 코어의 `plan` 하나로 이어지고, 나머지 셋은 `core/tools.py`의 함수로 곧장 갑니다. 통째로와 낱개의 차이가 화살표의 길이입니다." />
 
 **비용 열이 중요합니다.** 에이전트를 통째로 내어놓으면 남이 부를 때마다
 우리 모델 비용이 나갑니다. 도구만 내어놓으면 추론은 부르는 쪽 AI가 하므로
@@ -701,6 +829,39 @@ claude mcp add --transport http travel-planner http://localhost:8010/mcp
 붙으면 Claude Code에서 `/mcp`로 연결과 도구 목록이 보이고, **자기가 7주 동안
 만든 것을 자기 AI가 도구로 부릅니다.** Codex도 같은 서버를 그대로 씁니다.
 
+**여기서 한 번은 헷갈립니다.** `claude mcp add`가 성공했는데 Claude Desktop의
+설정 화면에는 아무것도 안 나옵니다. 껐다 켜도 안 나옵니다. 고장이 아니라
+**둘이 다른 제품이고 설정 파일도 다르기 때문**입니다.
+
+| | 설정이 사는 곳 | 전송 | 확인하는 곳 |
+| --- | --- | --- | --- |
+| Claude **Code** | `~/.claude.json` (프로젝트별) 또는 `.mcp.json` | HTTP·stdio | `claude mcp list` · 세션에서 `/mcp` |
+| Claude **Desktop** | `claude_desktop_config.json` | stdio | 설정 → 개발자 → 로컬 MCP 서버 |
+
+`claude mcp add`가 고쳤다고 알려 주는 파일 이름을 그대로 읽으면 됩니다.
+
+```plaintext
+Added HTTP MCP server travel-planner with URL: http://localhost:8010/mcp to local config
+File modified: /Users/…/.claude.json [project: /Users/…/week08-service-lab]
+```
+
+`.claude.json`이라고 적혀 있습니다. Desktop 화면은 `claude_desktop_config.json`을
+보여 주는 창이므로 여기 나올 리가 없습니다. 제대로 붙었는지는 이렇게 봅니다.
+
+```bash
+claude mcp list
+```
+
+```plaintext
+travel-planner: http://localhost:8010/mcp (HTTP) - ✔ Connected
+```
+
+Desktop에 붙이려면 `clients/claude_desktop.json` 견본을 쓰십시오. 저 화면이
+읽는 파일은 **명령어와 인수**를 받는 자리라 stdio입니다. 그래서 견본도
+`docker run --rm -i … --stdio`입니다. 5장 3절의 "붙는 쪽이 정한다"가
+여기서 그대로 걸립니다. **서버 코드는 한 줄도 바뀌지 않고 붙는 쪽 설정만
+다릅니다.**
+
 ChatGPT는 다릅니다. 절차는 `clients/chatgpt.md`에 적어 두었습니다.
 
 - ChatGPT 설정 → 보안 및 로그인 → **개발자 모드**를 켠다 (가용 여부는
@@ -764,12 +925,39 @@ compose 서비스 하나로 뜹니다.
 docker compose exec n8n n8n import:workflow --separate --input=/workflows
 docker compose exec n8n n8n publish:workflow --id=week08webhook001
 docker compose exec n8n n8n publish:workflow --id=week08mcpsrv0001
-docker compose restart n8n     # 발행 상태는 재시작 후에 반영된다
+docker compose restart n8n
 ```
 
 **불러오기만으로는 트리거가 살지 않습니다.** n8n 2.x는 워크플로에 초안과
 발행판이 따로 있어서, 발행해야 웹훅 주소가 생깁니다. 화면에서는 오른쪽 위
 토글이 같은 일을 합니다.
+
+**마지막 줄을 빼먹지 마세요.** `publish:workflow`가 직접 그렇게 말해 줍니다.
+
+```plaintext
+Note: Changes will not take effect if n8n is running.
+Please restart n8n for changes to take effect if n8n is currently running.
+```
+
+네 줄을 한꺼번에 붙여 넣을 때 주의할 것이 하나 있습니다. **zsh 대화형 셸은
+`#` 뒤를 주석으로 보지 않습니다.** 명령 뒤에 설명을 붙여 두면 그것까지
+인자로 들어가 `no such service: #`로 끝납니다. 앞의 세 줄은 성공했는데
+마지막 한 줄만 조용히 실패해서, 웹훅을 불러 보고서야 알게 됩니다.
+
+셋 중 `02 · 아침 9시에`만 발행하지 않는 것은 일부러입니다. 발행하면 매일
+아침 9시에 진짜로 돕니다. 강의실에서는 7장 4절에서 화면으로 한 번 돌려 보는
+것으로 충분합니다.
+
+제대로 살았는지는 불러 보면 압니다.
+
+```bash
+curl -s -X POST localhost:5678/webhook/travel \
+  -H 'Content-Type: application/json' \
+  -d '{"question":"오사카 2박 3일 2명, 보통 스타일로"}'
+```
+
+`404 … webhook "POST travel" is not registered`가 돌아오면 발행이나 재시작
+둘 중 하나가 빠진 것입니다.
 
 http://localhost:5678 을 엽니다. 처음 열면 계정을 만들라고 하는데, 이
 컨테이너 안에만 있는 로컬 계정입니다.
@@ -787,24 +975,49 @@ http://localhost:5678 을 엽니다. 처음 열면 계정을 만들라고 하는
 무엇이 들어가고 무엇이 나왔는지가 전부 남습니다. 사후 추적이 가능해야
 운영이라는 말은 여기서도 같습니다.
 
-### 7-3. 거울: 손으로 짠 루프가 항목 하나가 되어 있다
+### 7-3. 거울: 손으로 짠 루프가 노드 하나가 되어 있다 (슬라이드에 추가하지 않음)
 
-n8n의 AI Agent 노드를 열면 이런 것들이 들어 있습니다.
+캔버스의 **+**를 눌러 `AI` → `AI Agent`를 얹어 보세요. 우리 워크플로에
+필요해서가 아니라, **6주차에 손으로 짠 것이 남의 도구에서 어떤 모양인지**
+보려는 것입니다.
+
+노드를 열면 파라미터는 몇 개 없습니다. 프롬프트를 어디서 받을지, 출력 형식을
+고정할지, 모델이 실패했을 때 대신 부를 모델을 둘지. 진짜는 **아래쪽 세
+연결점**입니다.
 
 ```plaintext
-ConversationalAgent  OpenAiFunctionsAgent  PlanAndExecuteAgent
-ReActAgent           SqlAgent              ToolsAgent
+Chat Model *          Memory              Tool
+    ↑                    ↑                  ↑
+6주차 core/llm.py    6주차 대화 이력     6주차 core/tools.py
 ```
 
-6주차에 손으로 짠 [[react\|ReAct]]와 [[plan-execute\|Plan-and-Execute]]가
-남의 도구에서는 **항목 하나**입니다. 5주차의 LiteLLM 도입, 7주차의 LangGraph
-도입과 같은 자리입니다. 바닥을 본 다음에 추상화를 보는 것.
+6주차에 각각 파일 하나씩이었던 것이 여기서는 **소켓 셋**입니다. 별표가 붙은
+Chat Model만 필수인 것도 같습니다. 모델 없이는 루프가 돌지 않고, 메모리와
+도구는 없어도 한 바퀴는 돕니다.
 
-한 가지 더 흥미로운 것이 있습니다. 최신 n8n에서 이 선택지는 **Tools
-Agent 하나로 수렴**했고, 나머지는 옛 버전 노드에 남아 있습니다. 6주차
-4장에서 루프의 스펙트럼을 보며 "적응력과 비용 사이"라고 했던 그 스펙트럼이,
-현장에서는 도구 호출 기반 하나로 좁혀지는 중이라는 뜻입니다. 이런 판단을
-읽으려면 스펙트럼을 알아야 합니다.
+5주차의 LiteLLM 도입, 7주차의 LangGraph 도입과 같은 자리입니다. 바닥을 본
+다음에 추상화를 보는 것.
+
+#### 선택지가 사라졌다는 것이 답이다
+
+옛 n8n에서는 이 노드에 **에이전트 종류를 고르는 칸**이 있었습니다. 지금은
+없습니다. 컨테이너 안을 열어 보면 이유가 보입니다.
+
+```plaintext
+Agent 노드 V1  (버전 1 ~ 1.9)   conversationalAgent · openAiFunctionsAgent
+                               planAndExecuteAgent · reActAgent
+                               sqlAgent · toolsAgent          ← 여섯 중 고름
+Agent 노드 V3  (버전 3 · 3.1)   toolsAgent                     ← 하나뿐, 기본값
+```
+
+여섯 폴더는 아직 디스크에 그대로 있습니다. 옛 워크플로가 깨지면 안 되니까
+남겨 둔 것이고, 새로 얹는 노드는 3.1이라 **고를 것이 없습니다.**
+
+6주차 4장에서 루프의 스펙트럼을 보며 "적응력과 비용 사이"라고 했던 그
+스펙트럼이, 현장에서는 [[tool-calling\|도구 호출]] 기반 하나로 좁혀졌다는
+뜻입니다. [[react\|ReAct]]도 [[plan-execute\|Plan-and-Execute]]도 사라진 것이
+아니라 그 안으로 들어갔습니다. **이런 판단을 읽으려면 스펙트럼을 알아야
+합니다.**
 
 ### 7-4. 우리 서비스를 부른다
 
@@ -836,6 +1049,38 @@ curl -s -X POST http://localhost:5678/webhook/travel \
 **코드를 한 줄도 쓰지 않고** 우리 서비스에 새 입구가 하나 생겼습니다. 이것이
 문이 껍데기라는 말의 마지막 증거입니다. 두 번째 워크플로는 트리거만 바꾼
 것입니다. 매일 아침 9시가 되면 사람 없이 같은 요청이 나갑니다.
+
+#### 화면에서 「Execute workflow」를 누르면
+
+여기서 한 번 더 걸립니다. 화면에서 실행 버튼을 눌러 놓고 위의 `curl`을 쳐도
+캔버스에는 아무 일도 일어나지 않습니다. **웹훅 주소가 둘이기 때문**입니다.
+웹훅 노드를 열면 위쪽에 `Test URL`과 `Production URL` 탭이 나란히 있습니다.
+
+| | 주소 | 언제 받나 | 결과가 보이는 곳 |
+| --- | --- | --- | --- |
+| 테스트 | `/webhook-test/travel` | 「Execute workflow」를 누른 뒤 **딱 한 번** | 캔버스에 바로 |
+| 운영 | `/webhook/travel` | 워크플로가 발행돼 있으면 **항상** | 실행 이력에만 |
+
+즉 노드마다 무엇이 오갔는지 눈으로 보려면 **테스트 주소**로 쏴야 합니다.
+
+```bash
+curl -s -X POST http://localhost:5678/webhook-test/travel \
+  -H 'content-type: application/json' \
+  -d '{"question": "교토 2박 3일 4명 고급 여행"}'
+```
+
+버튼을 안 누른 채로 테스트 주소를 치면 n8n이 직접 알려 줍니다.
+
+```json
+{"code":404,"message":"The requested webhook \"travel\" is not registered.",
+ "hint":"Click the 'Execute workflow' button on the canvas, then try again.
+         (In test mode, the webhook only works for one call after you click this button)"}
+```
+
+한 번 받으면 리스닝이 끝나므로 다시 보려면 버튼을 또 눌러야 합니다. 반대로
+운영 주소는 버튼과 무관하게 항상 열려 있고, 대신 캔버스가 아니라 왼쪽
+**실행 이력**에 남습니다. 시연은 테스트 주소로 하고, 남에게 주는 주소는 운영
+주소입니다.
 
 ### 7-5. 반대 방향: 워크플로가 MCP 서버가 된다
 
@@ -973,9 +1218,15 @@ curl -s -X POST localhost:4000/key/generate \
 이렇습니다.
 
 ```bash
-# .env
+# gateway/.env — 게이트웨이 컨테이너에만 간다
 GEMINI_API_KEY=AIza…                  # 진짜. 돈이 여기서 나간다
 LITELLM_MASTER_KEY=sk-week08-master   # 우리가 지은 값. 벤더와 무관하다
+```
+
+```bash
+# .env — 앱(api·mcp)에 가는 것 전부
+GATEWAY_URL=http://litellm-proxy:4000
+GATEWAY_KEY=sk-…
 ```
 
 ```python
@@ -1019,13 +1270,225 @@ docker compose exec api python examples/04_virtual_key.py
 앱 쪽 변경은 이게 전부입니다. 주소와 키만 바뀌고 호출 코드는 그대로입니다.
 
 ```python
-gateway = os.environ.get("GATEWAY_URL")
-if gateway:
-    kwargs["api_base"] = gateway
+if config.gateway():                       # .env의 GATEWAY_URL
+    kwargs["api_base"] = config.gateway()
     kwargs["api_key"] = os.environ.get("GATEWAY_KEY", "")
 ```
 
-### 8-3. 소진되면 거절인가, 강등인가
+**기본은 꺼져 있습니다.** `.env`의 `GATEWAY_*`가 비어 있으면 각본 대역이
+답합니다. 이 랩의 앱에는 프로바이더로 가는 길이 아예 없으므로, 게이트웨이가
+없으면 진짜 호출도 없습니다. 둘을 채우면 **같은 코드가** 게이트웨이를
+지나갑니다.
+
+```bash
+# .env — 필요한 것은 둘뿐이다
+GATEWAY_URL=http://litellm-proxy:4000   # compose 서비스 이름. localhost가 아니다
+GATEWAY_KEY=sk-…                        # 가상키. 발급은 다음 절에서
+```
+
+**앱이 아는 것은 주소와 키 문자열 하나뿐입니다.** 그 키가 어떤 모델을 부를 수
+있고 얼마까지 쓸 수 있는지는 앱이 모릅니다. 게이트웨이가 압니다. 상한과 허용
+모델은 `.env`가 아니라 **발급할 때 화면에서** 정하기 때문입니다.
+
+말로만 하면 믿기 어려우니 앱 컨테이너 안을 들여다봅니다.
+
+```bash
+docker compose exec api python -c "
+import os
+for v in ['GEMINI_API_KEY','LITELLM_MASTER_KEY','GATEWAY_URL','GATEWAY_KEY']:
+    print(v, '있음' if os.environ.get(v) else '없음')"
+```
+
+```plaintext
+GEMINI_API_KEY     없음
+LITELLM_MASTER_KEY 없음
+GATEWAY_URL        있음
+GATEWAY_KEY        있음
+```
+
+그리고 이 컨테이너가 진짜 Gemini의 답을 받아 옵니다.
+
+```plaintext
+mode: live | model: openai/travel
+거친 도구: ['calc_budget', 'search_places', 'estimate_travel_time']
+답: 오사카 2박 3일 2명 여행을 위한 추천 일정을 제안해 드립니다. …
+```
+
+**진짜 키가 하나도 없는 컨테이너가 진짜 모델을 썼습니다.** 키는 게이트웨이
+컨테이너에만 있습니다.
+
+`docker-compose.yml`도 그렇게 되어 있습니다. `.env`를 통째로 물리지 않고
+서비스마다 필요한 것만 골라 줍니다.
+
+```yaml
+  api:
+    environment:              # 앱이 쥐는 것은 이게 전부다
+      LLM_MODE: ${LLM_MODE:-auto}
+      GATEWAY_URL: ${GATEWAY_URL:-}
+      GATEWAY_KEY: ${GATEWAY_KEY:-}
+      GATEWAY_MODEL: ${GATEWAY_MODEL:-}
+
+  litellm-proxy:
+    env_file: gateway/.env    # 진짜 키와 마스터 키는 여기에만 있다
+```
+
+**`LITELLM_MASTER_KEY`는 이 목록에 없습니다.** 앱 컨테이너에 아예 전달되지
+않습니다. 마스터 키는 게이트웨이 운영자의 것이라는 8장 1절의 표가 여기서
+compose 파일로 나타납니다.
+
+부를 모델의 이름만 앱이 고릅니다. 비워 두면 `travel`입니다.
+
+```bash
+GATEWAY_MODEL=travel-demo   # 선택. 모의 응답으로 돌려 보고 싶을 때만
+```
+
+`GATEWAY_KEY`를 비워 두면 시작은 하지만 첫 호출에서 막힙니다. 비어 있는 키
+자리에 환경의 프로바이더 키가 대신 실려 나가고, 게이트웨이는 모르는 키라며
+거절하기 때문입니다. 그래서 코어가 아예 앞에서 막고 할 일을 알려줍니다.
+
+```json
+{"error": "UpstreamError",
+ "detail": "GATEWAY_URL은 있는데 GATEWAY_KEY가 비어 있다. 관리자 화면(:4000/ui/)에서 …"}
+```
+
+켜고 나서 `/config`를 보면 모델 이름이 바뀌어 있습니다.
+
+```json
+{"mode": "live", "model": "openai/travel-demo"}
+```
+
+`gemini/…`가 아니라 **게이트웨이 뒤의 별명**입니다. 앱이 어느 회사 모델을
+쓰는지 모른다는 사실이 이 한 줄에 드러납니다. 바꾸는 것은 게이트웨이 설정
+파일이고, 앱은 다시 배포하지 않습니다.
+
+### 8-3. 관리자 화면: 키와 장부를 눈으로
+
+여기까지는 전부 `curl`이었습니다. 그런데 게이트웨이에는 **관리자 화면이 이미
+들어 있습니다.** 우리가 만들 것이 아니라 제품에 딸려 온 것입니다.
+
+```plaintext
+http://localhost:4000/ui/
+아이디 admin · 비밀번호는 LITELLM_MASTER_KEY (기본 sk-week08-master)
+```
+
+![게이트웨이 관리자 화면의 가상키 목록. 키마다 별명·상한·허용 모델·사용액이 한 줄로 보인다](./gateway-keys.jpg)
+
+**가상키를 발급하고 앱에 물리는 순서는 이렇습니다.**
+
+1. `docker compose up -d`. 게이트웨이가 먼저 떠야 합니다. 이 시점에 앱은 아직
+   프로바이더를 직접 부릅니다.
+2. `:4000/ui/`에서 **+ Create New Key**. 별명·상한·허용 모델을 정합니다.
+   **Organization 칸에서 `week08`을 고릅니다.** 키 문자열은 **만든 직후 한
+   번만** 보여주므로 그때 복사합니다.
+3. `.env`의 `GATEWAY_URL`과 `GATEWAY_KEY` 둘을 채웁니다. 상한과 허용 모델은
+   2단계에서 이미 정했으므로 여기 적을 것이 없습니다.
+4. `docker compose up -d --force-recreate api mcp`. 앱만 다시 만듭니다.
+   1초쯤 걸립니다.
+
+**닭과 달걀처럼 보이지만 아닙니다.** 가상키는 게이트웨이의 **상태**입니다.
+게이트웨이의 장부에 "이 키는 이 모델을, 이 상한까지"라고 적힌 한 줄이고,
+앱에는 그것이 **설정으로** 들어갑니다. 그래서 게이트웨이가 먼저 있고, 발급이
+그다음이고, 앱의 재시작이 마지막입니다. 실제 배포도 이 순서입니다. 운영자가
+키를 한 번 발급하고, 그것을 시크릿에 넣고, 앱을 배포합니다.
+
+**키를 바꿀 때도 같은 네 단계입니다.** 새로 발급하고, `.env`를 고치고, 앱만
+다시 만듭니다. 몇 가지를 짚어 둡니다.
+
+- **`docker compose down`은 필요 없습니다.** 앱 컨테이너 둘만 다시 만들면
+  됩니다. 게이트웨이·DB·n8n·화면은 그대로 돕니다.
+- **`restart`로는 안 됩니다.** 환경변수는 컨테이너를 **만들 때** 굳습니다.
+  `.env`의 모델 이름을 바꿔 놓고 둘을 비교하면 이렇습니다.
+
+  ```plaintext
+  docker compose restart api            → model: openai/travel        (옛 값)
+  docker compose up -d --force-recreate api → model: openai/travel-demo (새 값)
+  ```
+
+- **순서가 중요합니다.** 새 키 발급 → 앱에 반영 → **그다음에** 옛 키 폐기.
+  반대로 하면 그 사이의 요청이 전부 실패합니다.
+- 다시 만드는 1초 남짓 동안 `api`·`mcp`는 요청을 받지 못합니다. 짧지만
+  **중단은 중단**입니다.
+
+실제 서비스라면 키를 바꾸느라 서비스가 끊기면 곤란합니다. 방법이 몇 가지
+있습니다.
+
+- 시크릿을 **파일로 마운트**하고 호출할 때마다 읽습니다. 도커와 쿠버네티스의
+  시크릿이 환경변수가 아니라 파일인 이유가 이것입니다
+- 시크릿 매니저에서 **런타임에 조회**하고 잠깐 캐시합니다 (Vault, AWS
+  Secrets Manager 같은 것들)
+- 인스턴스를 **하나씩 교체**합니다. 앞의 것이 살아 있는 동안 뒤의 것이
+  올라옵니다. 우리 랩은 한 대씩이라 잠깐 끊깁니다
+- 새 키와 옛 키를 **겹쳐 두고** 갈아탄 뒤 옛 키를 지웁니다
+
+이 랩은 "설정은 배포 시점에 들어간다"는 가장 단순한 그림을 그대로 둡니다.
+무중단 교체는 12주차 배포에서 다룹니다.
+
+`.env`를 고치기 전에 한 번만 시험해 보고 싶다면 재시작 없이 이렇게도 됩니다.
+
+```bash
+docker compose exec \
+  -e GATEWAY_URL=http://litellm-proxy:4000 \
+  -e GATEWAY_KEY=sk-… \
+  -e GATEWAY_MODEL=travel \
+  api python -c "from core import service; print(service.plan('오사카 2박 3일 2명').answer[:60])"
+```
+
+화면에서 바로 되는 일들입니다.
+
+- **가상키 발급**: `+ Create New Key`로 별명·상한·허용 모델을 정해 만듭니다.
+  `curl`로 하던 일과 같은 것이고, 만든 뒤 키 문자열을 한 번만 보여줍니다.
+- **사용액 보기**: 키마다 `$0.00 of $5`처럼 상한 대비 얼마를 썼는지 막대로
+  보입니다. 넘긴 키는 붉게 표시됩니다.
+- **허용 모델 확인**: `batch-job`은 `travel`까지, `student-01`은 `travel-demo`만
+  부를 수 있습니다. 8장 2절의 모델 허용목록이 이 열입니다.
+- 그리고 왼쪽에 Usage·Logs·Budgets·Teams가 있습니다. 5주차에 비용 콜백으로
+  손수 찍던 장부가 여기서는 화면입니다.
+
+> **Organization 칸을 건드리지 않으면 키가 만들어지지 않습니다.** 화면이 빈
+> 문자열을 보내고 게이트웨이가 "그런 조직이 없다"며 500으로 거절합니다.
+> LiteLLM v1.100에서 확인한 것입니다. 랩에서는 `gateway-init` 서비스가 기동할 때
+> `week08` 조직을 하나 만들어 두므로, 목록에서 그것을 고르면 됩니다. 남의
+> 제품에도 이런 자리가 있다는 것을 한 번 보고 가는 셈입니다.
+
+화면은 영어입니다. 한국어는 없습니다. 열이 몇 개 안 되니 한 번만 짚고
+가겠습니다.
+
+| 열 | 뜻 |
+| --- | --- |
+| Key | 별명과 키 앞자리. 키 전체는 발급 직후 한 번만 보입니다 |
+| Spend / Budget | 이 키가 지금까지 쓴 금액과 상한 |
+| Budget Reset | 상한을 언제 되돌리나 (`Never`면 한 번 쓰면 끝) |
+| Models | 이 키로 부를 수 있는 모델 |
+| Team · User | 키를 팀이나 사람에 묶었을 때 채워집니다 |
+
+### 이 화면이 열려 있다는 것
+
+**마스터 키가 이 화면의 비밀번호입니다.** 마스터 키를 쥔 쪽은 키를 찍어낼 수
+있고 남의 사용액을 볼 수 있습니다. 앱에 주지 않는 이유가 이것입니다.
+
+그런데 우리 랩의 마스터 키는 `sk-week08-master`입니다. **교안에 적혀 있으니
+비밀이 아닙니다.** 그래서 게이트웨이의 포트를 이 기계에만 열어 두었습니다.
+
+```yaml
+ports:
+  - "127.0.0.1:4000:4000"   # 같은 망의 다른 기계에서는 보이지 않는다
+```
+
+`0.0.0.0:4000`이었다면 같은 카페 와이파이에 있는 사람이 관리자 화면에 들어와
+키를 찍어낼 수 있습니다. 컨테이너끼리는 compose 네트워크로 통하므로 앱은
+영향을 받지 않습니다.
+
+배포할 때 더 해야 할 것들입니다.
+
+- 마스터 키를 **긴 난수**로 바꿉니다. `.env`에 두고 절대 커밋하지 않습니다.
+- 화면 로그인을 마스터 키와 분리합니다 (`UI_USERNAME` · `UI_PASSWORD`), 또는
+  SSO를 붙입니다.
+- 공개 주소에 그냥 두지 않습니다. 리버스 프록시 뒤에 놓고 IP를 제한합니다.
+
+6주차에 "프롬프트는 부탁이고 게이트는 물리 법칙"이라고 했습니다. 여기서는
+**포트 바인딩이 그 물리 법칙**입니다.
+
+### 8-4. 소진되면 거절인가, 강등인가
 
 같은 "예산 초과"인데 두 곳에서 다르게 처리됩니다.
 
