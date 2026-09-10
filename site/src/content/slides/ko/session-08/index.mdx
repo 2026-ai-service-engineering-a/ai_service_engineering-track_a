@@ -118,15 +118,15 @@ flowchart LR
 
 ```mermaid
 flowchart LR
-    P(("사람")) --> U["ui :8501"]
+    P(("사람")) --> U["ui :8501<br/>구경용 화면"]
     U -->|"HTTP"| A["api :8000<br/>FastAPI"]
     P -->|"HTTP · /docs"| A
-    AI(("다른 AI")) -->|"MCP"| M["mcp :8010<br/>FastMCP"]
-    E(("이벤트<br/>웹훅 · 정해진 시간")) -->|"트리거"| N["n8n :5678"]
+    AI(("다른 AI<br/>Claude · Codex · ChatGPT")) -->|"MCP"| M["mcp :8010<br/>FastMCP"]
+    E(("이벤트<br/>웹훅 · 정해진 시간")) -->|"트리거"| N["n8n :5678<br/>워크플로"]
     N -->|"HTTP · MCP"| A
     A --> C["core/<br/>6주차 여행 플래너"]
     M --> C
-    C -->|"모델 호출"| G["litellm-proxy :4000"]
+    C -->|"모델 호출"| G["litellm-proxy :4000<br/>게이트웨이"]
     G --> L(("모델 제공자"))
 ```
 
@@ -431,7 +431,11 @@ def test_events_and_result_agree():
 
 ```mermaid
 flowchart LR
-    P["pydantic 모델 하나"] --> A["요청 검증"] & B["도구 스키마"] & C["MCP 명세"] & D["OpenAPI"]
+    P["pydantic 모델 하나<br/>BudgetArgs · PlanRequest"]
+    P --> A["요청 검증<br/>422로 막는다"]
+    P --> B["도구 스키마<br/>모델에게 설명"]
+    P --> C["MCP 도구 명세<br/>다른 AI에게 설명"]
+    P --> D["OpenAPI /docs<br/>사람에게 설명"]
 ```
 
 </Slide>
@@ -947,14 +951,15 @@ def plan_trip(question: str, max_steps: int = 6) -> dict:
 ```mermaid
 sequenceDiagram
     autonumber
-    participant C as 붙는 쪽
-    participant S as travel-planner
+    participant C as 붙는 쪽<br/>Claude Code · Inspector
+    participant S as 우리 MCP 서버<br/>travel-planner
     C->>S: initialize · protocolVersion · clientInfo
     S-->>C: serverInfo · capabilities
     C->>S: notifications/initialized
-    Note over C,S: 여기까지가 악수
+    Note over C,S: 여기까지가 악수. 마지막 것에는 답이 없다
     C->>S: tools/list
     S-->>C: 도구 넷 · 이름 · 설명 · inputSchema
+    Note over C: 모델이 이 목록만 읽고 무엇을 부를지 고른다
     C->>S: tools/call · name · arguments
     S-->>C: content[0].text
 ```
@@ -1054,6 +1059,32 @@ flowchart LR
 | 서버의 수명 | 클라이언트가 띄우고 거둔다 | 먼저 떠서 계속 산다 |
 | 관계 | 1 클라이언트 : 1 전용 서버 | N 클라이언트 : 1 서버 |
 | 쓰임 | 내 기계 안의 도구 | **세상에 내어주는 배포** |
+
+</Slide>
+
+<Slide>
+
+### 둘의 모양
+
+```mermaid
+flowchart TB
+    subgraph s["stdio · 내 기계 안"]
+        C1(("클라이언트")) -->|"하위 프로세스로 띄운다"| S1["서버"]
+    end
+    subgraph h["streamable HTTP · 세상에"]
+        S2["상주 서버 :8010/mcp"]
+        C2(("클라이언트 A")) --> S2
+        C3(("클라이언트 B")) --> S2
+        C4(("ChatGPT")) -->|"공개 HTTPS 필요"| S2
+    end
+```
+
+</Slide>
+
+<Slide>
+
+### 우리 서버는 둘 다 됩니다
+::sub[컨테이너는 HTTP로 뜨고, 필요하면 `--stdio`로 바꿉니다]
 
 ```python
 def main() -> None:
