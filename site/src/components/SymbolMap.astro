@@ -21,6 +21,15 @@ interface Props {
 }
 const { modules, neighbors = true, caption } = Astro.props;
 
+// caption은 평문으로 들어오므로 코드 스팬과 볼드만 손으로 풀어 준다
+const inline = (s: string) => s
+  .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+  .replace(/`([^`]+)`/g, '<code>$1</code>')
+  .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+
+// 한 쪽에 지도가 여럿이라 marker id가 겹치면 안 된다
+const uid = modules.join('-').replace(/[^a-z0-9]+/gi, '-');
+
 const fileOf = new Map(codemap.modules.map((m) => [m.module, m.file]));
 const own = codemap.symbols.filter((s) => modules.includes(s.module));
 const ownIds = new Set(own.map((s) => s.id));
@@ -46,7 +55,19 @@ const groups = [...new Set(shown.map((s) => s.module))]
     symbols: shown.filter((s) => s.module === module).sort((a, b) => a.line - b.line),
   }));
 
-const KIND = {
+// AI 배지는 **그림마다** 정한다. 모델로 이어지는 심볼(reaches) 중에서,
+// 이 그림 안에 더 깊은 다음 단이 없는 것 — 즉 여기서 보이는 마지막 단이다.
+// 실제 litellm 호출은 언제나 core/llm.py의 completion 한 곳이지만, 그것이
+// 그려지지 않은 그림에서는 그 바로 앞 단이 마지막 단이 된다
+const reaching = new Set(shown.filter((s) => s.reaches).map((s) => s.id));
+const hasDeeper = new Set(
+  edges.filter((e) => (e.kind === 'call' || e.kind === 'construct')
+                   && reaching.has(e.from) && reaching.has(e.to))
+       .map((e) => e.from),
+);
+const aiMark = new Set([...reaching].filter((id) => !hasDeeper.has(id)));
+
+const KIND: Record<string, { label: string; tone: string }> = {
   dataclass: { label: 'data', tone: 'blue' },
   class: { label: 'class', tone: 'blue' },
   route: { label: 'route', tone: 'orange' },
@@ -62,23 +83,25 @@ const detail = Object.fromEntries(shown.map((s) => [s.id, {
 }]));
 ---
 
-<div class="smap" data-smap data-detail={JSON.stringify(detail)} data-edges={JSON.stringify(edges)}>
+<div class="smap" data-smap data-uid={uid} data-detail={JSON.stringify(detail)} data-edges={JSON.stringify(edges)}>
   <div class="smap-legend">
     <span><i class="ln is-call"></i>호출</span>
     <span><i class="ln is-construct"></i>사용 (인스턴스)</span>
     <span><i class="ln is-returns"></i>리턴</span>
     <span><i class="ln is-param"></i>파라미터</span>
     <span><i class="ln is-inherits"></i>상속</span>
-    <span><i class="smap-ai is-legend">AI</i>이 안에서 모델을 부른다</span>
+    <span><i class="smap-ai is-legend">AI</i>모델로 가는 마지막 단</span>
   </div>
 
   <div class="smap-canvas" data-canvas>
     <svg class="smap-arrows" data-svg aria-hidden="true">
       <defs>
-        <marker id="smap-head" viewBox="0 0 8 8" refX="7" refY="4"
-                markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-          <path d="M 0 0 L 8 4 L 0 8 z" fill="currentColor"></path>
-        </marker>
+        {['call', 'construct', 'returns', 'param', 'inherits'].map((kind) => (
+          <marker id={`smap-head-${kind}-${uid}`} viewBox="0 0 8 8" refX="7" refY="4"
+                  markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+            <path d="M 0 0 L 8 4 L 0 8 z" class={`smap-head is-${kind}`}></path>
+          </marker>
+        ))}
       </defs>
     </svg>
 
@@ -89,7 +112,11 @@ const detail = Object.fromEntries(shown.map((s) => [s.id, {
           {group.symbols.map((sym) => (
             <button type="button" class={`smap-card is-${KIND[sym.kind]?.tone ?? 'green'}`}
                     data-card={sym.id}>
-              {sym.ai && <span class="smap-ai" title="이 함수 안에서 모델 호출이 일어난다">AI</span>}
+              {aiMark.has(sym.id) && (
+                <span class="smap-ai" title={sym.ai
+                  ? '이 함수 안에서 litellm 호출이 일어난다'
+                  : '이 그림에서 모델로 가는 마지막 단이다. 실제 호출은 core/llm.py의 completion 안에 있다'}>AI</span>
+              )}
               <span class="smap-kind">{KIND[sym.kind]?.label ?? sym.kind}</span>
               <span class="smap-name">{sym.name}</span>
               <span class="smap-body" data-body hidden></span>
@@ -100,7 +127,7 @@ const detail = Object.fromEntries(shown.map((s) => [s.id, {
     ))}
   </div>
 
-  <p class="smap-caption">{caption ?? '카드를 누르면 파라미터와 리턴이 펼쳐지고, 닿는 곳으로 화살표가 그려집니다.'}</p>
+  <p class="smap-caption" set:html={inline(caption ?? '카드를 누르면 파라미터와 리턴이 펼쳐지고, 닿는 곳으로 화살표가 그려집니다.')} />
 </div>
 
 <script>
@@ -117,6 +144,7 @@ const detail = Object.fromEntries(shown.map((s) => [s.id, {
 
     const DETAIL = JSON.parse(root.dataset.detail ?? '{}') as Record<string, Detail>;
     const EDGES = JSON.parse(root.dataset.edges ?? '[]') as Edge[];
+    const uid = root.dataset.uid ?? '';
     const canvas = root.querySelector<HTMLElement>('[data-canvas]')!;
     const svg = root.querySelector<SVGSVGElement>('[data-svg]')!;
     const cards = [...root.querySelectorAll<HTMLButtonElement>('[data-card]')];
@@ -160,19 +188,38 @@ const detail = Object.fromEntries(shown.map((s) => [s.id, {
         const dx = to.x - from.x;
         const dy = to.y - from.y;
         const len = Math.hypot(dx, dy) || 1;
-        // 카드 경계 근처에서 시작·끝나게 살짝 물린다
-        const pad = 10;
-        const sx = from.x + (dx / len) * (Math.min(a.width, a.height) / 2 + pad);
-        const sy = from.y + (dy / len) * (Math.min(a.width, a.height) / 2 + pad);
-        const ex = to.x - (dx / len) * (Math.min(b.width, b.height) / 2 + pad);
-        const ey = to.y - (dy / len) * (Math.min(b.width, b.height) / 2 + pad);
-        const cx = (sx + ex) / 2 + dy * 0.12;
-        const cy = (sy + ey) / 2 - dx * 0.12;
+        const ux = dx / len;
+        const uy = dy / len;
+
+        // 중심에서 쏜 선이 **카드 사각형**과 만나는 지점. 예전에는 min(폭,높이)를
+        // 반지름으로 삼는 원이었는데, 펼친 카드처럼 길쭉해지면 위아래로 가는 선의
+        // 끝이 카드 안쪽에 박혀 화살촉이 카드에 가려졌다
+        const onEdge = (r: DOMRect, cx0: number, cy0: number, sign: number, pad: number) => {
+          const hw = r.width / 2 + pad;
+          const hh = r.height / 2 + pad;
+          const tx = Math.abs(ux) < 1e-6 ? Infinity : hw / Math.abs(ux);
+          const ty = Math.abs(uy) < 1e-6 ? Infinity : hh / Math.abs(uy);
+          const t = Math.min(tx, ty);
+          return { x: cx0 + ux * sign * t, y: cy0 + uy * sign * t };
+        };
+
+        let s = onEdge(a, from.x, from.y, 1, 8);
+        let e = onEdge(b, to.x, to.y, -1, 8);
+        // 카드가 바짝 붙어 있으면 여백 때문에 두 끝이 서로를 지나쳐 화살표가
+        // 거꾸로 돌아간다. 그럴 때는 여백 없이 경계에서 경계로 잇는다
+        if ((e.x - s.x) * ux + (e.y - s.y) * uy < 6) {
+          s = onEdge(a, from.x, from.y, 1, 0);
+          e = onEdge(b, to.x, to.y, -1, 0);
+        }
+        const sx = s.x, sy = s.y, ex = e.x, ey = e.y;
+        const bow = Math.min(0.12, 24 / Math.max(len, 1));
+        const cx = (sx + ex) / 2 + (ey - sy) * bow;
+        const cy = (sy + ey) / 2 - (ex - sx) * bow;
 
         const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
         path.setAttribute('d', `M ${sx} ${sy} Q ${cx} ${cy} ${ex} ${ey}`);
         path.setAttribute('class', `smap-edge is-${edge.kind}`);
-        path.setAttribute('marker-end', 'url(#smap-head)');
+        path.setAttribute('marker-end', `url(#smap-head-${edge.kind}-${uid})`);
         path.dataset.edge = edge.kind;
         svg.appendChild(path);
       });
@@ -262,7 +309,17 @@ const detail = Object.fromEntries(shown.map((s) => [s.id, {
   .smap-legend .ln.is-inherits { border-top-width: 3px; border-top-style: double; }
 
   .smap-canvas { position: relative; display: flex; flex-wrap: wrap; gap: 0.9em; align-items: flex-start; }
-  .smap-arrows { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; }
+  /* 카드가 position: relative(배지 때문)라 그냥 두면 선이 카드 뒤로 숨는다.
+     사이에 낀 카드에서 선이 시작하는 것처럼 보여서 위로 올린다 */
+  .smap-arrows {
+    position: absolute; inset: 0; width: 100%; height: 100%;
+    pointer-events: none; overflow: visible; z-index: 3;
+  }
+
+  .smap-head.is-call { fill: var(--smap-green); }
+  .smap-head.is-construct, .smap-head.is-returns { fill: var(--smap-blue); }
+  .smap-head.is-param { fill: var(--aas-muted); }
+  .smap-head.is-inherits { fill: var(--smap-purple); }
 
   .smap-arrows :global(.smap-edge) { fill: none; stroke-width: 1.6; color: var(--aas-muted); stroke: currentColor; }
   .smap-arrows :global(.smap-edge.is-call) { color: var(--smap-green); }
@@ -339,6 +396,14 @@ const detail = Object.fromEntries(shown.map((s) => [s.id, {
   }
 
   .smap-caption { margin: 0.9em 0 0; font-size: 0.78em; line-height: 1.6; color: var(--aas-muted); }
+  .smap-caption code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.94em;
+    padding: 0.08em 0.32em;
+    border-radius: 5px;
+    background: color-mix(in srgb, var(--aas-muted) 14%, transparent);
+  }
+  .smap-caption strong { color: var(--aas-text); font-weight: 650; }
 
   @container (max-width: 32rem) {
     .smap-mod { flex: 1 1 100%; }

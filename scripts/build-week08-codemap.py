@@ -223,16 +223,34 @@ def main() -> None:
         seen.add(key)
         edges.append({"from": caller, "to": callee, "kind": kind})
 
-    # 모델을 **실제로 부르는 자리**만 표시한다. litellm의 completion_cost처럼
-    # 값만 계산하는 함수는 모델을 부르지 않으므로 걸리지 않게 이름을 좁힌다. 이 랩에서 litellm 호출은
-    # core/llm.py의 completion 안 한 곳뿐이다. 그 함수를 부르는 쪽은 표시하지
-    # 않는다 — 배지는 "여기서 모델이 불린다"는 뜻이지 "언젠가 이어진다"가 아니다
+    # 심볼마다 두 가지를 적는다.
+    #   ai      — 그 함수 **안에서** litellm을 부른다. 저장소에 한 곳뿐이다.
+    #             (값만 계산하는 completion_cost는 모델을 부르지 않으므로 뺀다)
+    #   reaches — 부르다 보면 결국 그 한 곳에 닿는다.
+    # 지도의 AI 배지는 이 둘로 <SymbolMap />이 그림마다 계산한다. 그림에
+    # 보이는 것 중 "더 깊이 갈 데가 없는 마지막 단"에만 붙는다
     calls_model = {
         caller for caller, target, kind in raw
         if kind == "call" and re.search(r"(^|\.)litellm[._]?a?completion$", target or "")
     }
+    forward: dict[str, list[str]] = {}
+    for e in edges:
+        if e["kind"] in ("call", "construct"):
+            forward.setdefault(e["from"], []).append(e["to"])
+    reaches, stack = set(), list(calls_model)
+    back: dict[str, list[str]] = {}
+    for src, dsts in forward.items():
+        for d in dsts:
+            back.setdefault(d, []).append(src)
+    while stack:
+        node = stack.pop()
+        if node in reaches:
+            continue
+        reaches.add(node)
+        stack += back.get(node, [])
     for s in symbols:
         s["ai"] = s["id"] in calls_model
+        s["reaches"] = s["id"] in reaches
 
     modules = [{
         "module": module_name(p), "file": str(p.relative_to(REPO)),
@@ -247,6 +265,7 @@ def main() -> None:
     from collections import Counter
     print(f"모듈 {len(modules)} · 심볼 {len(symbols)} · 관계 {len(edges)}")
     print("  모델을 부르는 자리:", sorted(calls_model))
+    print("  거기에 닿는 심볼:", len(reaches))
     print(" ", dict(Counter(e["kind"] for e in edges)))
 
 
