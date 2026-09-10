@@ -1,0 +1,292 @@
+---
+/**
+ * 문 지도 (8주차 2장).
+ *
+ * week08-service-lab의 실제 구성이다. 코어는 하나이고 문이 셋이며, 뒤쪽에
+ * 게이트웨이가 하나 더 있다. 문을 누르면 누가 부르는지, 무엇이 필요한지,
+ * 코드에서 어디인지가 펼쳐진다. 코어를 누르면 "문은 코어를 모른다"는
+ * import 방향이 보인다.
+ */
+const DOORS = {
+  http: {
+    label: 'HTTP',
+    port: ':8000',
+    caller: '사람 · 웹 UI · 다른 프로그램',
+    icon: '🌐',
+    need: '없음. 브라우저로 /docs를 열면 그대로 데모가 된다',
+    file: 'api/main.py',
+    code: `@app.post("/plan", response_model=PlanResponse)
+def plan(body: PlanRequest) -> PlanResponse:
+    result = service.plan(body.question, ...)
+    return PlanResponse(**result.to_dict())`,
+    note: '검증은 pydantic이, 실패의 번역은 api/errors.py가 한다. 에이전트에 관한 코드는 한 줄도 없다.',
+  },
+  mcp: {
+    label: 'MCP',
+    port: ':8010',
+    caller: '다른 AI (Claude Code · Codex · ChatGPT)',
+    icon: '🤖',
+    need: '로컬이면 그대로. ChatGPT는 공개 HTTPS 또는 터널',
+    file: 'mcp_server/server.py',
+    code: `@mcp.tool()
+def plan_trip(question: str, max_steps: int = 6) -> dict:
+    """여행 요청 한 줄로 일정과 예산을 세운다."""
+    result = service.plan(question, max_steps=max_steps)
+    return {"answer": result.answer, ...}`,
+    note: '손으로 쓴 스키마가 없다. 시그니처와 docstring이 그대로 도구 명세가 된다.',
+  },
+  n8n: {
+    label: '자동화',
+    port: ':5678',
+    caller: '이벤트 (웹훅 · 정해진 시간 · 앱 알림)',
+    icon: '⚡',
+    need: 'n8n 컨테이너. 워크플로를 발행해야 트리거가 산다',
+    file: 'clients/n8n/01_webhook.json',
+    code: `웹훅(POST /webhook/travel)
+  → HTTP Request(POST http://api:8000/plan)
+  → 웹훅에 응답`,
+    note: '코드를 한 줄도 쓰지 않고 입구가 하나 늘었다. 부르는 것은 사람이 아니라 이벤트다.',
+  },
+  gateway: {
+    label: '게이트웨이',
+    port: ':4000',
+    caller: '(뒷문) 우리가 모델을 부른다',
+    icon: '🔑',
+    need: '마스터 키 하나. 앱에는 가상키만 준다 (프로바이더 키가 아니다)',
+    file: 'gateway/config.yaml',
+    code: `general_settings:
+  master_key: os.environ/LITELLM_MASTER_KEY
+
+# 앱 쪽은 주소와 가상키만 바뀐다
+kwargs["api_base"] = GATEWAY_URL
+kwargs["api_key"] = GATEWAY_KEY`,
+    note: '가상키는 이 게이트웨이에서만 통하는 키다. Google·OpenAI에 가면 아무 것도 아니다. 진짜 프로바이더 키는 여기 env에 있고 밖으로 나가지 않는다. 상한을 넘으면 여기서 429로 거절한다.',
+  },
+  core: {
+    label: '코어',
+    port: 'core/',
+    caller: '앞의 문 셋이 여기로 들어온다',
+    icon: '🧠',
+    need: '6주차 여행 플래너 그대로. 8주차에 고치지 않았다',
+    file: 'core/service.py',
+    code: `def plan(question, ...) -> PlanResult
+def plan_events(question, ...) -> Iterator[dict]
+
+# core/는 fastapi도 mcp도 import하지 않는다`,
+    note: 'import 방향이 경계의 증거다. 코어가 문을 알기 시작하면 문을 하나 더 달 때마다 코어를 고쳐야 한다.',
+  },
+};
+---
+
+<div class="dmap" data-dmap data-doors={JSON.stringify(DOORS)}>
+  <div class="dmap-head">
+    <strong>문은 껍데기, 코어는 하나</strong>
+    <span>
+      상자를 누르면 누가 부르는지와 코드에서 어디인지가 펼쳐집니다.
+      왼쪽 문 셋은 전부 같은 `core/`를 봅니다. 게이트웨이만 방향이 반대로,
+      코어가 모델을 부를 때 지나갑니다.
+    </span>
+  </div>
+
+  <div class="dmap-board">
+    <div class="dmap-col">
+      <button type="button" class="dmap-node is-door" data-node="http">
+        <span class="dmap-icon">🌐</span>
+        <span class="dmap-label">HTTP<em>:8000</em></span>
+        <span class="dmap-who">사람 · 웹 UI</span>
+      </button>
+      <button type="button" class="dmap-node is-door" data-node="mcp">
+        <span class="dmap-icon">🤖</span>
+        <span class="dmap-label">MCP<em>:8010</em></span>
+        <span class="dmap-who">다른 AI</span>
+      </button>
+      <button type="button" class="dmap-node is-door" data-node="n8n">
+        <span class="dmap-icon">⚡</span>
+        <span class="dmap-label">자동화<em>:5678</em></span>
+        <span class="dmap-who">이벤트</span>
+      </button>
+    </div>
+
+    <div class="dmap-arrows" aria-hidden="true">
+      <span></span><span></span><span></span>
+    </div>
+
+    <div class="dmap-col dmap-col-core">
+      <button type="button" class="dmap-node is-core" data-node="core">
+        <span class="dmap-icon">🧠</span>
+        <span class="dmap-label">core/</span>
+        <span class="dmap-who">6주차 여행 플래너</span>
+      </button>
+      <span class="dmap-down" aria-hidden="true"></span>
+      <button type="button" class="dmap-node is-gate" data-node="gateway">
+        <span class="dmap-icon">🔑</span>
+        <span class="dmap-label">게이트웨이<em>:4000</em></span>
+        <span class="dmap-who">뒷문</span>
+      </button>
+    </div>
+  </div>
+
+  <div class="dmap-panel" data-panel hidden>
+    <div class="dmap-panel-head">
+      <strong data-p-title></strong>
+      <code data-p-file></code>
+    </div>
+    <dl class="dmap-facts">
+      <div><dt>부르는 쪽</dt><dd data-p-caller></dd></div>
+      <div><dt>필요한 것</dt><dd data-p-need></dd></div>
+    </dl>
+    <pre class="dmap-code"><code data-p-code></code></pre>
+    <p class="dmap-note" data-p-note></p>
+  </div>
+</div>
+
+<script>
+  document.querySelectorAll<HTMLElement>('[data-dmap]').forEach(init);
+
+  function init(root: HTMLElement) {
+    type Door = {
+      label: string; port: string; caller: string; icon: string;
+      need: string; file: string; code: string; note: string;
+    };
+    const DOORS = JSON.parse(root.dataset.doors ?? '{}') as Record<string, Door>;
+    const panel = root.querySelector<HTMLElement>('[data-panel]')!;
+    const set = (sel: string, text: string) => {
+      root.querySelector<HTMLElement>(sel)!.textContent = text;
+    };
+    let open = '';
+
+    root.querySelectorAll<HTMLButtonElement>('[data-node]').forEach((button) => {
+      button.addEventListener('click', () => {
+        const id = button.dataset.node ?? '';
+        if (open === id) {
+          open = '';
+          panel.hidden = true;
+          root.querySelectorAll('[data-node]').forEach((n) => n.classList.remove('is-on'));
+          return;
+        }
+        open = id;
+        const door = DOORS[id];
+        root.querySelectorAll('[data-node]').forEach((n) => {
+          n.classList.toggle('is-on', n === button);
+        });
+        set('[data-p-title]', `${door.icon} ${door.label} ${door.port}`);
+        set('[data-p-file]', door.file);
+        set('[data-p-caller]', door.caller);
+        set('[data-p-need]', door.need);
+        set('[data-p-code]', door.code);
+        set('[data-p-note]', door.note);
+        panel.hidden = false;
+      });
+    });
+  }
+</script>
+
+<style>
+  .dmap {
+    margin: 2rem 0;
+    padding: 1.1rem;
+    border: 1px solid var(--aas-border);
+    border-radius: 14px;
+    background: var(--aas-panel);
+    box-shadow: var(--aas-shadow);
+    font-family: var(--aas-sans);
+    container-type: inline-size;
+    font-size: clamp(0.85rem, 1.5cqw, 1.15rem);
+    --dmap-accent: #2f81f7;
+  }
+
+  .dmap-head { display: flex; flex-direction: column; gap: 0.3em; margin-bottom: 1em; }
+  .dmap-head strong { font-size: 1.15em; color: var(--aas-text); }
+  .dmap-head span { font-size: 0.88em; line-height: 1.65; color: var(--aas-muted); }
+
+  .dmap-board {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    gap: 0.6em;
+    align-items: center;
+  }
+  .dmap-col { display: flex; flex-direction: column; gap: 0.55em; }
+  .dmap-col-core { align-items: stretch; }
+
+  .dmap-node {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    grid-template-rows: auto auto;
+    gap: 0 0.6em;
+    padding: 0.7em 0.8em;
+    border: 1px solid var(--aas-border);
+    border-radius: 12px;
+    background: var(--aas-bg);
+    color: var(--aas-text);
+    text-align: left;
+    cursor: pointer;
+    transition: border-color 0.15s, transform 0.15s, box-shadow 0.15s;
+  }
+  .dmap-node:hover { transform: translateY(-1px); border-color: var(--dmap-accent); }
+  .dmap-node.is-on {
+    border-color: var(--dmap-accent);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--dmap-accent) 25%, transparent);
+  }
+  .dmap-icon { grid-row: 1 / 3; align-self: center; font-size: 1.5em; }
+  .dmap-label { font-weight: 700; font-size: 0.98em; }
+  .dmap-label em { font-style: normal; font-weight: 400; color: var(--aas-muted); margin-left: 0.4em; font-size: 0.85em; }
+  .dmap-who { font-size: 0.8em; color: var(--aas-muted); }
+
+  .dmap-node.is-core { border-color: color-mix(in srgb, var(--dmap-accent) 55%, var(--aas-border)); }
+  .dmap-node.is-gate { border-style: dashed; }
+
+  .dmap-arrows { display: flex; flex-direction: column; gap: 1.6em; padding: 0 0.1em; }
+  .dmap-arrows span {
+    display: block; width: 2.2em; height: 1px;
+    background: color-mix(in srgb, var(--aas-muted) 55%, transparent);
+    position: relative;
+  }
+  .dmap-arrows span::after {
+    content: ''; position: absolute; right: 0; top: -3px;
+    border: 3.5px solid transparent;
+    border-left-color: color-mix(in srgb, var(--aas-muted) 55%, transparent);
+  }
+  .dmap-down {
+    display: block; height: 1.1em; width: 1px; margin: 0 auto;
+    background: color-mix(in srgb, var(--aas-muted) 55%, transparent);
+  }
+
+  .dmap-panel {
+    margin-top: 1em;
+    padding: 0.9em 1em;
+    border: 1px solid var(--aas-border);
+    border-radius: 12px;
+    background: var(--aas-bg);
+  }
+  .dmap-panel-head { display: flex; flex-wrap: wrap; gap: 0.6em; align-items: baseline; margin-bottom: 0.6em; }
+  .dmap-panel-head strong { font-size: 1.05em; color: var(--aas-text); }
+  .dmap-panel-head code { font-size: 0.82em; color: var(--aas-muted); }
+
+  .dmap-facts { display: grid; gap: 0.35em; margin: 0 0 0.7em; }
+  .dmap-facts div { display: grid; grid-template-columns: 6.5em 1fr; gap: 0.5em; }
+  .dmap-facts dt { font-size: 0.82em; color: var(--aas-muted); }
+  .dmap-facts dd { margin: 0; font-size: 0.86em; color: var(--aas-text); }
+
+  /* 테마가 .prose pre에 어두운 배경을 !important로 건다. 배경을 되돌리려
+     들지 말고 글자를 그 배경에 맞춰 밝게 둔다 (본문 코드 블록과 같은 모양). */
+  .dmap-panel .dmap-code {
+    margin: 0 0 0.6em;
+    font-size: 0.8em;
+    line-height: 1.6;
+    overflow-x: auto;
+  }
+  .dmap-panel .dmap-code code {
+    color: #c9d1d9;
+    background: none;
+    padding: 0;
+    white-space: pre;
+  }
+  .dmap-note { margin: 0; font-size: 0.85em; line-height: 1.7; color: var(--aas-muted); }
+
+  @container (max-width: 34rem) {
+    .dmap-board { grid-template-columns: 1fr; }
+    .dmap-arrows { flex-direction: row; justify-content: center; gap: 0.8em; }
+    .dmap-arrows span { width: 1px; height: 1.6em; }
+    .dmap-arrows span::after { right: -3px; top: auto; bottom: 0; border-left-color: transparent; border-top-color: color-mix(in srgb, var(--aas-muted) 55%, transparent); }
+  }
+</style>

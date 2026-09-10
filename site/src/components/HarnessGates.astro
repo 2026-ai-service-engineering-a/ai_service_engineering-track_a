@@ -194,13 +194,13 @@ if self.spent >= self.warn_usd and not self.warned: warn()`,
     background: var(--aas-tint);
   }
 
+  /* 테마가 .prose pre에 어두운 배경을 !important로 건다. 배경을 되돌리려
+     들지 말고 글자를 그 배경에 맞춰 밝게 둔다 (본문 코드 블록과 같은 모양). */
   .hgate-rule {
-    margin: 0 0 0.9rem; padding: 0.6rem 0.7rem;
-    border-radius: 8px; border: 1px solid var(--aas-border);
-    background: var(--aas-bg); overflow-x: auto;
+    margin: 0 0 0.9rem; overflow-x: auto;
   }
   .hgate-rule code {
-    font-size: 0.76rem; line-height: 1.6; color: var(--aas-muted);
+    font-size: 0.76rem; line-height: 1.6; color: #c9d1d9;
     white-space: pre; background: none; padding: 0;
   }
 
