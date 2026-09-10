@@ -25,8 +25,8 @@
   스텝마다 부푸는 messages 배열과 compact 전후의 토큰 실측 (6주차 3장)
 - [harness-gates-port.md](harness-gates-port.md): `<HarnessGates />`.
   파이썬 원본과 브라우저 판정 모듈의 29건 대조 기록 (6주차 5장)
-- [week08-codemap-data.md](week08-codemap-data.md): `<CodeMap />`.
-  week08-service-lab을 `ast`로 파싱해 뽑은 심볼 60개와 호출 45건 (8주차 3장)
+- [week08-codemap-data.md](week08-codemap-data.md): `<SymbolMap />`.
+  week08-service-lab을 `ast`로 파싱해 뽑은 심볼 60개와 관계 60건 (8주차 3장)
 
 ## 주차별 강의 문서
 
