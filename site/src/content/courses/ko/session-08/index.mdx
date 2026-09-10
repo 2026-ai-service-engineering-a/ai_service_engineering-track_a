@@ -1096,10 +1096,19 @@ if config.gateway():                       # .env의 GATEWAY_URL
 채우면 **같은 코드가** 게이트웨이를 지나갑니다.
 
 ```bash
-# .env
+# .env — 필요한 것은 둘뿐이다
 GATEWAY_URL=http://litellm-proxy:4000   # compose 서비스 이름. localhost가 아니다
 GATEWAY_KEY=sk-…                        # 가상키. 발급은 다음 절에서
-GATEWAY_MODEL=travel                    # gateway/config.yaml의 model_name
+```
+
+**앱이 아는 것은 주소와 키 문자열 하나뿐입니다.** 그 키가 어떤 모델을 부를 수
+있고 얼마까지 쓸 수 있는지는 앱이 모릅니다. 게이트웨이가 압니다. 상한과 허용
+모델은 `.env`가 아니라 **발급할 때 화면에서** 정하기 때문입니다.
+
+부를 모델의 이름만 앱이 고릅니다. 비워 두면 `travel`입니다.
+
+```bash
+GATEWAY_MODEL=travel-demo   # 선택. 모의 응답으로 돌려 보고 싶을 때만
 ```
 
 `GATEWAY_KEY`를 비워 두면 시작은 하지만 첫 호출에서 막힙니다. 비어 있는 키
@@ -1139,7 +1148,8 @@ http://localhost:4000/ui/
    프로바이더를 직접 부릅니다.
 2. `:4000/ui/`에서 **+ Create New Key**. 별명·상한·허용 모델을 정합니다.
    키 문자열은 **만든 직후 한 번만** 보여주므로 그때 복사합니다.
-3. `.env`의 `GATEWAY_KEY`에 붙이고 `GATEWAY_URL`·`GATEWAY_MODEL`도 채웁니다.
+3. `.env`의 `GATEWAY_URL`과 `GATEWAY_KEY` 둘을 채웁니다. 상한과 허용 모델은
+   2단계에서 이미 정했으므로 여기 적을 것이 없습니다.
 4. `docker compose up -d --force-recreate api mcp`. 앱만 다시 만듭니다.
    1초쯤 걸립니다.
 
