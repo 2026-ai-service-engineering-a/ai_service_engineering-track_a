@@ -13,8 +13,10 @@ import mcp from '../data/week08-mcp.json';
 
 interface Props {
   caption?: string;
+  /** 슬라이드용. tools/call 실측 블록을 접어 높이를 줄인다 */
+  compact?: boolean;
 }
-const { caption } = Astro.props;
+const { caption, compact = false } = Astro.props;
 
 type Seg = { text: string; role: string };
 
@@ -177,6 +179,7 @@ const CHIPS = [
     </section>
   </div>
 
+  {!compact && (
   <div class="mtool-call">
     <p class="mtool-h">한 번 불러 본 것 — <code>tools/call</code></p>
     <div class="mtool-panes">
@@ -192,6 +195,7 @@ const CHIPS = [
       ))}
     </div>
   </div>
+  )}
 
   {caption && <p class="mtool-caption" set:html={inline(caption)} />}
 </div>
