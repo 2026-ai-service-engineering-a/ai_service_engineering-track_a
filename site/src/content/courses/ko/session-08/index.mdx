@@ -158,7 +158,8 @@ flowchart LR
 ```bash
 git clone https://github.com/2026-ai-service-engineering-a/week08-service-lab.git
 cd week08-service-lab
-cp .env.sample .env           # 키는 없어도 됩니다
+cp .env.sample .env                   # 앱의 것: 게이트웨이 주소와 가상키 자리
+cp gateway/.env.sample gateway/.env   # 게이트웨이의 것: 진짜 키와 마스터 키
 docker compose up --build -d  # api · ui · mcp · n8n · litellm-proxy · db
 docker compose exec api pytest
 ```
@@ -184,11 +185,17 @@ curl -s localhost:8000/config
 ```
 
 ```json
-{"mode":"offline","model":"offline/scripted-planner","available_providers":[],
+{"mode":"offline","model":"offline/scripted-planner","gateway":null,
  "defaults":{"max_steps":6,"max_cost_usd":0.2}}
 ```
 
-키를 채우면 `mode`가 `live`로 바뀝니다. 코드는 한 줄도 바뀌지 않습니다.
+게이트웨이를 켜면 `mode`가 `live`로 바뀝니다. 어떻게 켜는지는 8장에서
+봅니다. 코드는 한 줄도 바뀌지 않습니다.
+
+**이 랩의 앱에는 프로바이더 키를 넣을 자리가 없습니다.** `.env`를 열어 보면
+`GEMINI_API_KEY` 같은 줄이 아예 없습니다. 앱이 모델을 직접 부르지 않기
+때문이고, 진짜 키는 `gateway/.env`에만 있습니다. 8장에서 왜 이렇게 나눴는지
+봅니다.
 
 ## 3. 경계 정하기
 
@@ -1040,9 +1047,15 @@ curl -s -X POST localhost:4000/key/generate \
 이렇습니다.
 
 ```bash
-# .env
+# gateway/.env — 게이트웨이 컨테이너에만 간다
 GEMINI_API_KEY=AIza…                  # 진짜. 돈이 여기서 나간다
 LITELLM_MASTER_KEY=sk-week08-master   # 우리가 지은 값. 벤더와 무관하다
+```
+
+```bash
+# .env — 앱(api·mcp)에 가는 것 전부
+GATEWAY_URL=http://litellm-proxy:4000
+GATEWAY_KEY=sk-…
 ```
 
 ```python
@@ -1091,9 +1104,10 @@ if config.gateway():                       # .env의 GATEWAY_URL
     kwargs["api_key"] = os.environ.get("GATEWAY_KEY", "")
 ```
 
-**기본은 꺼져 있습니다.** `.env`의 `GATEWAY_*` 셋이 비어 있으면 앱은
-프로바이더를 직접 부릅니다. 랩에 게이트웨이가 떠 있어도 그렇습니다. 셋을
-채우면 **같은 코드가** 게이트웨이를 지나갑니다.
+**기본은 꺼져 있습니다.** `.env`의 `GATEWAY_*`가 비어 있으면 각본 대역이
+답합니다. 이 랩의 앱에는 프로바이더로 가는 길이 아예 없으므로, 게이트웨이가
+없으면 진짜 호출도 없습니다. 둘을 채우면 **같은 코드가** 게이트웨이를
+지나갑니다.
 
 ```bash
 # .env — 필요한 것은 둘뿐이다
@@ -1105,24 +1119,31 @@ GATEWAY_KEY=sk-…                        # 가상키. 발급은 다음 절에�
 있고 얼마까지 쓸 수 있는지는 앱이 모릅니다. 게이트웨이가 압니다. 상한과 허용
 모델은 `.env`가 아니라 **발급할 때 화면에서** 정하기 때문입니다.
 
-말로만 하면 믿기 어려우니 직접 확인합니다. 앱에서 프로바이더 키를 **전부
-지우고** 가상키만 남겨 봅니다.
+말로만 하면 믿기 어려우니 앱 컨테이너 안을 들여다봅니다.
 
 ```bash
-docker compose exec \
-  -e GEMINI_API_KEY= -e OPENAI_API_KEY= -e ANTHROPIC_API_KEY= \
-  -e GATEWAY_URL=http://litellm-proxy:4000 -e GATEWAY_KEY=sk-… \
-  api python -c "from core import service; print(service.plan('오사카 2박 3일 2명').answer[:60])"
+docker compose exec api python -c "
+import os
+for v in ['GEMINI_API_KEY','LITELLM_MASTER_KEY','GATEWAY_URL','GATEWAY_KEY']:
+    print(v, '있음' if os.environ.get(v) else '없음')"
 ```
 
 ```plaintext
-앱이 쥔 프로바이더 키: 없음
+GEMINI_API_KEY     없음
+LITELLM_MASTER_KEY 없음
+GATEWAY_URL        있음
+GATEWAY_KEY        있음
+```
+
+그리고 이 컨테이너가 진짜 Gemini의 답을 받아 옵니다.
+
+```plaintext
 mode: live | model: openai/travel
 거친 도구: ['calc_budget', 'search_places', 'estimate_travel_time']
 답: 오사카 2박 3일 2명 여행을 위한 추천 일정을 제안해 드립니다. …
 ```
 
-진짜 키가 하나도 없는 컨테이너가 진짜 모델의 답을 받았습니다. 키는 게이트웨이
+**진짜 키가 하나도 없는 컨테이너가 진짜 모델을 썼습니다.** 키는 게이트웨이
 컨테이너에만 있습니다.
 
 `docker-compose.yml`도 그렇게 되어 있습니다. `.env`를 통째로 물리지 않고
@@ -1130,12 +1151,14 @@ mode: live | model: openai/travel
 
 ```yaml
   api:
-    environment:
+    environment:              # 앱이 쥐는 것은 이게 전부다
+      LLM_MODE: ${LLM_MODE:-auto}
       GATEWAY_URL: ${GATEWAY_URL:-}
       GATEWAY_KEY: ${GATEWAY_KEY:-}
-      # 게이트웨이를 켰다면 아래 셋은 없어도 앱이 돈다
-      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
-      …
+      GATEWAY_MODEL: ${GATEWAY_MODEL:-}
+
+  litellm-proxy:
+    env_file: gateway/.env    # 진짜 키와 마스터 키는 여기에만 있다
 ```
 
 **`LITELLM_MASTER_KEY`는 이 목록에 없습니다.** 앱 컨테이너에 아예 전달되지
