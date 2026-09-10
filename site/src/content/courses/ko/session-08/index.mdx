@@ -829,6 +829,39 @@ claude mcp add --transport http travel-planner http://localhost:8010/mcp
 붙으면 Claude Code에서 `/mcp`로 연결과 도구 목록이 보이고, **자기가 7주 동안
 만든 것을 자기 AI가 도구로 부릅니다.** Codex도 같은 서버를 그대로 씁니다.
 
+**여기서 한 번은 헷갈립니다.** `claude mcp add`가 성공했는데 Claude Desktop의
+설정 화면에는 아무것도 안 나옵니다. 껐다 켜도 안 나옵니다. 고장이 아니라
+**둘이 다른 제품이고 설정 파일도 다르기 때문**입니다.
+
+| | 설정이 사는 곳 | 전송 | 확인하는 곳 |
+| --- | --- | --- | --- |
+| Claude **Code** | `~/.claude.json` (프로젝트별) 또는 `.mcp.json` | HTTP·stdio | `claude mcp list` · 세션에서 `/mcp` |
+| Claude **Desktop** | `claude_desktop_config.json` | stdio | 설정 → 개발자 → 로컬 MCP 서버 |
+
+`claude mcp add`가 고쳤다고 알려 주는 파일 이름을 그대로 읽으면 됩니다.
+
+```plaintext
+Added HTTP MCP server travel-planner with URL: http://localhost:8010/mcp to local config
+File modified: /Users/…/.claude.json [project: /Users/…/week08-service-lab]
+```
+
+`.claude.json`이라고 적혀 있습니다. Desktop 화면은 `claude_desktop_config.json`을
+보여 주는 창이므로 여기 나올 리가 없습니다. 제대로 붙었는지는 이렇게 봅니다.
+
+```bash
+claude mcp list
+```
+
+```plaintext
+travel-planner: http://localhost:8010/mcp (HTTP) - ✔ Connected
+```
+
+Desktop에 붙이려면 `clients/claude_desktop.json` 견본을 쓰십시오. 저 화면이
+읽는 파일은 **명령어와 인수**를 받는 자리라 stdio입니다. 그래서 견본도
+`docker run --rm -i … --stdio`입니다. 5장 3절의 "붙는 쪽이 정한다"가
+여기서 그대로 걸립니다. **서버 코드는 한 줄도 바뀌지 않고 붙는 쪽 설정만
+다릅니다.**
+
 ChatGPT는 다릅니다. 절차는 `clients/chatgpt.md`에 적어 두었습니다.
 
 - ChatGPT 설정 → 보안 및 로그인 → **개발자 모드**를 켠다 (가용 여부는

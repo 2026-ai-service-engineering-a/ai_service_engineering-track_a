@@ -56,6 +56,11 @@ git 태그(`vX.Y`)로, 사이트 버전은 `site/package.json`으로 관리한�
   게이트웨이 컨테이너에만 전달된다. 앱 컨테이너를 열어 보면 프로바이더 키도
   마스터 키도 `없음`이고, 그 컨테이너가 진짜 모델의 답을 받는다. "앱은 진짜
   키를 모른다"가 문장이 아니라 확인 가능한 사실이 됐다
+- **Claude Code와 Claude Desktop은 다른 파일을 읽는다** (6장 4절): `claude mcp
+  add`가 성공해도 Desktop 설정 화면에는 나오지 않는다. 전자는 `~/.claude.json`,
+  후자는 `claude_desktop_config.json`이다. 두 제품을 표로 갈라 놓고, 확인은
+  `claude mcp list`나 세션의 `/mcp`로 한다는 것을 실측 출력과 함께 적었다.
+  `clients/`의 두 견본에도 같은 경고를 넣었다
 - **MCP 악수 그림과 도구 대조판** (5장 1절): `initialize` → `tools/list` →
   `tools/call` 세 왕복을 시퀀스 다이어그램으로 그렸다. 그 아래에 `<McpTools />`를
   두어 왼쪽 파이썬 원본과 오른쪽 `tools/list` 응답을 나란히 놓고, 이름·설명·입력
