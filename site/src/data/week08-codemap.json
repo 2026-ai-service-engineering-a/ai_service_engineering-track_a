@@ -74,16 +74,31 @@
  ],
  "symbols": [
   {
-   "id": "core.config:available_models",
+   "id": "core.config:gateway",
    "module": "core.config",
-   "name": "available_models",
+   "name": "gateway",
    "kind": "function",
    "extra": "",
-   "signature": "def available_models() -> list[str]",
-   "line": 25,
-   "doc": "키가 채워진 프로바이더의 모델 문자열 목록 (권장 순서).",
+   "signature": "def gateway() -> str",
+   "line": 23,
+   "doc": "게이트웨이 주소. 비어 있으면 각본 대역으로 돈다.",
    "params": [],
-   "returns": "list[str]",
+   "returns": "str",
+   "bases": [],
+   "fields": [],
+   "ai": false
+  },
+  {
+   "id": "core.config:gateway_key",
+   "module": "core.config",
+   "name": "gateway_key",
+   "kind": "function",
+   "extra": "",
+   "signature": "def gateway_key() -> str",
+   "line": 28,
+   "doc": "앱이 쥔 가상키. 진짜 프로바이더 키가 아니다.",
+   "params": [],
+   "returns": "str",
    "bases": [],
    "fields": [],
    "ai": false
@@ -95,7 +110,7 @@
    "kind": "function",
    "extra": "",
    "signature": "def mode() -> str",
-   "line": 30,
+   "line": 33,
    "doc": "이번 호출을 무엇으로 처리할지: \"live\" 또는 \"offline\".",
    "params": [],
    "returns": "str",
@@ -110,8 +125,8 @@
    "kind": "function",
    "extra": "",
    "signature": "def pick_model() -> str",
-   "line": 38,
-   "doc": "사용할 모델 하나. 키가 없으면 각본 대역의 이름을 돌려준다.",
+   "line": 41,
+   "doc": "사용할 모델 이름. 게이트웨이가 없으면 각본 대역의 이름을 돌려준다.",
    "params": [],
    "returns": "str",
    "bases": [],
@@ -415,7 +430,7 @@
    "kind": "function",
    "extra": "",
    "signature": "def completion(*, simulate: str | None = None, **kwargs)",
-   "line": 18,
+   "line": 19,
    "doc": "모델 호출 한 번. 어느 경로로 가든 응답의 모양은 같다.",
    "params": [
     {
@@ -777,7 +792,7 @@
    "returns": "Iterator[dict]",
    "bases": [],
    "fields": [],
-   "ai": true
+   "ai": false
   },
   {
    "id": "core.react:run",
@@ -803,7 +818,7 @@
    "returns": "ReactResult",
    "bases": [],
    "fields": [],
-   "ai": true
+   "ai": false
   },
   {
    "id": "core.service:PlanResult",
@@ -937,7 +952,7 @@
    "returns": "Iterator[dict]",
    "bases": [],
    "fields": [],
-   "ai": true
+   "ai": false
   },
   {
    "id": "core.service:plan",
@@ -983,7 +998,7 @@
    "returns": "PlanResult",
    "bases": [],
    "fields": [],
-   "ai": true
+   "ai": false
   },
   {
    "id": "core.tools:SearchPlacesArgs",
@@ -1341,7 +1356,7 @@
    "returns": "PlanResponse",
    "bases": [],
    "fields": [],
-   "ai": true
+   "ai": false
   },
   {
    "id": "api.main:plan_stream",
@@ -1367,7 +1382,7 @@
    "returns": "",
    "bases": [],
    "fields": [],
-   "ai": true
+   "ai": false
   },
   {
    "id": "api.main:plan_blocking",
@@ -1388,7 +1403,7 @@
    "returns": "PlanResponse",
    "bases": [],
    "fields": [],
-   "ai": true
+   "ai": false
   },
   {
    "id": "api.schemas:PlanRequest",
@@ -1533,7 +1548,7 @@
    "returns": "dict",
    "bases": [],
    "fields": [],
-   "ai": true
+   "ai": false
   },
   {
    "id": "mcp_server.server:search_places",
@@ -1678,17 +1693,17 @@
  "edges": [
   {
    "from": "core.config:mode",
-   "to": "core.config:available_models",
-   "kind": "call"
-  },
-  {
-   "from": "core.config:pick_model",
-   "to": "core.config:available_models",
+   "to": "core.config:gateway",
    "kind": "call"
   },
   {
    "from": "core.config:pick_model",
    "to": "core.config:mode",
+   "kind": "call"
+  },
+  {
+   "from": "core.config:pick_model",
+   "to": "core.config:gateway",
    "kind": "call"
   },
   {
@@ -1705,6 +1720,16 @@
    "from": "core.harness:BudgetGuard.add",
    "to": "core.harness:BudgetExceeded",
    "kind": "construct"
+  },
+  {
+   "from": "core.llm:completion",
+   "to": "core.config:gateway",
+   "kind": "call"
+  },
+  {
+   "from": "core.llm:completion",
+   "to": "core.config:gateway_key",
+   "kind": "call"
   },
   {
    "from": "core.llm:completion",
@@ -1884,6 +1909,11 @@
   {
    "from": "api.main:read_config",
    "to": "core.config:pick_model",
+   "kind": "call"
+  },
+  {
+   "from": "api.main:read_config",
+   "to": "core.config:gateway",
    "kind": "call"
   },
   {

@@ -223,24 +223,16 @@ def main() -> None:
         seen.add(key)
         edges.append({"from": caller, "to": callee, "kind": kind})
 
-    # 모델 호출로 이어지는 심볼 표시. core/llm.py의 completion이 코어에서
-    # 모델로 나가는 유일한 문이므로, 그곳에 닿을 수 있으면 AI 호출이 걸린다
-    sink = index.get("core.llm.completion")
-    reaches = set()
-    if sink:
-        back: dict[str, list[str]] = {}
-        for e in edges:
-            if e["kind"] in ("call", "construct"):
-                back.setdefault(e["to"], []).append(e["from"])
-        stack = [sink]
-        while stack:
-            node = stack.pop()
-            if node in reaches:
-                continue
-            reaches.add(node)
-            stack += back.get(node, [])
+    # 모델을 **실제로 부르는 자리**만 표시한다. litellm의 completion_cost처럼
+    # 값만 계산하는 함수는 모델을 부르지 않으므로 걸리지 않게 이름을 좁힌다. 이 랩에서 litellm 호출은
+    # core/llm.py의 completion 안 한 곳뿐이다. 그 함수를 부르는 쪽은 표시하지
+    # 않는다 — 배지는 "여기서 모델이 불린다"는 뜻이지 "언젠가 이어진다"가 아니다
+    calls_model = {
+        caller for caller, target, kind in raw
+        if kind == "call" and re.search(r"(^|\.)litellm[._]?a?completion$", target or "")
+    }
     for s in symbols:
-        s["ai"] = s["id"] in reaches
+        s["ai"] = s["id"] in calls_model
 
     modules = [{
         "module": module_name(p), "file": str(p.relative_to(REPO)),
@@ -254,7 +246,7 @@ def main() -> None:
 
     from collections import Counter
     print(f"모듈 {len(modules)} · 심볼 {len(symbols)} · 관계 {len(edges)}")
-    print("  AI 호출로 이어지는 심볼:", sorted(reaches))
+    print("  모델을 부르는 자리:", sorted(calls_model))
     print(" ", dict(Counter(e["kind"] for e in edges)))
 
 

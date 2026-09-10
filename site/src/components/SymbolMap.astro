@@ -69,7 +69,7 @@ const detail = Object.fromEntries(shown.map((s) => [s.id, {
     <span><i class="ln is-returns"></i>리턴</span>
     <span><i class="ln is-param"></i>파라미터</span>
     <span><i class="ln is-inherits"></i>상속</span>
-    <span><i class="smap-ai is-legend">AI</i>모델 호출까지 이어짐</span>
+    <span><i class="smap-ai is-legend">AI</i>이 안에서 모델을 부른다</span>
   </div>
 
   <div class="smap-canvas" data-canvas>
@@ -89,7 +89,7 @@ const detail = Object.fromEntries(shown.map((s) => [s.id, {
           {group.symbols.map((sym) => (
             <button type="button" class={`smap-card is-${KIND[sym.kind]?.tone ?? 'green'}`}
                     data-card={sym.id}>
-              {sym.ai && <span class="smap-ai" title="이 심볼을 부르면 모델 호출까지 이어진다">AI</span>}
+              {sym.ai && <span class="smap-ai" title="이 함수 안에서 모델 호출이 일어난다">AI</span>}
               <span class="smap-kind">{KIND[sym.kind]?.label ?? sym.kind}</span>
               <span class="smap-name">{sym.name}</span>
               <span class="smap-body" data-body hidden></span>
