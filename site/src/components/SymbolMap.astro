@@ -69,6 +69,7 @@ const detail = Object.fromEntries(shown.map((s) => [s.id, {
     <span><i class="ln is-returns"></i>리턴</span>
     <span><i class="ln is-param"></i>파라미터</span>
     <span><i class="ln is-inherits"></i>상속</span>
+    <span><i class="smap-ai is-legend">AI</i>모델 호출까지 이어짐</span>
   </div>
 
   <div class="smap-canvas" data-canvas>
@@ -88,6 +89,7 @@ const detail = Object.fromEntries(shown.map((s) => [s.id, {
           {group.symbols.map((sym) => (
             <button type="button" class={`smap-card is-${KIND[sym.kind]?.tone ?? 'green'}`}
                     data-card={sym.id}>
+              {sym.ai && <span class="smap-ai" title="이 심볼을 부르면 모델 호출까지 이어진다">AI</span>}
               <span class="smap-kind">{KIND[sym.kind]?.label ?? sym.kind}</span>
               <span class="smap-name">{sym.name}</span>
               <span class="smap-body" data-body hidden></span>
@@ -243,6 +245,7 @@ const detail = Object.fromEntries(shown.map((s) => [s.id, {
     --smap-green: #16a34a;
     --smap-orange: #d97706;
     --smap-purple: #7c3aed;
+    --smap-amber: #b45309;
   }
 
   .smap-legend {
@@ -283,6 +286,7 @@ const detail = Object.fromEntries(shown.map((s) => [s.id, {
 
   .smap-card {
     display: block; width: 100%; text-align: left;
+    position: relative;
     padding: 0.6em 0.8em; border-radius: 12px; cursor: pointer;
     border: 1px solid var(--aas-border); background: var(--aas-bg);
     transition: opacity 0.15s, box-shadow 0.15s, border-color 0.15s;
@@ -293,6 +297,16 @@ const detail = Object.fromEntries(shown.map((s) => [s.id, {
   .smap-card.is-purple { border-color: color-mix(in srgb, var(--smap-purple) 55%, var(--aas-border)); }
   .smap-card.is-off { opacity: 0.35; }
   .smap-card.is-open { box-shadow: 0 0 0 2px color-mix(in srgb, var(--aas-text) 12%, transparent); }
+
+  .smap-ai {
+    position: absolute; top: 0.5em; right: 0.6em;
+    padding: 0.1em 0.4em; border-radius: 5px;
+    background: color-mix(in srgb, var(--smap-amber) 14%, transparent);
+    border: 1px solid color-mix(in srgb, var(--smap-amber) 50%, transparent);
+    color: var(--smap-amber);
+    font-size: 0.62em; font-weight: 700; letter-spacing: 0.04em;
+  }
+  .smap-ai.is-legend { position: static; margin-right: 0.35em; font-style: normal; }
 
   .smap-kind { display: block; font-size: 0.72em; font-weight: 600; }
   .smap-card.is-blue .smap-kind { color: var(--smap-blue); }

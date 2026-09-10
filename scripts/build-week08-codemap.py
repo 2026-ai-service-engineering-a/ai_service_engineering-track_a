@@ -223,6 +223,25 @@ def main() -> None:
         seen.add(key)
         edges.append({"from": caller, "to": callee, "kind": kind})
 
+    # 모델 호출로 이어지는 심볼 표시. core/llm.py의 completion이 코어에서
+    # 모델로 나가는 유일한 문이므로, 그곳에 닿을 수 있으면 AI 호출이 걸린다
+    sink = index.get("core.llm.completion")
+    reaches = set()
+    if sink:
+        back: dict[str, list[str]] = {}
+        for e in edges:
+            if e["kind"] in ("call", "construct"):
+                back.setdefault(e["to"], []).append(e["from"])
+        stack = [sink]
+        while stack:
+            node = stack.pop()
+            if node in reaches:
+                continue
+            reaches.add(node)
+            stack += back.get(node, [])
+    for s in symbols:
+        s["ai"] = s["id"] in reaches
+
     modules = [{
         "module": module_name(p), "file": str(p.relative_to(REPO)),
         "layer": LAYER.get(module_name(p).split(".")[0], "core"),
@@ -235,6 +254,7 @@ def main() -> None:
 
     from collections import Counter
     print(f"모듈 {len(modules)} · 심볼 {len(symbols)} · 관계 {len(edges)}")
+    print("  AI 호출로 이어지는 심볼:", sorted(reaches))
     print(" ", dict(Counter(e["kind"] for e in edges)))
 
 

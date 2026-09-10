@@ -209,6 +209,10 @@ def plan_events(question: str, ...) -> Iterator[dict]
 
 <SymbolMap modules={['core.service']} caption="카드를 누르면 파라미터와 리턴이 펼쳐지고, 그 심볼이 닿는 곳으로 화살표가 그려집니다. `plan`을 눌러 보세요." />
 
+오른쪽 위의 **AI** 표시는 그 심볼을 부르면 결국 모델 호출까지 이어진다는
+뜻입니다. 코어에서 모델로 나가는 문이 `core/llm.py`의 `completion` 하나뿐이라
+기계적으로 계산됩니다. 표시가 없는 심볼은 아무리 불러도 돈이 나가지 않습니다.
+
 경계를 그었다는 증거는 **import 방향**에 있습니다.
 
 - `core/`는 fastapi도 mcp도 import하지 않습니다.
@@ -1082,11 +1086,31 @@ docker compose exec api python examples/04_virtual_key.py
 앱 쪽 변경은 이게 전부입니다. 주소와 키만 바뀌고 호출 코드는 그대로입니다.
 
 ```python
-gateway = os.environ.get("GATEWAY_URL")
-if gateway:
-    kwargs["api_base"] = gateway
+if config.gateway():                       # .env의 GATEWAY_URL
+    kwargs["api_base"] = config.gateway()
     kwargs["api_key"] = os.environ.get("GATEWAY_KEY", "")
 ```
+
+**기본은 꺼져 있습니다.** `.env`의 `GATEWAY_*` 셋이 비어 있으면 앱은
+프로바이더를 직접 부릅니다. 랩에 게이트웨이가 떠 있어도 그렇습니다. 셋을
+채우면 **같은 코드가** 게이트웨이를 지나갑니다.
+
+```bash
+# .env — 가상키는 examples/04_virtual_key.py로 발급한다
+GATEWAY_URL=http://litellm-proxy:4000
+GATEWAY_KEY=sk-…
+GATEWAY_MODEL=travel-demo
+```
+
+켜고 나서 `/config`를 보면 모델 이름이 바뀌어 있습니다.
+
+```json
+{"mode": "live", "model": "openai/travel-demo"}
+```
+
+`gemini/…`가 아니라 **게이트웨이 뒤의 별명**입니다. 앱이 어느 회사 모델을
+쓰는지 모른다는 사실이 이 한 줄에 드러납니다. 바꾸는 것은 게이트웨이 설정
+파일이고, 앱은 다시 배포하지 않습니다.
 
 ### 8-3. 소진되면 거절인가, 강등인가
 

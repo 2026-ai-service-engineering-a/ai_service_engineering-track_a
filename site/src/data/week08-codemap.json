@@ -85,7 +85,8 @@
    "params": [],
    "returns": "list[str]",
    "bases": [],
-   "fields": []
+   "fields": [],
+   "ai": false
   },
   {
    "id": "core.config:mode",
@@ -99,7 +100,8 @@
    "params": [],
    "returns": "str",
    "bases": [],
-   "fields": []
+   "fields": [],
+   "ai": false
   },
   {
    "id": "core.config:pick_model",
@@ -113,7 +115,8 @@
    "params": [],
    "returns": "str",
    "bases": [],
-   "fields": []
+   "fields": [],
+   "ai": false
   },
   {
    "id": "core.errors:CoreError",
@@ -129,7 +132,8 @@
    "bases": [
     "Exception"
    ],
-   "fields": []
+   "fields": [],
+   "ai": false
   },
   {
    "id": "core.errors:UpstreamError",
@@ -145,7 +149,8 @@
    "bases": [
     "CoreError"
    ],
-   "fields": []
+   "fields": [],
+   "ai": false
   },
   {
    "id": "core.errors:UpstreamTimeout",
@@ -161,7 +166,8 @@
    "bases": [
     "CoreError"
    ],
-   "fields": []
+   "fields": [],
+   "ai": false
   },
   {
    "id": "core.harness:wrap_tool_result",
@@ -186,7 +192,8 @@
    ],
    "returns": "str",
    "bases": [],
-   "fields": []
+   "fields": [],
+   "ai": false
   },
   {
    "id": "core.harness:scan_injection",
@@ -206,7 +213,8 @@
    ],
    "returns": "list[str]",
    "bases": [],
-   "fields": []
+   "fields": [],
+   "ai": false
   },
   {
    "id": "core.harness:BudgetExceeded",
@@ -222,7 +230,8 @@
    "bases": [
     "Exception"
    ],
-   "fields": []
+   "fields": [],
+   "ai": false
   },
   {
    "id": "core.harness:BudgetGuard",
@@ -236,7 +245,8 @@
    "params": [],
    "returns": "",
    "bases": [],
-   "fields": []
+   "fields": [],
+   "ai": false
   },
   {
    "id": "core.harness:BudgetGuard.__init__",
@@ -266,7 +276,8 @@
    ],
    "returns": "",
    "bases": [],
-   "fields": []
+   "fields": [],
+   "ai": false
   },
   {
    "id": "core.harness:BudgetGuard.add_response",
@@ -291,7 +302,8 @@
    ],
    "returns": "None",
    "bases": [],
-   "fields": []
+   "fields": [],
+   "ai": false
   },
   {
    "id": "core.harness:BudgetGuard.add",
@@ -316,7 +328,8 @@
    ],
    "returns": "None",
    "bases": [],
-   "fields": []
+   "fields": [],
+   "ai": false
   },
   {
    "id": "core.harness:TraceLogger",
@@ -330,7 +343,8 @@
    "params": [],
    "returns": "",
    "bases": [],
-   "fields": []
+   "fields": [],
+   "ai": false
   },
   {
    "id": "core.harness:TraceLogger.__init__",
@@ -360,7 +374,8 @@
    ],
    "returns": "",
    "bases": [],
-   "fields": []
+   "fields": [],
+   "ai": false
   },
   {
    "id": "core.harness:TraceLogger.log",
@@ -390,7 +405,8 @@
    ],
    "returns": "None",
    "bases": [],
-   "fields": []
+   "fields": [],
+   "ai": false
   },
   {
    "id": "core.llm:completion",
@@ -420,7 +436,8 @@
    ],
    "returns": "",
    "bases": [],
-   "fields": []
+   "fields": [],
+   "ai": true
   },
   {
    "id": "core.offline:_fake_tool_call",
@@ -450,7 +467,8 @@
    ],
    "returns": "",
    "bases": [],
-   "fields": []
+   "fields": [],
+   "ai": false
   },
   {
    "id": "core.offline:_fake_response",
@@ -495,7 +513,8 @@
    ],
    "returns": "",
    "bases": [],
-   "fields": []
+   "fields": [],
+   "ai": false
   },
   {
    "id": "core.offline:_question",
@@ -515,7 +534,8 @@
    ],
    "returns": "str",
    "bases": [],
-   "fields": []
+   "fields": [],
+   "ai": false
   },
   {
    "id": "core.offline:_plan_args",
@@ -535,7 +555,8 @@
    ],
    "returns": "tuple[str, dict]",
    "bases": [],
-   "fields": []
+   "fields": [],
+   "ai": false
   },
   {
    "id": "core.offline:_observations",
@@ -555,7 +576,8 @@
    ],
    "returns": "list[dict]",
    "bases": [],
-   "fields": []
+   "fields": [],
+   "ai": false
   },
   {
    "id": "core.offline:completion",
@@ -590,7 +612,8 @@
    ],
    "returns": "",
    "bases": [],
-   "fields": []
+   "fields": [],
+   "ai": false
   },
   {
    "id": "core.offline:_compose_answer",
@@ -620,7 +643,8 @@
    ],
    "returns": "str",
    "bases": [],
-   "fields": []
+   "fields": [],
+   "ai": false
   },
   {
    "id": "core.react:StepRecord",
@@ -660,7 +684,8 @@
      "annotation": "int",
      "default": ""
     }
-   ]
+   ],
+   "ai": false
   },
   {
    "id": "core.react:ReactResult",
@@ -695,7 +720,8 @@
      "annotation": "list[StepRecord]",
      "default": "field(default_factory=list)"
     }
-   ]
+   ],
+   "ai": false
   },
   {
    "id": "core.react:run_iter",
@@ -750,7 +776,8 @@
    ],
    "returns": "Iterator[dict]",
    "bases": [],
-   "fields": []
+   "fields": [],
+   "ai": true
   },
   {
    "id": "core.react:run",
@@ -775,7 +802,8 @@
    ],
    "returns": "ReactResult",
    "bases": [],
-   "fields": []
+   "fields": [],
+   "ai": true
   },
   {
    "id": "core.service:PlanResult",
@@ -820,7 +848,8 @@
      "annotation": "float",
      "default": "0.0"
     }
-   ]
+   ],
+   "ai": false
   },
   {
    "id": "core.service:PlanResult.to_dict",
@@ -840,7 +869,8 @@
    ],
    "returns": "dict",
    "bases": [],
-   "fields": []
+   "fields": [],
+   "ai": false
   },
   {
    "id": "core.service:_guard",
@@ -860,7 +890,8 @@
    ],
    "returns": "BudgetGuard",
    "bases": [],
-   "fields": []
+   "fields": [],
+   "ai": false
   },
   {
    "id": "core.service:plan_events",
@@ -905,7 +936,8 @@
    ],
    "returns": "Iterator[dict]",
    "bases": [],
-   "fields": []
+   "fields": [],
+   "ai": true
   },
   {
    "id": "core.service:plan",
@@ -950,7 +982,8 @@
    ],
    "returns": "PlanResult",
    "bases": [],
-   "fields": []
+   "fields": [],
+   "ai": true
   },
   {
    "id": "core.tools:SearchPlacesArgs",
@@ -977,7 +1010,8 @@
      "annotation": "Literal['관광', '식당', '카페'] | None",
      "default": "Field(default=None, description='장소 분류. 생략하면 전체')"
     }
-   ]
+   ],
+   "ai": false
   },
   {
    "id": "core.tools:search_places",
@@ -997,7 +1031,8 @@
    ],
    "returns": "dict",
    "bases": [],
-   "fields": []
+   "fields": [],
+   "ai": false
   },
   {
    "id": "core.tools:TravelTimeArgs",
@@ -1024,7 +1059,8 @@
      "annotation": "str",
      "default": "Field(description='도착 지역 (예: 우메다)')"
     }
-   ]
+   ],
+   "ai": false
   },
   {
    "id": "core.tools:estimate_travel_time",
@@ -1044,7 +1080,8 @@
    ],
    "returns": "dict",
    "bases": [],
-   "fields": []
+   "fields": [],
+   "ai": false
   },
   {
    "id": "core.tools:BudgetArgs",
@@ -1081,7 +1118,8 @@
      "annotation": "bool",
      "default": "Field(default=True, description='항공권 포함 여부')"
     }
-   ]
+   ],
+   "ai": false
   },
   {
    "id": "core.tools:calc_budget",
@@ -1101,7 +1139,8 @@
    ],
    "returns": "dict",
    "bases": [],
-   "fields": []
+   "fields": [],
+   "ai": false
   },
   {
    "id": "core.tools:tool_schemas",
@@ -1115,7 +1154,8 @@
    "params": [],
    "returns": "list[dict]",
    "bases": [],
-   "fields": []
+   "fields": [],
+   "ai": false
   },
   {
    "id": "core.tools:run_tool",
@@ -1140,7 +1180,8 @@
    ],
    "returns": "str",
    "bases": [],
-   "fields": []
+   "fields": [],
+   "ai": false
   },
   {
    "id": "api.errors:_payload",
@@ -1170,7 +1211,8 @@
    ],
    "returns": "dict",
    "bases": [],
-   "fields": []
+   "fields": [],
+   "ai": false
   },
   {
    "id": "api.errors:upstream_handler",
@@ -1195,7 +1237,8 @@
    ],
    "returns": "JSONResponse",
    "bases": [],
-   "fields": []
+   "fields": [],
+   "ai": false
   },
   {
    "id": "api.errors:install",
@@ -1215,7 +1258,8 @@
    ],
    "returns": "None",
    "bases": [],
-   "fields": []
+   "fields": [],
+   "ai": false
   },
   {
    "id": "api.main:request_id_and_log",
@@ -1240,7 +1284,8 @@
    ],
    "returns": "",
    "bases": [],
-   "fields": []
+   "fields": [],
+   "ai": false
   },
   {
    "id": "api.main:health",
@@ -1254,7 +1299,8 @@
    "params": [],
    "returns": "dict",
    "bases": [],
-   "fields": []
+   "fields": [],
+   "ai": false
   },
   {
    "id": "api.main:read_config",
@@ -1268,7 +1314,8 @@
    "params": [],
    "returns": "dict",
    "bases": [],
-   "fields": []
+   "fields": [],
+   "ai": false
   },
   {
    "id": "api.main:plan",
@@ -1293,7 +1340,8 @@
    ],
    "returns": "PlanResponse",
    "bases": [],
-   "fields": []
+   "fields": [],
+   "ai": true
   },
   {
    "id": "api.main:plan_stream",
@@ -1318,7 +1366,8 @@
    ],
    "returns": "",
    "bases": [],
-   "fields": []
+   "fields": [],
+   "ai": true
   },
   {
    "id": "api.main:plan_blocking",
@@ -1338,7 +1387,8 @@
    ],
    "returns": "PlanResponse",
    "bases": [],
-   "fields": []
+   "fields": [],
+   "ai": true
   },
   {
    "id": "api.schemas:PlanRequest",
@@ -1370,7 +1420,8 @@
      "annotation": "float",
      "default": "Field(default=DEFAULT_MAX_COST_USD, gt=0, le=5.0, description='이 요청 하나에 허용하는 비용 상한(USD)')"
     }
-   ]
+   ],
+   "ai": false
   },
   {
    "id": "api.schemas:StepOut",
@@ -1407,7 +1458,8 @@
      "annotation": "str | None",
      "default": ""
     }
-   ]
+   ],
+   "ai": false
   },
   {
    "id": "api.schemas:PlanResponse",
@@ -1454,7 +1506,8 @@
      "annotation": "float",
      "default": ""
     }
-   ]
+   ],
+   "ai": false
   },
   {
    "id": "mcp_server.server:plan_trip",
@@ -1479,7 +1532,8 @@
    ],
    "returns": "dict",
    "bases": [],
-   "fields": []
+   "fields": [],
+   "ai": true
   },
   {
    "id": "mcp_server.server:search_places",
@@ -1504,7 +1558,8 @@
    ],
    "returns": "dict",
    "bases": [],
-   "fields": []
+   "fields": [],
+   "ai": false
   },
   {
    "id": "mcp_server.server:estimate_travel_time",
@@ -1529,7 +1584,8 @@
    ],
    "returns": "dict",
    "bases": [],
-   "fields": []
+   "fields": [],
+   "ai": false
   },
   {
    "id": "mcp_server.server:calc_budget",
@@ -1564,7 +1620,8 @@
    ],
    "returns": "dict",
    "bases": [],
-   "fields": []
+   "fields": [],
+   "ai": false
   },
   {
    "id": "mcp_server.server:main",
@@ -1578,7 +1635,8 @@
    "params": [],
    "returns": "None",
    "bases": [],
-   "fields": []
+   "fields": [],
+   "ai": false
   },
   {
    "id": "clients.py_client:use",
@@ -1598,7 +1656,8 @@
    ],
    "returns": "None",
    "bases": [],
-   "fields": []
+   "fields": [],
+   "ai": false
   },
   {
    "id": "clients.py_client:main",
@@ -1612,7 +1671,8 @@
    "params": [],
    "returns": "None",
    "bases": [],
-   "fields": []
+   "fields": [],
+   "ai": false
   }
  ],
  "edges": [
