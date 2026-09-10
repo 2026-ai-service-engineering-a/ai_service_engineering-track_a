@@ -1096,10 +1096,19 @@ if config.gateway():                       # .env의 GATEWAY_URL
 채우면 **같은 코드가** 게이트웨이를 지나갑니다.
 
 ```bash
-# .env — 가상키는 examples/04_virtual_key.py로 발급한다
-GATEWAY_URL=http://litellm-proxy:4000
-GATEWAY_KEY=sk-…
-GATEWAY_MODEL=travel-demo
+# .env
+GATEWAY_URL=http://litellm-proxy:4000   # compose 서비스 이름. localhost가 아니다
+GATEWAY_KEY=sk-…                        # 가상키. 발급은 다음 절에서
+GATEWAY_MODEL=travel                    # gateway/config.yaml의 model_name
+```
+
+`GATEWAY_KEY`를 비워 두면 시작은 하지만 첫 호출에서 막힙니다. 비어 있는 키
+자리에 환경의 프로바이더 키가 대신 실려 나가고, 게이트웨이는 모르는 키라며
+거절하기 때문입니다. 그래서 코어가 아예 앞에서 막고 할 일을 알려줍니다.
+
+```json
+{"error": "UpstreamError",
+ "detail": "GATEWAY_URL은 있는데 GATEWAY_KEY가 비어 있다. 관리자 화면(:4000/ui/)에서 …"}
 ```
 
 켜고 나서 `/config`를 보면 모델 이름이 바뀌어 있습니다.
@@ -1123,6 +1132,32 @@ http://localhost:4000/ui/
 ```
 
 ![게이트웨이 관리자 화면의 가상키 목록. 키마다 별명·상한·허용 모델·사용액이 한 줄로 보인다](./gateway-keys.jpg)
+
+**가상키를 발급하고 앱에 물리는 순서는 이렇습니다.**
+
+1. `docker compose up -d`. 게이트웨이가 먼저 떠야 합니다. 이 시점에 앱은 아직
+   프로바이더를 직접 부릅니다.
+2. `:4000/ui/`에서 **+ Create New Key**. 별명·상한·허용 모델을 정합니다.
+   키 문자열은 **만든 직후 한 번만** 보여주므로 그때 복사합니다.
+3. `.env`의 `GATEWAY_KEY`에 붙이고 `GATEWAY_URL`·`GATEWAY_MODEL`도 채웁니다.
+4. `docker compose up -d --force-recreate api mcp`. 앱만 다시 만듭니다.
+   1초쯤 걸립니다.
+
+**닭과 달걀처럼 보이지만 아닙니다.** 가상키는 게이트웨이의 **상태**입니다.
+게이트웨이의 장부에 "이 키는 이 모델을, 이 상한까지"라고 적힌 한 줄이고,
+앱에는 그것이 **설정으로** 들어갑니다. 그래서 게이트웨이가 먼저 있고, 발급이
+그다음이고, 앱의 재시작이 마지막입니다. 실제 배포도 이 순서입니다. 운영자가
+키를 한 번 발급하고, 그것을 시크릿에 넣고, 앱을 배포합니다.
+
+`.env`를 고치기 전에 한 번만 시험해 보고 싶다면 재시작 없이 이렇게도 됩니다.
+
+```bash
+docker compose exec \
+  -e GATEWAY_URL=http://litellm-proxy:4000 \
+  -e GATEWAY_KEY=sk-… \
+  -e GATEWAY_MODEL=travel \
+  api python -c "from core import service; print(service.plan('오사카 2박 3일 2명').answer[:60])"
+```
 
 화면에서 바로 되는 일들입니다.
 
