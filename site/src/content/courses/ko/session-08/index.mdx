@@ -1025,6 +1025,38 @@ curl -s -X POST http://localhost:5678/webhook/travel \
 문이 껍데기라는 말의 마지막 증거입니다. 두 번째 워크플로는 트리거만 바꾼
 것입니다. 매일 아침 9시가 되면 사람 없이 같은 요청이 나갑니다.
 
+#### 화면에서 「Execute workflow」를 누르면
+
+여기서 한 번 더 걸립니다. 화면에서 실행 버튼을 눌러 놓고 위의 `curl`을 쳐도
+캔버스에는 아무 일도 일어나지 않습니다. **웹훅 주소가 둘이기 때문**입니다.
+웹훅 노드를 열면 위쪽에 `Test URL`과 `Production URL` 탭이 나란히 있습니다.
+
+| | 주소 | 언제 받나 | 결과가 보이는 곳 |
+| --- | --- | --- | --- |
+| 테스트 | `/webhook-test/travel` | 「Execute workflow」를 누른 뒤 **딱 한 번** | 캔버스에 바로 |
+| 운영 | `/webhook/travel` | 워크플로가 발행돼 있으면 **항상** | 실행 이력에만 |
+
+즉 노드마다 무엇이 오갔는지 눈으로 보려면 **테스트 주소**로 쏴야 합니다.
+
+```bash
+curl -s -X POST http://localhost:5678/webhook-test/travel \
+  -H 'content-type: application/json' \
+  -d '{"question": "교토 2박 3일 4명 고급 여행"}'
+```
+
+버튼을 안 누른 채로 테스트 주소를 치면 n8n이 직접 알려 줍니다.
+
+```json
+{"code":404,"message":"The requested webhook \"travel\" is not registered.",
+ "hint":"Click the 'Execute workflow' button on the canvas, then try again.
+         (In test mode, the webhook only works for one call after you click this button)"}
+```
+
+한 번 받으면 리스닝이 끝나므로 다시 보려면 버튼을 또 눌러야 합니다. 반대로
+운영 주소는 버튼과 무관하게 항상 열려 있고, 대신 캔버스가 아니라 왼쪽
+**실행 이력**에 남습니다. 시연은 테스트 주소로 하고, 남에게 주는 주소는 운영
+주소입니다.
+
 ### 7-5. 반대 방향: 워크플로가 MCP 서버가 된다
 
 세 번째 워크플로는 방향이 반대입니다. n8n이 **도구를 내어놓고**, Claude가
