@@ -1,0 +1,340 @@
+---
+/**
+ * MCP 도구 대조판 (8주차 5장).
+ *
+ * 왼쪽은 `mcp_server/server.py`의 파이썬 원본, 오른쪽은 그 함수가 `tools/list`
+ * 응답에서 어떤 모양이 되는지다. 위의 세 칩을 누르면 코드의 어느 부분이
+ * 명세의 어느 자리로 가는지 양쪽에 함께 표시된다.
+ *
+ * 데이터는 `scripts/capture-week08-mcp.py`가 **돌고 있는 컨테이너에 붙어**
+ * 받아 적은 것이다. 손으로 옮긴 예시가 아니다.
+ */
+import mcp from '../data/week08-mcp.json';
+
+interface Props {
+  caption?: string;
+}
+const { caption } = Astro.props;
+
+type Seg = { text: string; role: string };
+
+// caption은 평문으로 들어오므로 코드 스팬과 볼드만 손으로 풀어 준다
+const inline = (s: string) => s
+  .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+  .replace(/`([^`]+)`/g, '<code>$1</code>')
+  .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+
+/** 파이썬 원본을 줄 단위로 훑어 이름·설명·시그니처 자리에 표를 붙인다. */
+function pyLines(source: string): Seg[][] {
+  const out: Seg[][] = [];
+  let depth = 0;
+  let state: 'pre' | 'sig' | 'doc' | 'body' = 'pre';
+  let quote = '';
+  for (const line of source.split('\n')) {
+    const trimmed = line.trim();
+    if (state === 'pre') {
+      const m = line.match(/^(\s*def\s+)([A-Za-z_]\w*)/);
+      if (m) {
+        const rest = line.slice(m[1].length + m[2].length);
+        depth = [...rest].reduce((d, c) => d + (c === '(' ? 1 : c === ')' ? -1 : 0), 0);
+        state = depth > 0 ? 'sig' : 'doc';
+        out.push([
+          { text: m[1], role: '' },
+          { text: m[2], role: 'name' },
+          { text: rest, role: 'schema' },
+        ]);
+        continue;
+      }
+      out.push([{ text: line, role: '' }]);
+      continue;
+    }
+    if (state === 'sig') {
+      depth += [...line].reduce((d, c) => d + (c === '(' ? 1 : c === ')' ? -1 : 0), 0);
+      out.push([{ text: line, role: 'schema' }]);
+      if (depth <= 0) state = 'doc';
+      continue;
+    }
+    if (state === 'doc') {
+      if (!quote) {
+        if (!trimmed) { out.push([{ text: line, role: '' }]); continue; }
+        const q = trimmed.startsWith('"""') ? '"""' : trimmed.startsWith("'''") ? "'''" : '';
+        if (!q) { state = 'body'; out.push([{ text: line, role: '' }]); continue; }
+        const closed = trimmed.length > 3 && trimmed.endsWith(q);
+        quote = closed ? '' : q;
+        if (closed) state = 'body';
+        out.push([{ text: line, role: 'desc' }]);
+        continue;
+      }
+      if (trimmed.endsWith(quote)) { quote = ''; state = 'body'; }
+      out.push([{ text: line, role: 'desc' }]);
+      continue;
+    }
+    out.push([{ text: line, role: '' }]);
+  }
+  return out;
+}
+
+/** tools/list 항목을 줄 단위로 훑어 같은 표를 붙인다. */
+function jsonLines(entry: unknown): Seg[][] {
+  const text = JSON.stringify(entry, null, 2);
+  const out: Seg[][] = [];
+  let inSchema = false;
+  let depth = 0;
+  for (const line of text.split('\n')) {
+    let role = '';
+    if (inSchema) {
+      role = 'schema';
+      depth += [...line].reduce((d, c) => d + ('{['.includes(c) ? 1 : '}]'.includes(c) ? -1 : 0), 0);
+      if (depth <= 0) inSchema = false;
+    } else if (/^\s*"inputSchema"/.test(line)) {
+      role = 'schema';
+      inSchema = true;
+      depth = [...line].reduce((d, c) => d + ('{['.includes(c) ? 1 : '}]'.includes(c) ? -1 : 0), 0);
+      if (depth <= 0) inSchema = false;
+    } else if (/^\s*"name"/.test(line)) {
+      role = 'name';
+    } else if (/^\s*"description"/.test(line)) {
+      role = 'desc';
+    }
+    out.push([{ text: line, role }]);
+  }
+  return out;
+}
+
+const WHOLE = 'plan_trip';
+const tools = mcp.tools.map((t) => ({
+  name: t.name,
+  line: t.line,
+  whole: t.name === WHOLE,
+  py: pyLines(t.source),
+  js: jsonLines(t.listed),
+  call: JSON.stringify(t.call.request.params, null, 2),
+  answer: (t.call.response?.result?.content?.[0]?.text ?? '').trim(),
+}));
+
+const CHIPS = [
+  { role: 'name', label: '이름', note: '함수 이름이 도구 이름이 된다' },
+  { role: 'desc', label: '설명', note: 'docstring이 모델이 읽는 설명이 된다' },
+  { role: 'schema', label: '입력 스키마', note: '타입 힌트와 기본값이 스키마가 된다' },
+];
+---
+
+<div class="mtool" data-mtool data-tool={tools[0].name} data-focus="name">
+  <div class="mtool-bar">
+    <span class="mtool-server">
+      <b>{mcp.server.name}</b> {mcp.server.version} · 프로토콜 {mcp.protocol}
+    </span>
+    <span class="mtool-src">{mcp.file}</span>
+  </div>
+
+  <div class="mtool-tabs">
+    {tools.map((t) => (
+      <button type="button" class={t.whole ? 'mtool-tab is-whole' : 'mtool-tab'}
+              data-tool-btn={t.name}>
+        <i>{t.whole ? '통째로' : '낱개'}</i>{t.name}
+      </button>
+    ))}
+  </div>
+
+  <div class="mtool-chips">
+    {CHIPS.map((c) => (
+      <button type="button" class="mtool-chip" data-chip={c.role}>
+        <span class={`dot is-${c.role}`}></span>{c.label}
+      </button>
+    ))}
+    <span class="mtool-note" data-note>{CHIPS[0].note}</span>
+  </div>
+
+  <div class="mtool-panes">
+    <section class="mtool-pane">
+      <p class="mtool-h">우리가 쓴 것 — 파이썬</p>
+      {tools.map((t) => (
+        <div class="mtool-code" data-pane={t.name} hidden={t.name !== tools[0].name}>
+          {t.py.map((segs) => (
+            <div class="mtool-line">
+              {segs.map((s) => (
+                s.role ? <span class={`hl is-${s.role}`}>{s.text}</span> : <span>{s.text}</span>
+              ))}
+            </div>
+          ))}
+        </div>
+      ))}
+    </section>
+
+    <section class="mtool-pane">
+      <p class="mtool-h">붙는 쪽이 받는 것 — <code>tools/list</code> 응답</p>
+      {tools.map((t) => (
+        <div class="mtool-code" data-pane={t.name} hidden={t.name !== tools[0].name}>
+          {t.js.map((segs) => (
+            <div class="mtool-line">
+              {segs.map((s) => (
+                s.role ? <span class={`hl is-${s.role}`}>{s.text}</span> : <span>{s.text}</span>
+              ))}
+            </div>
+          ))}
+        </div>
+      ))}
+    </section>
+  </div>
+
+  <div class="mtool-call">
+    <p class="mtool-h">한 번 불러 본 것 — <code>tools/call</code></p>
+    <div class="mtool-panes">
+      {tools.map((t) => (
+        <div class="mtool-code is-call" data-pane={t.name} hidden={t.name !== tools[0].name}>
+          {t.call.split('\n').map((l) => <div class="mtool-line">{l}</div>)}
+        </div>
+      ))}
+      {tools.map((t) => (
+        <div class="mtool-code is-answer" data-pane={t.name} hidden={t.name !== tools[0].name}>
+          {t.answer.split('\n').map((l) => <div class="mtool-line">{l}</div>)}
+        </div>
+      ))}
+    </div>
+  </div>
+
+  {caption && <p class="mtool-caption" set:html={inline(caption)} />}
+</div>
+
+<script>
+  document.querySelectorAll<HTMLElement>('[data-mtool]').forEach((root) => {
+    const NOTE: Record<string, string> = {
+      name: '함수 이름이 도구 이름이 된다',
+      desc: 'docstring이 모델이 읽는 설명이 된다',
+      schema: '타입 힌트와 기본값이 스키마가 된다',
+    };
+    const note = root.querySelector<HTMLElement>('[data-note]')!;
+
+    function showTool(name: string) {
+      root.dataset.tool = name;
+      root.querySelectorAll<HTMLElement>('[data-pane]').forEach((p) => {
+        p.hidden = p.dataset.pane !== name;
+      });
+      root.querySelectorAll<HTMLElement>('[data-tool-btn]').forEach((b) => {
+        b.classList.toggle('is-on', b.dataset.toolBtn === name);
+      });
+    }
+
+    function focus(role: string) {
+      root.dataset.focus = role;
+      note.textContent = NOTE[role] ?? '';
+      root.querySelectorAll<HTMLElement>('[data-chip]').forEach((c) => {
+        c.classList.toggle('is-on', c.dataset.chip === role);
+      });
+    }
+
+    root.querySelectorAll<HTMLElement>('[data-tool-btn]').forEach((b) => {
+      b.addEventListener('click', () => showTool(b.dataset.toolBtn ?? ''));
+    });
+    root.querySelectorAll<HTMLElement>('[data-chip]').forEach((c) => {
+      c.addEventListener('click', () => {
+        focus(root.dataset.focus === c.dataset.chip ? '' : (c.dataset.chip ?? ''));
+      });
+    });
+
+    showTool(root.dataset.tool ?? '');
+    focus(root.dataset.focus ?? 'name');
+  });
+</script>
+
+<style>
+  .mtool {
+    --mt-name: #2f81f7;
+    --mt-desc: #16a34a;
+    --mt-schema: #d97706;
+    margin: 2rem 0;
+    padding: 1rem;
+    border: 1px solid var(--aas-border);
+    border-radius: 14px;
+    background: var(--aas-panel);
+    font-size: 0.92em;
+  }
+
+  .mtool-bar {
+    display: flex; flex-wrap: wrap; gap: 0.6em 1em;
+    align-items: baseline; justify-content: space-between;
+    font-size: 0.76em; color: var(--aas-muted);
+  }
+  .mtool-server b { color: var(--aas-text); }
+  .mtool-src { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+
+  .mtool-tabs { display: flex; flex-wrap: wrap; gap: 0.4em; margin: 0.8em 0 0; }
+  .mtool-tab {
+    display: flex; align-items: baseline; gap: 0.45em;
+    padding: 0.4em 0.7em;
+    border: 1px solid var(--aas-border); border-radius: 10px;
+    background: var(--aas-bg); color: var(--aas-text);
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.82em; cursor: pointer;
+  }
+  .mtool-tab i {
+    font-style: normal; font-size: 0.82em; letter-spacing: 0.02em;
+    font-family: inherit; color: var(--aas-muted);
+  }
+  .mtool-tab.is-whole i { color: var(--mt-schema); }
+  .mtool-tab.is-on {
+    border-color: color-mix(in srgb, var(--mt-name) 60%, var(--aas-border));
+    background: color-mix(in srgb, var(--mt-name) 10%, var(--aas-bg));
+  }
+
+  .mtool-chips {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 0.4em 0.7em;
+    margin: 0.7em 0 0.2em;
+  }
+  .mtool-chip {
+    display: inline-flex; align-items: center; gap: 0.4em;
+    padding: 0.25em 0.6em;
+    border: 1px solid var(--aas-border); border-radius: 999px;
+    background: var(--aas-bg); color: var(--aas-muted);
+    font-size: 0.78em; cursor: pointer;
+  }
+  .mtool-chip.is-on { color: var(--aas-text); border-color: color-mix(in srgb, var(--aas-muted) 55%, transparent); }
+  .dot { width: 0.62em; height: 0.62em; border-radius: 3px; display: inline-block; }
+  .dot.is-name { background: var(--mt-name); }
+  .dot.is-desc { background: var(--mt-desc); }
+  .dot.is-schema { background: var(--mt-schema); }
+  .mtool-note { font-size: 0.76em; color: var(--aas-muted); }
+
+  .mtool-panes { display: flex; flex-wrap: wrap; gap: 0.8em; align-items: stretch; }
+  .mtool-pane { flex: 1 1 20em; min-width: 0; }
+  .mtool-h { margin: 0.9em 0 0.4em; font-size: 0.78em; color: var(--aas-muted); }
+  .mtool-h code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.94em; padding: 0.05em 0.3em; border-radius: 5px;
+    background: color-mix(in srgb, var(--aas-muted) 14%, transparent);
+  }
+
+  /* 테마가 .prose pre를 어둡게 덮어쓰므로 pre를 아예 쓰지 않는다 */
+  .mtool-code {
+    padding: 0.7em 0.8em;
+    border: 1px solid var(--aas-border); border-radius: 10px;
+    background: var(--aas-bg);
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.76em; line-height: 1.65;
+    overflow-x: auto;
+  }
+  .mtool-line { white-space: pre; min-height: 1.2em; }
+  .mtool-code.is-call, .mtool-code.is-answer { flex: 1 1 20em; min-width: 0; }
+  .mtool-code.is-answer { white-space: pre-wrap; }
+  .mtool-code.is-answer .mtool-line { white-space: pre-wrap; }
+
+  .hl { border-radius: 4px; transition: background-color 0.15s ease; }
+  .mtool[data-focus='name'] .hl.is-name,
+  .mtool[data-focus='desc'] .hl.is-desc,
+  .mtool[data-focus='schema'] .hl.is-schema { padding: 0.05em 0; }
+  .mtool[data-focus='name'] .hl.is-name { background: color-mix(in srgb, var(--mt-name) 26%, transparent); }
+  .mtool[data-focus='desc'] .hl.is-desc { background: color-mix(in srgb, var(--mt-desc) 24%, transparent); }
+  .mtool[data-focus='schema'] .hl.is-schema { background: color-mix(in srgb, var(--mt-schema) 24%, transparent); }
+
+  .mtool-caption { margin: 0.9em 0 0; font-size: 0.78em; line-height: 1.6; color: var(--aas-muted); }
+  .mtool-caption code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.94em; padding: 0.08em 0.32em; border-radius: 5px;
+    background: color-mix(in srgb, var(--aas-muted) 14%, transparent);
+  }
+  .mtool-caption strong { color: var(--aas-text); font-weight: 650; }
+
+  @media (max-width: 46rem) {
+    .mtool-pane { flex: 1 1 100%; }
+  }
+</style>

@@ -26,7 +26,9 @@
 - [harness-gates-port.md](harness-gates-port.md): `<HarnessGates />`.
   파이썬 원본과 브라우저 판정 모듈의 29건 대조 기록 (6주차 5장)
 - [week08-codemap-data.md](week08-codemap-data.md): `<SymbolMap />`.
-  week08-service-lab을 `ast`로 파싱해 뽑은 심볼 60개와 관계 60건 (8주차 3장)
+  week08-service-lab을 `ast`로 파싱해 뽑은 심볼 61개와 관계 63건 (8주차 3장)
+- [week08-mcp-capture.md](week08-mcp-capture.md): `<McpTools />`.
+  돌고 있는 MCP 서버에 붙어 받아 적은 JSON-RPC 왕복 (8주차 5장)
 
 ## 주차별 강의 문서
 
