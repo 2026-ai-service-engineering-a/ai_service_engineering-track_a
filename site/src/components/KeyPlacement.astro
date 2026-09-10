@@ -1,0 +1,275 @@
+---
+/**
+ * 키가 어디 있나 (8주차 8장).
+ *
+ * 같은 호출이 세 배치에서 어떻게 다르게 흐르는지 보여준다. 게이트웨이
+ * 배치의 429는 week08-service-lab의 examples/04_virtual_key.py를
+ * 2026-09-10에 돌린 실측이다 (두 번째 호출까지 200, 세 번째부터 429).
+ */
+const HOPS = ['사용자', '우리 서버', '게이트웨이', '모델 제공자'];
+
+const MODES = {
+  owner: {
+    label: '운영자 키',
+    lede: '진짜 키가 우리 서버의 환경변수에 있습니다. 사용자는 아무것도 내지 않습니다.',
+    keyAt: 1,
+    skip: 2,
+    carries: ['질문', '질문 + 진짜 키', '', ''],
+    pays: '운영자',
+    risk: '데모 URL 하나가 공개되면 지갑이 열립니다. 인증과 상한이 없으면 남용을 못 막습니다',
+    ok: true,
+  },
+  byok: {
+    label: '사용자 키 (BYOK)',
+    lede: '사용자가 자기 키를 넣습니다. 호출 코드는 그대로이고 키의 출처만 바뀝니다.',
+    keyAt: 0,
+    skip: 2,
+    carries: ['질문 + 사용자 키', '질문 + 사용자 키', '', ''],
+    pays: '사용자',
+    risk: '키가 로그·에러 메시지·트레이스에 새면 그것으로 끝입니다. 저장할지 말지도 정해야 합니다',
+    ok: true,
+  },
+  gateway: {
+    label: '가상키 (게이트웨이)',
+    lede: '진짜 키는 게이트웨이만 압니다. 앱이 쥔 것은 상한이 걸린 가상키입니다.',
+    keyAt: 2,
+    carries: ['질문', '질문 + 가상키', '질문 + 진짜 키', ''],
+    pays: '운영자 (사람별 상한)',
+    risk: '게이트웨이가 단일 장애점입니다. 대신 예산·모델 허용목록·사용량이 전부 한곳에 잡힙니다',
+    ok: true,
+    budget: {
+      lede: '가상키의 상한을 넘겼습니다. 요청은 모델에 닿지 못합니다.',
+      stopAt: 2,
+      status: '429 Budget has been exceeded!',
+      note: '6주차 budget guard가 루프 안에서 답으로 알렸다면, 게이트웨이는 문 앞에서 거절합니다',
+    },
+  },
+};
+---
+
+<div class="kpl" data-kpl data-modes={JSON.stringify(MODES)} data-hops={JSON.stringify(HOPS)}>
+  <div class="kpl-head">
+    <strong>키는 어디 있고, 무엇이 실려 가는가</strong>
+    <span>
+      배치를 고르고 요청을 보내 보세요. 열쇠 표시가 진짜 키가 있는 자리입니다.
+    </span>
+  </div>
+
+  <div class="kpl-controls">
+    <div class="kpl-seg" role="group">
+      <button type="button" data-mode="owner" class="is-active">운영자 키</button>
+      <button type="button" data-mode="byok">사용자 키 (BYOK)</button>
+      <button type="button" data-mode="gateway">가상키</button>
+    </div>
+    <button type="button" class="kpl-send" data-send>▶ 요청 보내기</button>
+    <label class="kpl-toggle" data-budget-wrap hidden>
+      <input type="checkbox" data-budget /> 한도 소진
+    </label>
+  </div>
+
+  <p class="kpl-lede" data-lede></p>
+
+  <div class="kpl-track" data-track></div>
+
+  <div class="kpl-foot">
+    <div><dt>비용을 내는 쪽</dt><dd data-pays></dd></div>
+    <div><dt>무너지는 지점</dt><dd data-risk></dd></div>
+  </div>
+</div>
+
+<script>
+  document.querySelectorAll<HTMLElement>('[data-kpl]').forEach(init);
+
+  function init(root: HTMLElement) {
+    type Mode = {
+      label: string; lede: string; keyAt: number; skip?: number;
+      carries: string[]; pays: string; risk: string;
+      budget?: { lede: string; stopAt: number; status: string; note: string };
+    };
+    const MODES = JSON.parse(root.dataset.modes ?? '{}') as Record<string, Mode>;
+    const HOPS = JSON.parse(root.dataset.hops ?? '[]') as string[];
+    const $ = <T extends HTMLElement>(s: string) => root.querySelector<T>(s)!;
+    const track = $('[data-track]');
+    const budgetBox = $<HTMLInputElement>('[data-budget]');
+    let mode = 'owner';
+    let timer = 0;
+
+    function broke() {
+      return mode === 'gateway' && budgetBox.checked;
+    }
+
+    function render() {
+      const data = MODES[mode];
+      const bad = broke();
+      $('[data-lede]').textContent = bad && data.budget ? data.budget.lede : data.lede;
+      $('[data-pays]').textContent = data.pays;
+      $('[data-risk]').textContent = bad && data.budget ? data.budget.note : data.risk;
+      $('[data-budget-wrap]').hidden = mode !== 'gateway';
+
+      track.innerHTML = '';
+      HOPS.forEach((hop, index) => {
+        if (data.skip !== undefined && index === data.skip) return;
+        const node = document.createElement('div');
+        node.className = 'kpl-node';
+        node.dataset.index = String(index);
+        if (index === data.keyAt) node.classList.add('has-key');
+        node.innerHTML = `
+          <span class="kpl-name">${hop}</span>
+          ${index === data.keyAt ? '<span class="kpl-key">🔑 진짜 키</span>' : ''}
+        `;
+        track.appendChild(node);
+
+        const next = data.carries[index];
+        if (next) {
+          const hopEl = document.createElement('div');
+          hopEl.className = 'kpl-hop';
+          hopEl.dataset.hop = String(index);
+          hopEl.innerHTML = `<i></i><b>${next}</b>`;
+          track.appendChild(hopEl);
+        }
+      });
+    }
+
+    function send() {
+      window.clearInterval(timer);
+      const data = MODES[mode];
+      const bad = broke();
+      const hops = [...track.querySelectorAll<HTMLElement>('[data-hop]')];
+      const nodes = [...track.querySelectorAll<HTMLElement>('[data-index]')];
+      hops.forEach((h) => h.classList.remove('is-live', 'is-blocked'));
+      nodes.forEach((n) => n.classList.remove('is-live', 'is-blocked'));
+      let step = 0;
+      timer = window.setInterval(() => {
+        if (step > 0) hops[step - 1]?.classList.remove('is-live');
+        if (step >= hops.length) {
+          window.clearInterval(timer);
+          nodes[nodes.length - 1]?.classList.add('is-live');
+          return;
+        }
+        const hopIndex = Number(hops[step].dataset.hop);
+        if (bad && data.budget && hopIndex >= data.budget.stopAt) {
+          window.clearInterval(timer);
+          hops[step].classList.add('is-blocked');
+          hops[step].querySelector('b')!.textContent = data.budget.status;
+          nodes[step]?.classList.add('is-blocked');
+          return;
+        }
+        hops[step].classList.add('is-live');
+        nodes[step]?.classList.add('is-live');
+        step += 1;
+      }, 560);
+    }
+
+    root.querySelectorAll<HTMLButtonElement>('[data-mode]').forEach((button) => {
+      button.addEventListener('click', () => {
+        window.clearInterval(timer);
+        mode = button.dataset.mode ?? 'owner';
+        root.querySelectorAll('[data-mode]').forEach((b) => {
+          b.classList.toggle('is-active', b === button);
+        });
+        render();
+      });
+    });
+    budgetBox.addEventListener('change', render);
+    $('[data-send]').addEventListener('click', send);
+
+    render();
+  }
+</script>
+
+<style>
+  .kpl {
+    margin: 2rem 0;
+    padding: 1.1rem;
+    border: 1px solid var(--aas-border);
+    border-radius: 14px;
+    background: var(--aas-panel);
+    box-shadow: var(--aas-shadow);
+    font-family: var(--aas-sans);
+    container-type: inline-size;
+    font-size: clamp(0.85rem, 1.5cqw, 1.15rem);
+    --kpl-accent: #2f81f7;
+    --kpl-bad: #dc2626;
+  }
+
+  .kpl-head { display: flex; flex-direction: column; gap: 0.3em; margin-bottom: 0.8em; }
+  .kpl-head strong { font-size: 1.15em; color: var(--aas-text); }
+  .kpl-head span { font-size: 0.88em; line-height: 1.65; color: var(--aas-muted); }
+
+  .kpl-controls { display: flex; flex-wrap: wrap; gap: 0.6em; align-items: center; margin-bottom: 0.7em; }
+  .kpl-seg { display: inline-flex; border: 1px solid var(--aas-border); border-radius: 999px; overflow: hidden; }
+  .kpl-seg button {
+    padding: 0.4em 0.9em; border: 0; background: transparent;
+    color: var(--aas-muted); font-size: 0.85em; cursor: pointer;
+  }
+  .kpl-seg button.is-active { background: var(--kpl-accent); color: #fff; }
+  .kpl-send {
+    padding: 0.4em 0.9em; border: 1px solid var(--aas-border); border-radius: 999px;
+    background: var(--aas-bg); color: var(--aas-text); font-size: 0.85em; cursor: pointer;
+  }
+  .kpl-send:hover { border-color: var(--kpl-accent); }
+  .kpl-toggle { display: inline-flex; align-items: center; gap: 0.35em; font-size: 0.82em; color: var(--aas-muted); cursor: pointer; }
+
+  .kpl-lede { margin: 0 0 0.9em; font-size: 0.88em; line-height: 1.7; color: var(--aas-text); }
+
+  .kpl-track {
+    display: flex; flex-wrap: nowrap; align-items: stretch; gap: 0.2em;
+    overflow-x: auto; padding-bottom: 0.2em;
+  }
+  .kpl-track :global(.kpl-node) {
+    flex: 1 0 6.5em;
+    min-width: 6.5em;
+    padding: 0.7em 0.6em;
+    border: 1px solid var(--aas-border);
+    border-radius: 12px;
+    background: var(--aas-bg);
+    text-align: center;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  .kpl-track :global(.kpl-node.has-key) { border-color: color-mix(in srgb, var(--kpl-accent) 60%, var(--aas-border)); }
+  .kpl-track :global(.kpl-node.is-live) { box-shadow: 0 0 0 2px color-mix(in srgb, var(--kpl-accent) 30%, transparent); }
+  .kpl-track :global(.kpl-node.is-blocked) { border-color: var(--kpl-bad); }
+  .kpl-track :global(.kpl-name) { display: block; font-size: 0.85em; font-weight: 700; color: var(--aas-text); }
+  .kpl-track :global(.kpl-key) { display: block; margin-top: 0.25em; font-size: 0.72em; color: var(--kpl-accent); }
+
+  .kpl-track :global(.kpl-hop) {
+    flex: 0 0 6em; min-width: 4.5em;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 0.25em; padding: 0 0.15em;
+  }
+  .kpl-track :global(.kpl-hop i) {
+    display: block; width: 100%; height: 1px;
+    background: color-mix(in srgb, var(--aas-muted) 50%, transparent);
+    position: relative;
+  }
+  .kpl-track :global(.kpl-hop i)::after {
+    content: ''; position: absolute; right: 0; top: -3px;
+    border: 3.5px solid transparent;
+    border-left-color: color-mix(in srgb, var(--aas-muted) 50%, transparent);
+  }
+  .kpl-track :global(.kpl-hop b) { font-size: 0.7em; font-weight: 400; color: var(--aas-muted); text-align: center; line-height: 1.4; }
+  .kpl-track :global(.kpl-hop.is-live i) { background: var(--kpl-accent); }
+  .kpl-track :global(.kpl-hop.is-live i)::after { border-left-color: var(--kpl-accent); }
+  .kpl-track :global(.kpl-hop.is-live b) { color: var(--aas-text); font-weight: 700; }
+  .kpl-track :global(.kpl-hop.is-blocked i) { background: var(--kpl-bad); }
+  .kpl-track :global(.kpl-hop.is-blocked i)::after { border-left-color: var(--kpl-bad); }
+  .kpl-track :global(.kpl-hop.is-blocked b) { color: var(--kpl-bad); font-weight: 700; }
+
+  .kpl-foot {
+    display: grid; gap: 0.4em; margin-top: 1em; padding-top: 0.8em;
+    border-top: 1px solid var(--aas-border);
+  }
+  .kpl-foot div { display: grid; grid-template-columns: 8.5em 1fr; gap: 0.5em; }
+  .kpl-foot dt { font-size: 0.8em; color: var(--aas-muted); }
+  .kpl-foot dd { margin: 0; font-size: 0.85em; line-height: 1.65; color: var(--aas-text); }
+
+  @container (max-width: 30rem) {
+    .kpl-track { flex-direction: column; overflow-x: visible; }
+    .kpl-track :global(.kpl-node) { flex: 0 0 auto; }
+    .kpl-track :global(.kpl-hop) { flex: 0 0 auto; }
+    .kpl-track :global(.kpl-hop) { flex-direction: row; min-height: 2.2em; }
+    .kpl-track :global(.kpl-hop i) { width: 1px; height: 100%; min-height: 1.6em; }
+    .kpl-track :global(.kpl-hop i)::after { right: -3px; top: auto; bottom: 0; border-left-color: transparent; border-top-color: color-mix(in srgb, var(--aas-muted) 50%, transparent); }
+    .kpl-foot div { grid-template-columns: 1fr; }
+  }
+</style>

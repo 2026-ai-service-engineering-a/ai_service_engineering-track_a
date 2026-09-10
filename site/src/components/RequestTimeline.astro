@@ -1,0 +1,328 @@
+---
+/**
+ * 요청 타임라인 (8주차 4장).
+ *
+ * week08-service-lab의 examples/02_blocking_worker.py와 03_stream_buffered.py를
+ * 2026-09-10에 돌린 실측을 재생한다. 동기 핸들러(def)는 워커 스레드로 나가
+ * 다섯 건이 겹치고, async def 안에서 동기 호출을 하면 이벤트 루프가 묶여
+ * 다섯 건이 줄을 선다. 스트리밍은 총 시간을 그대로 두고 첫 응답만 당긴다.
+ */
+const AXIS_MAX = 6.5; // 초
+const SPEED = 420; // ms per second of real time
+const ONE = 1.21; // 요청 하나의 실측 시간
+
+const MODES = {
+  sync: {
+    label: 'def · 5건',
+    title: 'POST /plan · 동기 핸들러 · 동시 5건',
+    total: 1.21,
+    lede: 'FastAPI가 동기 핸들러를 워커 스레드로 보냅니다. 다섯 건이 겹쳐 돕니다.',
+    punch: '한 건과 다섯 건의 시간이 같다',
+    spans: [
+      { lane: '요청 1', from: 0, to: ONE, kind: 'work' },
+      { lane: '요청 2', from: 0, to: ONE, kind: 'work' },
+      { lane: '요청 3', from: 0, to: ONE, kind: 'work' },
+      { lane: '요청 4', from: 0, to: ONE, kind: 'work' },
+      { lane: '요청 5', from: 0, to: ONE, kind: 'work' },
+    ],
+  },
+  blocking: {
+    label: 'async def · 5건',
+    title: 'POST /plan/blocking · async 안의 동기 호출 · 동시 5건',
+    total: 6.06,
+    lede: '이벤트 루프가 첫 요청에 묶입니다. 서버는 죽지 않고, 한 사람만 상대합니다.',
+    punch: '같은 코어, 같은 일. 5.0배',
+    ghost: 1.21,
+    spans: [
+      { lane: '요청 1', from: 0, to: 1.21, kind: 'work' },
+      { lane: '요청 2', from: 1.21, to: 2.42, kind: 'wait' },
+      { lane: '요청 3', from: 2.42, to: 3.64, kind: 'wait' },
+      { lane: '요청 4', from: 3.64, to: 4.85, kind: 'wait' },
+      { lane: '요청 5', from: 4.85, to: 6.06, kind: 'wait' },
+    ],
+  },
+  stream: {
+    label: 'SSE · 1건',
+    title: 'POST /plan/stream · 진행을 흘린다 · 1건',
+    total: 1.22,
+    lede: '총 시간은 /plan과 같습니다. 바뀐 것은 빈 화면을 보는 시간입니다.',
+    punch: '첫 응답 1.21초 → 0.00초',
+    marks: [
+      { at: 0.0, text: 'start' },
+      { at: 0.41, text: 'step · search_places' },
+      { at: 0.81, text: 'step · calc_budget' },
+      { at: 1.22, text: 'final' },
+    ],
+    spans: [
+      { lane: '/plan (동기)', from: 0, to: 1.21, kind: 'wait', tail: '여기서야 첫 글자' },
+      { lane: '/plan/stream', from: 0, to: 1.22, kind: 'work', tail: '0초부터 흐른다' },
+    ],
+  },
+};
+---
+
+<div class="rtl" data-rtl data-modes={JSON.stringify(MODES)} data-axis={AXIS_MAX} data-speed={SPEED}>
+  <div class="rtl-head">
+    <strong>같은 코어, 세 가지 타임라인</strong>
+    <span>
+      전부 2026-09-10 실측입니다. 재생을 눌러 시간이 어디서 새는지 보세요.
+    </span>
+  </div>
+
+  <div class="rtl-controls">
+    <div class="rtl-seg" role="group">
+      <button type="button" data-mode="sync" class="is-active">def · 5건</button>
+      <button type="button" data-mode="blocking">async def · 5건</button>
+      <button type="button" data-mode="stream">SSE · 1건</button>
+    </div>
+    <button type="button" class="rtl-play" data-play>▶ 재생</button>
+  </div>
+
+  <p class="rtl-title" data-title></p>
+  <p class="rtl-lede" data-lede></p>
+
+  <div class="rtl-board">
+    <div class="rtl-chart" data-chart></div>
+    <div class="rtl-axis" data-axis-row></div>
+  </div>
+
+  <div class="rtl-foot">
+    <span data-clock>0.00초</span>
+    <span data-total></span>
+    <span class="rtl-punch" data-punch></span>
+  </div>
+</div>
+
+<script>
+  document.querySelectorAll<HTMLElement>('[data-rtl]').forEach(init);
+
+  function init(root: HTMLElement) {
+    type Span = { lane: string; from: number; to: number; kind: string; tail?: string };
+    type Mode = {
+      label: string; title: string; total: number; lede: string; punch: string;
+      ghost?: number; marks?: { at: number; text: string }[]; spans: Span[];
+    };
+    const MODES = JSON.parse(root.dataset.modes ?? '{}') as Record<string, Mode>;
+    const AXIS = Number(root.dataset.axis ?? 6.5);
+    const SPEED = Number(root.dataset.speed ?? 420);
+    const $ = <T extends HTMLElement>(s: string) => root.querySelector<T>(s)!;
+    const chart = $('[data-chart]');
+    const clock = $('[data-clock]');
+    let mode = 'sync';
+    let timer = 0;
+    let startedAt = 0;
+
+    const pct = (v: number) => `${(v / AXIS) * 100}%`;
+
+    function drawAxis() {
+      const row = $('[data-axis-row]');
+      row.innerHTML = '';
+      for (let s = 0; s <= AXIS; s += 1) {
+        const tick = document.createElement('span');
+        tick.style.left = pct(s);
+        tick.textContent = `${s}s`;
+        row.appendChild(tick);
+      }
+    }
+
+    function render() {
+      const data = MODES[mode];
+      $('[data-title]').textContent = data.title;
+      $('[data-lede]').textContent = data.lede;
+      $('[data-total]').textContent = `전체 ${data.total.toFixed(2)}초`;
+      $('[data-punch]').textContent = data.punch;
+      chart.innerHTML = '';
+
+      data.spans.forEach((span) => {
+        const row = document.createElement('div');
+        row.className = 'rtl-row';
+        const name = document.createElement('span');
+        name.className = 'rtl-lane';
+        name.textContent = span.lane;
+        const track = document.createElement('span');
+        track.className = 'rtl-track';
+
+        if (data.ghost) {
+          const ghost = document.createElement('span');
+          ghost.className = 'rtl-ghost';
+          ghost.style.width = pct(data.ghost);
+          track.appendChild(ghost);
+        }
+
+        const bar = document.createElement('span');
+        bar.className = `rtl-bar is-${span.kind}`;
+        bar.style.left = pct(span.from);
+        bar.style.width = pct(span.to - span.from);
+        bar.dataset.from = String(span.from);
+        bar.dataset.to = String(span.to);
+        if (span.tail) bar.dataset.tail = span.tail;
+        track.appendChild(bar);
+        row.append(name, track);
+        chart.appendChild(row);
+      });
+
+      if (data.marks) {
+        const row = document.createElement('div');
+        row.className = 'rtl-row rtl-row-marks';
+        const name = document.createElement('span');
+        name.className = 'rtl-lane';
+        name.textContent = '이벤트';
+        const track = document.createElement('span');
+        track.className = 'rtl-track';
+        data.marks.forEach((mark) => {
+          const dot = document.createElement('span');
+          dot.className = 'rtl-mark';
+          dot.style.left = pct(mark.at);
+          dot.dataset.at = String(mark.at);
+          dot.innerHTML = `<i></i><b>${mark.text}</b>`;
+          track.appendChild(dot);
+        });
+        row.append(name, track);
+        chart.appendChild(row);
+      }
+
+      const cursor = document.createElement('span');
+      cursor.className = 'rtl-cursor';
+      cursor.dataset.cursor = '';
+      cursor.style.left = pct(0);
+      cursor.hidden = true;
+      chart.appendChild(cursor);
+      setClock(MODES[mode].total, true);
+    }
+
+    function setClock(t: number, done: boolean) {
+      clock.textContent = `${t.toFixed(2)}초`;
+      chart.querySelectorAll<HTMLElement>('.rtl-bar').forEach((bar) => {
+        const from = Number(bar.dataset.from);
+        bar.classList.toggle('is-live', !done && t >= from && t <= Number(bar.dataset.to));
+        bar.classList.toggle('is-dim', !done && t < from);
+      });
+      chart.querySelectorAll<HTMLElement>('.rtl-mark').forEach((dot) => {
+        dot.classList.toggle('is-on', done || t >= Number(dot.dataset.at));
+      });
+    }
+
+    function play() {
+      window.clearInterval(timer);
+      const data = MODES[mode];
+      const cursor = chart.querySelector<HTMLElement>('[data-cursor]')!;
+      cursor.hidden = false;
+      startedAt = performance.now();
+      timer = window.setInterval(() => {
+        const t = ((performance.now() - startedAt) / SPEED);
+        if (t >= data.total) {
+          window.clearInterval(timer);
+          cursor.style.left = pct(data.total);
+          setClock(data.total, true);
+          return;
+        }
+        cursor.style.left = pct(t);
+        setClock(t, false);
+      }, 16);
+    }
+
+    root.querySelectorAll<HTMLButtonElement>('[data-mode]').forEach((button) => {
+      button.addEventListener('click', () => {
+        window.clearInterval(timer);
+        mode = button.dataset.mode ?? 'sync';
+        root.querySelectorAll('[data-mode]').forEach((b) => {
+          b.classList.toggle('is-active', b === button);
+        });
+        render();
+      });
+    });
+    $('[data-play]').addEventListener('click', play);
+
+    drawAxis();
+    render();
+  }
+</script>
+
+<style>
+  .rtl {
+    margin: 2rem 0;
+    padding: 1.1rem 1.1rem 0.9rem;
+    border: 1px solid var(--aas-border);
+    border-radius: 14px;
+    background: var(--aas-panel);
+    box-shadow: var(--aas-shadow);
+    font-family: var(--aas-sans);
+    container-type: inline-size;
+    font-size: clamp(0.85rem, 1.5cqw, 1.15rem);
+    --rtl-work: #2f81f7;
+    --rtl-wait: #d97706;
+  }
+
+  .rtl-head { display: flex; flex-direction: column; gap: 0.3em; margin-bottom: 0.8em; }
+  .rtl-head strong { font-size: 1.15em; color: var(--aas-text); }
+  .rtl-head span { font-size: 0.88em; line-height: 1.65; color: var(--aas-muted); }
+
+  .rtl-controls { display: flex; flex-wrap: wrap; gap: 0.6em; align-items: center; margin-bottom: 0.7em; }
+  .rtl-seg { display: inline-flex; border: 1px solid var(--aas-border); border-radius: 999px; overflow: hidden; }
+  .rtl-seg button {
+    padding: 0.4em 0.9em; border: 0; background: transparent;
+    color: var(--aas-muted); font-size: 0.85em; cursor: pointer;
+  }
+  .rtl-seg button.is-active { background: var(--rtl-work); color: #fff; }
+  .rtl-play {
+    padding: 0.4em 0.9em; border: 1px solid var(--aas-border); border-radius: 999px;
+    background: var(--aas-bg); color: var(--aas-text); font-size: 0.85em; cursor: pointer;
+  }
+  .rtl-play:hover { border-color: var(--rtl-work); }
+
+  .rtl-title { margin: 0 0 0.15em; font-size: 0.92em; font-weight: 700; color: var(--aas-text); }
+  .rtl-lede { margin: 0 0 0.8em; font-size: 0.86em; line-height: 1.7; color: var(--aas-muted); }
+
+  .rtl-board { position: relative; }
+  .rtl-chart { position: relative; display: grid; gap: 0.4em; }
+  .rtl-chart :global(.rtl-row) { display: grid; grid-template-columns: 7.5em 1fr; gap: 0.6em; align-items: center; }
+  .rtl-chart :global(.rtl-lane) { font-size: 0.8em; color: var(--aas-muted); }
+  .rtl-chart :global(.rtl-track) { position: relative; height: 1.5em; border-radius: 6px; background: var(--aas-tint); }
+
+  .rtl-chart :global(.rtl-bar) {
+    position: absolute; top: 0.22em; height: 1.06em; border-radius: 5px;
+    background: var(--rtl-work); transition: opacity 0.15s, filter 0.15s;
+  }
+  .rtl-chart :global(.rtl-bar.is-wait) { background: var(--rtl-wait); }
+  .rtl-chart :global(.rtl-bar.is-dim) { opacity: 0.22; }
+  .rtl-chart :global(.rtl-bar.is-live) { filter: brightness(1.15); box-shadow: 0 0 0 2px color-mix(in srgb, var(--rtl-work) 30%, transparent); }
+  .rtl-chart :global(.rtl-bar[data-tail])::after {
+    content: attr(data-tail); position: absolute; left: calc(100% + 0.5em); top: 50%;
+    transform: translateY(-50%); white-space: nowrap;
+    font-size: 0.72em; color: var(--aas-muted);
+  }
+  .rtl-chart :global(.rtl-ghost) {
+    position: absolute; top: 0.22em; height: 1.06em; border-radius: 5px;
+    border: 1px dashed color-mix(in srgb, var(--rtl-work) 55%, transparent);
+  }
+
+  .rtl-chart :global(.rtl-row-marks .rtl-track) { background: transparent; }
+  .rtl-chart :global(.rtl-mark) { position: absolute; top: 0; transform: translateX(-50%); opacity: 0.25; transition: opacity 0.2s; }
+  .rtl-chart :global(.rtl-mark.is-on) { opacity: 1; }
+  .rtl-chart :global(.rtl-mark i) { display: block; width: 7px; height: 7px; margin: 0 auto; border-radius: 50%; background: var(--rtl-work); }
+  .rtl-chart :global(.rtl-mark b) { display: block; font-size: 0.66em; font-weight: 400; color: var(--aas-muted); white-space: nowrap; }
+
+  .rtl-chart :global(.rtl-cursor) {
+    position: absolute; top: 0; bottom: 0; width: 1px;
+    background: color-mix(in srgb, var(--rtl-wait) 80%, transparent);
+    pointer-events: none;
+  }
+
+  .rtl-axis { position: relative; height: 1.2em; margin-left: 8.1em; margin-top: 0.3em; }
+  .rtl-axis :global(span) {
+    position: absolute; transform: translateX(-50%);
+    font-size: 0.7em; color: var(--aas-muted);
+  }
+
+  .rtl-foot {
+    display: flex; flex-wrap: wrap; gap: 0.9em; align-items: baseline;
+    margin-top: 0.9em; padding-top: 0.7em; border-top: 1px solid var(--aas-border);
+    font-size: 0.82em; color: var(--aas-muted);
+  }
+  .rtl-punch { margin-left: auto; font-weight: 700; color: var(--aas-text); }
+
+  @container (max-width: 32rem) {
+    .rtl-chart :global(.rtl-row) { grid-template-columns: 5.4em 1fr; }
+    .rtl-axis { margin-left: 6em; }
+  }
+</style>
