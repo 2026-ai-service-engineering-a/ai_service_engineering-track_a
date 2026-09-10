@@ -222,6 +222,8 @@ flowchart LR
 
 ### 저장소 기동
 
+- 실행
+
 ```bash
 git clone https://github.com/2026-ai-service-engineering-a/week08-service-lab.git
 cd week08-service-lab
@@ -230,6 +232,8 @@ cp gateway/.env.sample gateway/.env
 docker compose up --build -d
 docker compose exec api pytest
 ```
+
+- 결과
 
 ```plaintext
 20 passed, 2 warnings in 1.28s
@@ -243,6 +247,14 @@ docker compose exec api pytest
 
 ### 키가 하나도 없어도 전부 돌아갑니다
 ::sub[가짜인 것은 모델뿐입니다]
+
+- 실행
+
+```bash
+curl -s localhost:8000/config
+```
+
+- 결과
 
 ```json
 {"mode":"offline","model":"offline/scripted-planner","gateway":null,
@@ -511,9 +523,13 @@ flowchart LR
 ### 계약이 없으면 무슨 일이 생기는가
 ::sub[같은 일을 하는 엔드포인트 둘에 잘못된 요청 다섯 개]
 
+- 실행
+
 ```bash
 docker compose exec api python examples/01_no_validation.py
 ```
+
+- 결과
 
 ```plaintext
 요청                   /naive (계약 없음)                     /checked (계약 있음)
@@ -616,10 +632,14 @@ flowchart LR
 ### 5초 만에 재현합니다
 ::sub[랩 전용 스위치입니다. 실제 서비스에는 두지 않습니다]
 
+- 실행
+
 ```bash
 curl -s -w "\nstatus=%{http_code}\n" -X POST "localhost:8000/plan?simulate=upstream" \
   -H 'content-type: application/json' -d '{"question":"오사카 2박"}'
 ```
+
+- 결과
 
 ```json
 {"error":"UpstreamError","detail":"모의 상류 장애: 모델 제공자가 500을 돌려줬다",
@@ -698,9 +718,13 @@ flowchart TB
 ### 동시성: 일부러 잘못 만든 문이 하나 있습니다
 ::sub[`/plan`은 def, `/plan/blocking`은 async def. 안에서 부르는 코드는 똑같습니다]
 
+- 실행
+
 ```bash
 docker compose exec api python examples/02_blocking_worker.py
 ```
+
+- 결과
 
 ```plaintext
 /plan            1건       →  1.22s   (한 요청의 원래 시간)
@@ -749,9 +773,13 @@ docker compose exec api python examples/02_blocking_worker.py
 
 ### 스트리밍: 총 시간이 아니라 첫 글자까지의 시간
 
+- 실행
+
 ```bash
 docker compose exec api python examples/03_stream_buffered.py
 ```
+
+- 결과
 
 ```plaintext
 /plan          첫 응답  1.21s · 완료  1.21s
@@ -1137,17 +1165,20 @@ npx @modelcontextprotocol/inspector@latest
 ### 프로그램: 파이썬 클라이언트
 ::sub[6주차 예제 02 · 04와 같은 코드입니다. 방향만 뒤집혔습니다]
 
+- 실행
+
 ```bash
 docker compose exec api python clients/py_client.py
 ```
+
+- 결과
 
 ```plaintext
 [http] 이미 떠 있는 서버에 접속한다: http://mcp:8010/mcp
 
 === 프로토콜로 받은 도구 4개 ===
-  plan_trip: 여행 요청 한 줄로 일정과 예산을 세운다. 안에서 에이전트 루프가 돈다.
-  search_places: 도시의 관광지·식당·카페를 검색한다. 지원 도시: 오사카, 교토.
-  ...
+  plan_trip: 여행 요청 한 줄로 일정과 예산을 세운다. …
+  search_places: 도시의 관광지·식당·카페를 검색한다. …
 
 === 에이전트를 통째로 부르기: plan_trip ===
   거친 도구: ['search_places', 'calc_budget']
@@ -1194,14 +1225,20 @@ claude mcp add --transport http travel-planner http://localhost:8010/mcp
 
 ### 명령이 직접 알려 줍니다
 
+- 등록할 때 나온 말
+
 ```plaintext
 Added HTTP MCP server travel-planner with URL: http://localhost:8010/mcp to local config
 File modified: /Users/…/.claude.json [project: /Users/…/week08-service-lab]
 ```
 
+- 확인
+
 ```bash
 claude mcp list
 ```
+
+- 결과
 
 ```plaintext
 travel-planner: http://localhost:8010/mcp (HTTP) - ✔ Connected
@@ -1422,11 +1459,15 @@ flowchart LR
 
 ### 불러 봅니다
 
+- 실행
+
 ```bash
 curl -s -X POST http://localhost:5678/webhook/travel \
   -H 'content-type: application/json' \
   -d '{"question": "교토 2박 3일 4명 고급 여행"}'
 ```
+
+- 결과
 
 ```json
 {"answer":"[각본 대역] 교토 2박 3일, 4명 일정입니다. …
@@ -1507,10 +1548,14 @@ flowchart LR
 
 ### 우리 파이썬 클라이언트로 붙어 봅니다
 
+- 실행
+
 ```bash
 docker compose exec -e MCP_URL=http://n8n:5678/mcp/travel-tools \
   api python clients/py_client.py
 ```
+
+- 결과
 
 ```plaintext
 n8n이 내어놓은 도구: [('plan_trip', ['question'])]
@@ -1701,6 +1746,8 @@ general_settings:
 
 ### 직접 두드려 보면 선이 분명합니다
 
+- 실행
+
 ```bash
 # ① 마스터 키로 가상키 발급
 curl -s -X POST localhost:4000/key/generate \
@@ -1708,6 +1755,8 @@ curl -s -X POST localhost:4000/key/generate \
   -H 'content-type: application/json' \
   -d '{"models":["travel-demo"],"max_budget":1}'
 ```
+
+- 결과
 
 ```json
 {"key":"sk-X2YZqszic5CYcfVl5IbXlA", …}
@@ -1719,12 +1768,16 @@ curl -s -X POST localhost:4000/key/generate \
 
 ### 가상키로는 키를 찍어낼 수 없습니다
 
+- 실행
+
 ```bash
 # ② 방금 받은 가상키로 또 발급을 시도하면
 curl -s -X POST localhost:4000/key/generate \
   -H 'Authorization: Bearer sk-X2YZqszic5CYcfVl5IbXlA' \
   -H 'content-type: application/json' -d '{"models":["travel-demo"]}'
 ```
+
+- 결과
 
 ```json
 401  Only proxy admin can be used to generate, delete, update info
@@ -1759,9 +1812,13 @@ GATEWAY_KEY=sk-…
 
 ### 상한을 아주 낮게 걸고 소진시켜 봅니다
 
+- 실행
+
 ```bash
 docker compose exec api python examples/04_virtual_key.py
 ```
+
+- 결과
 
 ```plaintext
 발급된 가상키: sk-gLmQhi_JX…  (진짜 프로바이더 키는 게이트웨이만 안다)
@@ -1798,12 +1855,16 @@ if config.gateway():                       # .env의 GATEWAY_URL
 
 ### 말로만 하면 믿기 어려우니 안을 들여다봅니다
 
+- 실행
+
 ```bash
 docker compose exec api python -c "
 import os
 for v in ['GEMINI_API_KEY','LITELLM_MASTER_KEY','GATEWAY_URL','GATEWAY_KEY']:
     print(v, '있음' if os.environ.get(v) else '없음')"
 ```
+
+- 결과
 
 ```plaintext
 GEMINI_API_KEY     없음
@@ -1998,10 +2059,14 @@ flowchart LR
 
 ### 랩에서 둘 다 볼 수 있습니다
 
+- 실행
+
 ```bash
 curl -s -X POST "localhost:8000/plan?simulate=budget" \
   -H 'content-type: application/json' -d '{"question":"오사카 2박"}'
 ```
+
+- 결과
 
 ```json
 {"stopped_by":"budget","answer":"[중단] 비용 상한 초과: 누적 $0.5000 ≥ 중단 임계 $0.20",
