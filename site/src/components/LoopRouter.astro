@@ -1,0 +1,288 @@
+---
+/**
+ * 요청마다 다른 루프가 돈다 (9주차 7장).
+ *
+ * 한 제품 안에 루프가 여럿이라는 것을 요청을 바꿔 가며 보여준다. 6주차의 루프
+ * 스펙트럼과 7주차의 멀티 에이전트가 따로 있는 물건이 아니라, 같은 그래프에서
+ * 요청의 성격에 따라 갈리는 경로라는 것이 요지다.
+ *
+ * 호출 수는 추정이 아니라 **실측**이다. `week09-report-copilot` v1.7을
+ * 2026-09-17에 돌려 찍은 값이고, 같은 숫자가
+ * 저장소의 `tests/test_graph.py`에 박혀 있다. 누가 라우터에 손을 대 버튼 한
+ * 번에 모델을 부르게 만들면 그 테스트가 깨진다.
+ *
+ * 요금은 모델과 토큰에 달리므로 여기 적지 않는다.
+ */
+const CASES = {
+  ui: {
+    say: '화면에서 차트 종류를 막대로 바꾼다 (셀렉트)',
+    kind: '루프 없음',
+    tag: '코드가 곧장',
+    path: ['UI 이벤트', 'router', 'apply', 'STATE_DELTA'],
+    llm: 0,
+    steps: 0,
+    why: '무엇을 할지가 이미 정해져 있다. 모델에게 물을 것이 없다.',
+    rule: '7주차의 라우팅 원칙 그대로다. **확실한 것은 코드가 정한다.** 버튼 하나에 모델을 부르면 돈과 지연을 둘 다 버린다.',
+    week: '없음 (그냥 웹 앱이다)',
+  },
+  one: {
+    say: '"막대 그래프로 해줘" · "이거 빼줘"',
+    kind: '루프 없음',
+    tag: '정규식이 잡는다',
+    path: ['router', '정규식', 'apply', 'STATE_DELTA'],
+    llm: 0,
+    steps: 0,
+    why: '말이 짧고 뜻이 하나뿐이다. "막대로"가 무엇을 뜻하는지 해석할 여지가 없다.',
+    rule: '**"이거 빼줘"도 여기 있다.** 무엇을 가리키는지는 선택이 알려 주고, 무엇을 할지는 정규식이 안다. 그래서 모델 호출이 0회다. v1 챗 위젯이라면 같은 말에 되물었을 자리다.',
+    week: '6주차 (루프가 늘 답은 아니다)',
+  },
+  refresh: {
+    say: '"3분기만" · "최근 3개월"',
+    kind: '다시 채우기',
+    tag: '언제만 바뀌었다',
+    path: ['router', '기간 패치', 'refresh', '섹션 전부 다시', 'collect'],
+    llm: 5,
+    steps: 4,
+    why: '무엇을 볼지는 그대로고 언제를 볼지만 바뀌었다. 계획을 다시 세울 이유가 없다.',
+    rule: '**기간을 읽는 것은 코드다.** 표현의 가짓수가 정해져 있고 뜻이 하나뿐이라 모델에게 물을 이유가 없고, 날짜를 틀리면 리포트 전체가 틀린다. 없는 구간은 잘라 주되 **잘랐다고 말한다.** 조용히 자르면 없는 구간이 0이라고 오해한다.',
+    week: '7주차 (확실한 것은 코드가) · 오늘',
+  },
+  retarget: {
+    say: '(섹션을 고른 채) "요일별로 바꿔줘"',
+    kind: '고른 것을 고친다',
+    tag: '새로 만들지 않는다',
+    path: ['router', 'retarget', '패치', 'run_query', '작성'],
+    llm: 3,
+    steps: 3,
+    why: '무엇을 가리키는지는 선택이 알려 준다. 새 섹션이 아니라 그 섹션의 축을 바꾼다.',
+    rule: '차트 종류를 바꾸는 것과 다른 점이 하나다. **축이나 지표가 바뀌면 숫자가 달라진다.** 그래서 패치만으로 끝나지 않고 그 섹션을 다시 채운다. 이 경로도 나중에 붙었다. 없을 때는 "무엇을 바꿀지 알기 어렵습니다"로 떨어졌다.',
+    week: '오늘',
+  },
+  react: {
+    say: '"8월 국적별 관객수 보여줘"',
+    kind: 'ReAct',
+    tag: '조회 → 서술',
+    path: ['router', 'react', 'run_query', '작성', 'STATE_DELTA'],
+    llm: 3,
+    steps: 3,
+    why: '섹션 하나를 세우고, 숫자를 가져오고, 한 문장을 쓴다. 계획을 세울 만큼 크지 않다.',
+    rule: '분류 1회 + 작성 1회 + 결론 1회. **분석가는 여기 없다.** 섹션에 지표와 축이 적혀 있어 질의 스펙이 이미 정해져 있으므로 도구를 직접 부른다. 모델이 값을 하는 자리는 도구가 error를 돌려준 뒤다.',
+    week: '6주차 ([[react|ReAct]])',
+  },
+  plan: {
+    say: '"8월 박스오피스 리포트 만들어줘"',
+    kind: 'Plan-and-Execute',
+    tag: '계획 → 섹션마다 → 검증 → 서술',
+    path: ['router', 'plan', '섹션 ×3 (동시)', 'collect', 'verify', 'narrate'],
+    llm: 6,
+    steps: 6,
+    why: '만들 것이 여럿이고, 무엇을 만들지를 먼저 정해야 한다. 섹션 목록이 곧 계획이다.',
+    rule: '분류 1 + 계획 1 + 섹션마다 작성 1 + 결론 1 = 6회. 계획이 **상태에 들어가므로 화면에 뜨고**, 비싼 실행 전에 사용자가 고칠 수 있다. 검증이 불일치를 잡으면 계획부터 다시 돌되 2회까지다.',
+    week: '6주차 ([[plan-execute|Plan-and-Execute]]) · 7주차 (재계획)',
+  },
+  fanout: {
+    say: '같은 요청, 섹션이 넷일 때',
+    kind: '병렬 실행',
+    tag: '계획이 태스크를 던진다',
+    path: ['plan', '섹션 1·2·3·4 동시', 'collect', 'verify', 'narrate'],
+    llm: 10,
+    steps: 6,
+    why: '섹션끼리 서로를 참조하지 않는다. 순서대로 돌 이유가 없다.',
+    rule: '섹션이 하나 늘 때마다 호출이 하나 는다(6회 → 7회). **병렬로 버는 것은 시간뿐이고 비용은 그대로다.** 7주차 코딩 에이전트는 worktree가 필요했지만 여기는 파일을 만지지 않아 작업 공간 충돌이 없다.',
+    week: '7주차 (병렬 실행)',
+  },
+  publish: {
+    say: '"이 리포트 발행해줘"',
+    kind: '승인 카드',
+    tag: '묻고 끝낸다',
+    path: ['router', 'publish', 'TOOL_CALL confirm_publish', '(사용자)', '새 요청'],
+    llm: 0,
+    steps: 1,
+    why: '되돌리기 어려운 행동이다. 공유 링크가 나가면 회수할 수 없다.',
+    rule: '**에이전트는 묻기만 하고 실행을 끝낸다.** 화면이 카드를 띄우고, 사용자가 누른 답을 실은 새 요청이 온다. 루프가 멈춰 기다리는 것이 아니라 두 번 도는 것이다. 이것도 모델 호출 0회다.',
+    week: '6주차 (승인 게이트) · 오늘 (화면이 된다)',
+  },
+};
+---
+
+<div class="lrt" data-lrt data-cases={JSON.stringify(CASES)}>
+  <div class="lrt-head">
+    <strong>한 제품, 루프 여섯 갈래</strong>
+    <span>
+      요청을 눌러 보세요. 같은 그래프인데 지나가는 노드와 모델 호출 수가 다릅니다.
+      위에서 아래로 갈수록 무거워지고, <strong>맨 위는 모델을 한 번도 부르지
+      않습니다.</strong>
+    </span>
+  </div>
+
+  <div class="lrt-cases">
+    <button type="button" class="lrt-case" data-case="ui"><em>🖱 버튼</em><i>차트 종류를 바꾼다</i></button>
+    <button type="button" class="lrt-case" data-case="one"><em>💬 한마디</em><i>"이거 빼줘"</i></button>
+    <button type="button" class="lrt-case" data-case="refresh"><em>📅 기간만</em><i>"3분기만"</i></button>
+    <button type="button" class="lrt-case" data-case="retarget"><em>🎯 고친다</em><i>"요일별로 바꿔줘"</i></button>
+    <button type="button" class="lrt-case" data-case="react"><em>💬 조회</em><i>"국적별 관객수 보여줘"</i></button>
+    <button type="button" class="lrt-case" data-case="plan"><em>💬 리포트</em><i>"8월 리포트 만들어줘"</i></button>
+    <button type="button" class="lrt-case" data-case="fanout"><em>⇉ 섹션 넷</em><i>같은 요청, 더 넓게</i></button>
+    <button type="button" class="lrt-case" data-case="publish"><em>⚠ 발행</em><i>되돌릴 수 없는 행동</i></button>
+  </div>
+
+  <div class="lrt-panel" data-panel hidden>
+    <div class="lrt-panel-head">
+      <strong data-p-kind></strong>
+      <span data-p-tag></span>
+    </div>
+    <p class="lrt-say" data-p-say></p>
+
+    <div class="lrt-flow" data-p-flow></div>
+
+    <div class="lrt-meters">
+      <div><dt>모델 호출</dt><dd data-p-llm></dd></div>
+      <div><dt>스텝</dt><dd data-p-steps></dd></div>
+      <div><dt>배운 곳</dt><dd data-p-week></dd></div>
+    </div>
+
+    <p class="lrt-why" data-p-why></p>
+    <p class="lrt-rule" data-p-rule></p>
+  </div>
+</div>
+
+<script>
+  document.querySelectorAll<HTMLElement>('[data-lrt]').forEach(init);
+
+  function init(root: HTMLElement) {
+    type Case = {
+      say: string; kind: string; tag: string; path: string[];
+      llm: number; steps: number; why: string; rule: string; week: string;
+    };
+    const CASES = JSON.parse(root.dataset.cases ?? '{}') as Record<string, Case>;
+    const panel = root.querySelector<HTMLElement>('[data-panel]')!;
+    const set = (sel: string, text: string) => {
+      root.querySelector<HTMLElement>(sel)!.textContent = text;
+    };
+    const max = Math.max(...Object.values(CASES).map((c) => c.llm));
+    let open = '';
+
+    root.querySelectorAll<HTMLButtonElement>('[data-case]').forEach((button) => {
+      button.addEventListener('click', () => {
+        const id = button.dataset.case ?? '';
+        if (open === id) {
+          open = '';
+          panel.hidden = true;
+          root.querySelectorAll('[data-case]').forEach((n) => n.classList.remove('is-on'));
+          return;
+        }
+        open = id;
+        const c = CASES[id];
+        root.querySelectorAll('[data-case]').forEach((n) => n.classList.toggle('is-on', n === button));
+        set('[data-p-kind]', c.kind);
+        set('[data-p-tag]', c.tag);
+        set('[data-p-say]', c.say);
+        set('[data-p-why]', c.why);
+        set('[data-p-rule]', c.rule.replace(/\*\*/g, ''));
+        set('[data-p-week]', c.week.replace(/\[\[[^|\]]+\|([^\]]+)\]\]/g, '$1'));
+
+        const bar = (n: number) =>
+          `<span class="lrt-bar"><i style="width:${max ? (n / max) * 100 : 0}%"></i></span>`;
+        root.querySelector<HTMLElement>('[data-p-llm]')!.innerHTML =
+          `${c.llm}회 ${bar(c.llm)}`;
+        set('[data-p-steps]', c.steps === 0 ? '없음' : `${c.steps}`);
+
+        root.querySelector<HTMLElement>('[data-p-flow]')!.innerHTML = c.path
+          .map((p, i) => `<span class="lrt-node${i === 0 ? ' is-first' : ''}">${p}</span>`)
+          .join('<span class="lrt-arrow" aria-hidden="true">→</span>');
+        panel.hidden = false;
+      });
+    });
+  }
+</script>
+
+<style>
+  .lrt {
+    margin: 2rem 0;
+    padding: 1.1rem;
+    border: 1px solid var(--aas-border);
+    border-radius: 14px;
+    background: var(--aas-panel);
+    box-shadow: var(--aas-shadow);
+    font-family: var(--aas-sans);
+    container-type: inline-size;
+    font-size: clamp(0.85rem, 1.5cqw, 1.15rem);
+    --lrt-accent: #7c3aed;
+  }
+
+  .lrt-head { display: flex; flex-direction: column; gap: 0.3em; margin-bottom: 0.9em; }
+  .lrt-head strong { font-size: 1.15em; color: var(--aas-text); }
+  .lrt-head > span { font-size: 0.88em; line-height: 1.65; color: var(--aas-muted); }
+
+  .lrt-cases { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.45em; }
+  .lrt-case {
+    display: flex; flex-direction: column; gap: 0.15em;
+    padding: 0.6em 0.7em;
+    border: 1px solid var(--aas-border);
+    border-radius: 11px;
+    background: var(--aas-bg);
+    color: var(--aas-text);
+    text-align: left;
+    cursor: pointer;
+    transition: border-color 0.15s, transform 0.15s, box-shadow 0.15s;
+  }
+  .lrt-case:hover { transform: translateY(-1px); border-color: var(--lrt-accent); }
+  .lrt-case.is-on {
+    border-color: var(--lrt-accent);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--lrt-accent) 25%, transparent);
+  }
+  .lrt-case em { font-style: normal; font-weight: 700; font-size: 0.86em; }
+  .lrt-case i { font-style: normal; font-size: 0.75em; color: var(--aas-muted); }
+
+  .lrt-panel {
+    margin-top: 1em;
+    padding: 0.9em 1em;
+    border: 1px solid var(--aas-border);
+    border-radius: 12px;
+    background: var(--aas-bg);
+  }
+  .lrt-panel-head { display: flex; flex-wrap: wrap; gap: 0.6em; align-items: baseline; margin-bottom: 0.4em; }
+  .lrt-panel-head strong { font-size: 1.08em; color: var(--aas-text); }
+  .lrt-panel-head span { font-size: 0.78em; color: var(--aas-muted); }
+  .lrt-say { margin: 0 0 0.8em; font-size: 0.84em; color: var(--aas-muted); }
+
+  /* 흐름 칩과 막대는 스크립트가 만든다. Astro 스코프 속성이 안 붙으므로
+     :global()로 감싼다 (서버가 그린 부모 안으로 한정한다). */
+  .lrt-flow { display: flex; flex-wrap: wrap; align-items: center; gap: 0.3em; margin-bottom: 0.8em; }
+  .lrt-flow :global(.lrt-node) {
+    font-size: 0.75em;
+    padding: 0.3em 0.6em;
+    border: 1px solid var(--aas-border);
+    border-radius: 8px;
+    color: var(--aas-text);
+    background: var(--aas-panel);
+  }
+  .lrt-flow :global(.lrt-node.is-first) { border-color: color-mix(in srgb, var(--lrt-accent) 55%, var(--aas-border)); }
+  .lrt-flow :global(.lrt-arrow) { font-size: 0.7em; color: var(--aas-muted); }
+
+  .lrt-meters { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.6em; margin-bottom: 0.8em; }
+  .lrt-meters div { display: grid; gap: 0.15em; }
+  .lrt-meters dt { font-size: 0.74em; color: var(--aas-muted); }
+  .lrt-meters dd { margin: 0; font-size: 0.85em; color: var(--aas-text); display: flex; align-items: center; gap: 0.5em; }
+  .lrt-meters :global(.lrt-bar) {
+    display: inline-block; flex: 1; height: 5px; min-width: 2.5em;
+    border-radius: 3px;
+    background: color-mix(in srgb, var(--aas-muted) 20%, transparent);
+    overflow: hidden;
+  }
+  .lrt-meters :global(.lrt-bar i) { display: block; height: 100%; background: var(--lrt-accent); }
+
+  .lrt-why { margin: 0 0 0.5em; font-size: 0.85em; line-height: 1.7; color: var(--aas-text); }
+  .lrt-rule {
+    margin: 0; padding: 0.6em 0.75em;
+    font-size: 0.82em; line-height: 1.7; color: var(--aas-muted);
+    border-left: 3px solid color-mix(in srgb, var(--lrt-accent) 55%, transparent);
+    background: color-mix(in srgb, var(--lrt-accent) 7%, transparent);
+    border-radius: 0 8px 8px 0;
+  }
+
+  @container (max-width: 34rem) {
+    .lrt-cases { grid-template-columns: repeat(2, 1fr); }
+    .lrt-meters { grid-template-columns: 1fr; }
+  }
+</style>
