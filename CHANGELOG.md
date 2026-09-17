@@ -6,7 +6,7 @@ AI 서비스 엔지니어링 Track A 강의 사이트의 주요 변경 사항을
 [유의적 버전](https://semver.org/lang/ko/)을 준수한다. 릴리스는 저장소 루트의
 git 태그(`vX.Y`)로, 사이트 버전은 `site/package.json`으로 관리한다.
 
-## [Unreleased]
+## [1.13.0] - 2026-09-17
 
 ### 추가
 
