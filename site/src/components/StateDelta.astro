@@ -7,8 +7,8 @@
  * 번갈아 보여주는 것이 아니라, 아래 스크립트의 JSON Patch 구현이 왼쪽 문서를
  * 그때그때 고친다. 그래서 순서를 바꿔 눌러도 결과가 맞는다.
  *
- * 첫 번째와 두 번째 항목의 스냅샷·패치는 ag-ui-protocol 0.1.22로 띄운 AG-UI
- * 엔드포인트에서 2026-09-17에 실제로 받아 적은 것이다 (docs/week09-agui-capture.md)
+ * 스냅샷과 패치는 `week09-report-copilot` v1.1을 2026-09-17에 돌려 받아 적은
+ * 것이다. 숫자도 실제 박스오피스 집계다 (docs/week09-agui-capture.md)
  */
 const BASE = {
   title: '2026년 8월 박스오피스 리포트',
@@ -24,7 +24,7 @@ const BASE = {
 const TURNS = [
   {
     say: '국적별로 나눠서 보여줘',
-    note: '실측. 위 각주의 캡처에 담긴 STATE_DELTA 그대로입니다. 한 번의 패치가 필터·섹션·결론 세 곳을 함께 고칩니다.',
+    note: '실측입니다. 한 번의 패치가 필터·섹션·결론 세 곳을 함께 고칩니다. 결론의 85.3%는 도구가 함께 준 전체 합에서 나온 값입니다. 화면에 보이는 상위 몇 줄을 더해 나누면 조금씩 틀립니다.',
     delta: [
       { op: 'replace', path: '/filters/nation', value: '국적별' },
       {
@@ -32,7 +32,7 @@ const TURNS = [
         path: '/sections/-',
         value: { id: 's3', kind: 'chart', chart: 'bar', metric: 'audiCnt', groupBy: 'repNation', title: '국적별 관객수' },
       },
-      { op: 'replace', path: '/conclusion', value: '8월 관객의 57.2%가 한국 영화였습니다.' },
+      { op: 'replace', path: '/conclusion', value: '미국이 16,590,261으로 가장 많고, 전체의 85.3%를 차지합니다.' },
     ],
   },
   {
