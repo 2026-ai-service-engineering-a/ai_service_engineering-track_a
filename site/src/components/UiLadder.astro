@@ -22,10 +22,11 @@ const RUNGS = {
     learned: '3주차 식단 플래너 · 8주차 여행 플래너',
     said: '"이거 빼줘"',
     happens: '말할 곳이 없다. 체크박스를 직접 풀어야 한다',
-    code: `# 요청 하나가 함수 하나
+    code: `# 요청 하나가 함수 하나 (api/main.py)
 @app.post("/report")
-def build(body: ReportRequest) -> ReportResponse:
-    return service.build(body)   # 상태 없음`,
+def build_report(body: ReportRequest) -> dict:
+    doc = schema.empty_report(body.date_from, body.date_to).dump()
+    …                            # 요청 사이에 아무것도 기억하지 않는다`,
     breaks: '정직한 구조다. 무너지지 않는다. 다만 대화가 낄 자리가 없다.',
   },
   beside: {
@@ -39,11 +40,10 @@ def build(body: ReportRequest) -> ReportResponse:
     learned: '흔한 AI 챗봇 위젯이 전부 여기 있다',
     said: '"이거 빼줘"',
     happens: '되묻는다. "무엇을 빼 드릴까요?" 사용자는 화면을 보며 말했는데',
-    code: `# 챗 엔드포인트가 따로 있다
-@app.post("/chat")
-def chat(body: ChatRequest) -> ChatResponse:
-    # body에 화면 상태가 없다. 넣으려면 계약을 새로 짜야 한다
-    return agent.run(body.messages)`,
+    code: `# 계약에 화면이 없다 (api/schemas.py)
+class ChatRequest(BaseModel):
+    messages: list[ChatMessage]
+    # state도 selected도 없다. 넣으려면 계약을 새로 짜야 한다`,
     breaks: '지시대명사가 통하지 않는다. 사용자가 보는 것과 에이전트가 보는 것이 다르기 때문이다. 화면 상태를 프롬프트에 욱여넣기 시작하면 그때부터 계약이 아니라 문자열 붙이기가 된다.',
   },
   inside: {
@@ -57,9 +57,9 @@ def chat(body: ChatRequest) -> ChatResponse:
     learned: '오늘 (AG-UI · STATE_SNAPSHOT · STATE_DELTA)',
     said: '"이거 빼줘"',
     happens: '지운다. 선택된 섹션이 상태 안에 있으므로 무엇을 가리키는지 안다',
-    code: `# 상태를 받고, 패치를 돌려준다
+    code: `# 상태를 받고, 패치를 돌려준다 (api/agui.py)
 yield encoder.encode(StateDeltaEvent(delta=[
-    {"op": "remove", "path": "/sections/2"},
+    {"op": "remove", "path": "/sections/1"},
 ]))`,
     breaks: '사용자가 문단을 타이핑하는 중에 에이전트가 같은 자리를 고치면 부딪친다. 그리고 스키마에 없는 것은 에이전트가 건드리지 못한다. 그게 흠이 아니라 권한의 경계다.',
   },
@@ -73,13 +73,15 @@ yield encoder.encode(StateDeltaEvent(delta=[
     render: '프런트가. 다만 무엇을 그릴지는 에이전트의 도구 호출이 정한다',
     learned: '오늘 (프런트엔드 도구)',
     said: '"국적별로 비교해줘"',
-    happens: '막대 차트 컴포넌트가 대화 자리에 뜬다. 모델이 HTML을 쓴 것이 아니라 우리 컴포넌트를 고른 것이다',
-    code: `// 도구 이름 하나가 컴포넌트 하나에 묶인다
-useCopilotAction({
-  name: "render_chart",
-  parameters: [{ name: "kind" }, { name: "rows" }],
-  render: ({ args }) => <Chart kind={args.kind} rows={args.rows} />,
-})`,
+    happens: '막대 차트 컴포넌트가 대화 자리에 뜬다. 모델이 정한 것은 지표와 축뿐이고, 컴포넌트는 우리 것 중에서 골랐다',
+    code: `// 도구 이름 하나가 컴포넌트 하나에 묶인다 (web/src/components/ToolCard.tsx)
+if (call.name === 'run_query' && call.result?.rows?.length) {
+  return <Chart kind={…} rows={call.result.rows} />   // 결과가 있다 → 그린다
+}
+if (call.name === 'confirm_publish' && !call.result) {
+  return <승인 카드 …/>                                // 없다 → 화면이 실행 주체다
+}
+return null                                            // 표에 없으면 안 그린다`,
     breaks: '우리가 만들어 둔 컴포넌트만 그릴 수 있다. 모델이 상상한 화면은 안 나온다. 답답해 보이지만 이것이 디자인과 타입을 지키는 값이다.',
   },
 };
