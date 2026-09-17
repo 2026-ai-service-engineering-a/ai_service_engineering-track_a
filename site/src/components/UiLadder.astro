@@ -1,0 +1,298 @@
+---
+/**
+ * 화면과 에이전트의 네 관계 (9주차 3장).
+ *
+ * week09-report-copilot의 화면 모드 넷이 그대로 사다리가 된다. 코어는 하나이고
+ * 화면만 갈린다. 칸을 누르면 상태가 어디 사는지, 에이전트가 화면을 아는지,
+ * 같은 한마디("이거 빼줘")에 무슨 일이 나는지가 펼쳐진다.
+ *
+ * 세 번째 칸부터가 이번 주에 새로 배우는 것이고, 두 번째 칸이 무너지는 자리가
+ * 그 이유다.
+ */
+const RUNGS = {
+  behind: {
+    n: 'v0',
+    label: 'AI가 화면 뒤에',
+    icon: '📋',
+    shape: '폼형',
+    where: '화면 안에만. 서버는 요청 사이에 아무것도 기억하지 않는다',
+    knows: '모른다. 폼이 보낸 값만 본다',
+    render: '우리가. 응답 JSON을 받아 그린다',
+    learned: '3주차 식단 플래너 · 8주차 여행 플래너',
+    said: '"이거 빼줘"',
+    happens: '말할 곳이 없다. 체크박스를 직접 풀어야 한다',
+    code: `# 요청 하나가 함수 하나
+@app.post("/report")
+def build(body: ReportRequest) -> ReportResponse:
+    return service.build(body)   # 상태 없음`,
+    breaks: '정직한 구조다. 무너지지 않는다. 다만 대화가 낄 자리가 없다.',
+  },
+  beside: {
+    n: 'v1',
+    label: 'AI가 화면 옆에',
+    icon: '💬',
+    shape: '화면 + 챗 위젯',
+    where: '둘로 갈라진다. 화면의 필터와 대화의 맥락이 서로를 모른다',
+    knows: '모른다. 대화 이력만 본다',
+    render: '우리가. 화면과 채팅이 각자 그린다',
+    learned: '흔한 AI 챗봇 위젯이 전부 여기 있다',
+    said: '"이거 빼줘"',
+    happens: '되묻는다. "무엇을 빼 드릴까요?" 사용자는 화면을 보며 말했는데',
+    code: `# 챗 엔드포인트가 따로 있다
+@app.post("/chat")
+def chat(body: ChatRequest) -> ChatResponse:
+    # body에 화면 상태가 없다. 넣으려면 계약을 새로 짜야 한다
+    return agent.run(body.messages)`,
+    breaks: '지시대명사가 통하지 않는다. 사용자가 보는 것과 에이전트가 보는 것이 다르기 때문이다. 화면 상태를 프롬프트에 욱여넣기 시작하면 그때부터 계약이 아니라 문자열 붙이기가 된다.',
+  },
+  inside: {
+    n: 'v2',
+    label: 'AI가 화면 안에',
+    icon: '🔗',
+    shape: '공유 상태',
+    where: '하나. 화면이 그리는 문서가 곧 에이전트가 읽고 쓰는 상태다',
+    knows: '읽고 쓴다. 필터도 섹션도 전부 상태 안에 있다',
+    render: '우리가. 다만 다시 그리는 방아쇠를 에이전트도 당긴다',
+    learned: '오늘 (AG-UI · STATE_SNAPSHOT · STATE_DELTA)',
+    said: '"이거 빼줘"',
+    happens: '지운다. 선택된 섹션이 상태 안에 있으므로 무엇을 가리키는지 안다',
+    code: `# 상태를 받고, 패치를 돌려준다
+yield encoder.encode(StateDeltaEvent(delta=[
+    {"op": "remove", "path": "/sections/2"},
+]))`,
+    breaks: '사용자가 문단을 타이핑하는 중에 에이전트가 같은 자리를 고치면 부딪친다. 그리고 스키마에 없는 것은 에이전트가 건드리지 못한다. 그게 흠이 아니라 권한의 경계다.',
+  },
+  makes: {
+    n: 'v3',
+    label: 'AI가 화면을 만든다',
+    icon: '🧩',
+    shape: '생성 UI · 승인 카드',
+    where: '하나. 여기에 더해 도구 호출 자체가 화면 한 조각이 된다',
+    knows: '읽고 쓰고, 무엇을 보여줄지도 고른다',
+    render: '프런트가. 다만 무엇을 그릴지는 에이전트의 도구 호출이 정한다',
+    learned: '오늘 (프런트엔드 도구)',
+    said: '"국적별로 비교해줘"',
+    happens: '막대 차트 컴포넌트가 대화 자리에 뜬다. 모델이 HTML을 쓴 것이 아니라 우리 컴포넌트를 고른 것이다',
+    code: `// 도구 이름 하나가 컴포넌트 하나에 묶인다
+useCopilotAction({
+  name: "render_chart",
+  parameters: [{ name: "kind" }, { name: "rows" }],
+  render: ({ args }) => <Chart kind={args.kind} rows={args.rows} />,
+})`,
+    breaks: '우리가 만들어 둔 컴포넌트만 그릴 수 있다. 모델이 상상한 화면은 안 나온다. 답답해 보이지만 이것이 디자인과 타입을 지키는 값이다.',
+  },
+};
+---
+
+<div class="uil" data-uil data-rungs={JSON.stringify(RUNGS)}>
+  <div class="uil-head">
+    <strong>코어는 하나, 화면은 넷</strong>
+    <span>
+      칸을 누르면 상태가 어디 사는지와 <code>"이거 빼줘"</code> 한마디에 무슨 일이
+      나는지가 펼쳐집니다. 아래로 갈수록 에이전트가 화면 쪽으로 들어옵니다.
+      <strong>두 번째 칸이 무너지는 자리</strong>가 나머지 둘의 이유입니다.
+    </span>
+  </div>
+
+  <div class="uil-rungs">
+    <button type="button" class="uil-rung" data-rung="behind">
+      <span class="uil-n">v0</span>
+      <span class="uil-icon">📋</span>
+      <span class="uil-text"><em>AI가 화면 뒤에</em><i>폼형 · 3주차</i></span>
+    </button>
+    <button type="button" class="uil-rung is-warn" data-rung="beside">
+      <span class="uil-n">v1</span>
+      <span class="uil-icon">💬</span>
+      <span class="uil-text"><em>AI가 화면 옆에</em><i>챗 위젯 · 여기서 무너진다</i></span>
+    </button>
+    <button type="button" class="uil-rung is-new" data-rung="inside">
+      <span class="uil-n">v2</span>
+      <span class="uil-icon">🔗</span>
+      <span class="uil-text"><em>AI가 화면 안에</em><i>공유 상태 · 오늘</i></span>
+    </button>
+    <button type="button" class="uil-rung is-new" data-rung="makes">
+      <span class="uil-n">v3</span>
+      <span class="uil-icon">🧩</span>
+      <span class="uil-text"><em>AI가 화면을 만든다</em><i>생성 UI · 오늘</i></span>
+    </button>
+  </div>
+
+  <div class="uil-panel" data-panel hidden>
+    <div class="uil-panel-head">
+      <strong data-p-title></strong>
+      <span data-p-shape></span>
+    </div>
+    <dl class="uil-facts">
+      <div><dt>상태는 어디</dt><dd data-p-where></dd></div>
+      <div><dt>화면을 아나</dt><dd data-p-knows></dd></div>
+      <div><dt>누가 그리나</dt><dd data-p-render></dd></div>
+      <div><dt>배운 곳</dt><dd data-p-learned></dd></div>
+    </dl>
+    <div class="uil-say">
+      <span class="uil-say-q" data-p-said></span>
+      <span class="uil-say-a" data-p-happens></span>
+    </div>
+    <pre class="uil-code"><code data-p-code></code></pre>
+    <p class="uil-note" data-p-breaks></p>
+  </div>
+</div>
+
+<script>
+  document.querySelectorAll<HTMLElement>('[data-uil]').forEach(init);
+
+  function init(root: HTMLElement) {
+    type Rung = {
+      n: string; label: string; icon: string; shape: string; where: string;
+      knows: string; render: string; learned: string; said: string;
+      happens: string; code: string; breaks: string;
+    };
+    const RUNGS = JSON.parse(root.dataset.rungs ?? '{}') as Record<string, Rung>;
+    const panel = root.querySelector<HTMLElement>('[data-panel]')!;
+    const set = (sel: string, text: string) => {
+      root.querySelector<HTMLElement>(sel)!.textContent = text;
+    };
+    let open = '';
+
+    root.querySelectorAll<HTMLButtonElement>('[data-rung]').forEach((button) => {
+      button.addEventListener('click', () => {
+        const id = button.dataset.rung ?? '';
+        if (open === id) {
+          open = '';
+          panel.hidden = true;
+          root.querySelectorAll('[data-rung]').forEach((n) => n.classList.remove('is-on'));
+          return;
+        }
+        open = id;
+        const r = RUNGS[id];
+        root.querySelectorAll('[data-rung]').forEach((n) => {
+          n.classList.toggle('is-on', n === button);
+        });
+        set('[data-p-title]', `${r.icon} ${r.n} · ${r.label}`);
+        set('[data-p-shape]', r.shape);
+        set('[data-p-where]', r.where);
+        set('[data-p-knows]', r.knows);
+        set('[data-p-render]', r.render);
+        set('[data-p-learned]', r.learned);
+        set('[data-p-said]', `사용자: ${r.said}`);
+        set('[data-p-happens]', r.happens);
+        set('[data-p-code]', r.code);
+        set('[data-p-breaks]', r.breaks);
+        panel.hidden = false;
+      });
+    });
+  }
+</script>
+
+<style>
+  .uil {
+    margin: 2rem 0;
+    padding: 1.1rem;
+    border: 1px solid var(--aas-border);
+    border-radius: 14px;
+    background: var(--aas-panel);
+    box-shadow: var(--aas-shadow);
+    font-family: var(--aas-sans);
+    container-type: inline-size;
+    font-size: clamp(0.85rem, 1.5cqw, 1.15rem);
+    --uil-accent: #2f81f7;
+    --uil-warn: #d97706;
+    --uil-new: #16a34a;
+  }
+
+  .uil-head { display: flex; flex-direction: column; gap: 0.3em; margin-bottom: 1em; }
+  .uil-head strong { font-size: 1.15em; color: var(--aas-text); }
+  .uil-head span { font-size: 0.88em; line-height: 1.65; color: var(--aas-muted); }
+  .uil-head code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.94em; padding: 0.08em 0.32em; border-radius: 5px;
+    background: color-mix(in srgb, var(--aas-muted) 14%, transparent);
+  }
+  .uil-head strong strong { font-size: 1em; }
+
+  .uil-rungs { display: flex; flex-direction: column; gap: 0.5em; }
+
+  .uil-rung {
+    display: grid;
+    grid-template-columns: 2.4em 2em 1fr;
+    align-items: center;
+    gap: 0.7em;
+    padding: 0.7em 0.85em;
+    border: 1px solid var(--aas-border);
+    border-radius: 12px;
+    background: var(--aas-bg);
+    color: var(--aas-text);
+    text-align: left;
+    cursor: pointer;
+    transition: border-color 0.15s, transform 0.15s, box-shadow 0.15s;
+  }
+  .uil-rung:hover { transform: translateY(-1px); border-color: var(--uil-accent); }
+  .uil-rung.is-on {
+    border-color: var(--uil-accent);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--uil-accent) 25%, transparent);
+  }
+  .uil-rung.is-warn { border-left: 3px solid var(--uil-warn); }
+  .uil-rung.is-new { border-left: 3px solid var(--uil-new); }
+
+  .uil-n {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.82em; font-weight: 700;
+    color: var(--aas-muted);
+    border: 1px solid var(--aas-border);
+    border-radius: 6px;
+    padding: 0.1em 0;
+    text-align: center;
+  }
+  .uil-icon { font-size: 1.4em; text-align: center; }
+  .uil-text { display: flex; flex-direction: column; gap: 0.1em; }
+  .uil-text em { font-style: normal; font-weight: 700; font-size: 0.98em; }
+  .uil-text i { font-style: normal; font-size: 0.79em; color: var(--aas-muted); }
+
+  .uil-panel {
+    margin-top: 1em;
+    padding: 0.9em 1em;
+    border: 1px solid var(--aas-border);
+    border-radius: 12px;
+    background: var(--aas-bg);
+  }
+  .uil-panel-head { display: flex; flex-wrap: wrap; gap: 0.6em; align-items: baseline; margin-bottom: 0.6em; }
+  .uil-panel-head strong { font-size: 1.05em; color: var(--aas-text); }
+  .uil-panel-head span { font-size: 0.8em; color: var(--aas-muted); }
+
+  .uil-facts { display: grid; gap: 0.35em; margin: 0 0 0.7em; }
+  .uil-facts div { display: grid; grid-template-columns: 6.5em 1fr; gap: 0.5em; }
+  .uil-facts dt { font-size: 0.82em; color: var(--aas-muted); }
+  .uil-facts dd { margin: 0; font-size: 0.86em; line-height: 1.6; color: var(--aas-text); }
+
+  .uil-say {
+    display: grid; gap: 0.3em;
+    margin: 0 0 0.7em;
+    padding: 0.6em 0.75em;
+    border-radius: 10px;
+    background: color-mix(in srgb, var(--uil-accent) 8%, transparent);
+    border: 1px solid color-mix(in srgb, var(--uil-accent) 22%, transparent);
+  }
+  .uil-say-q { font-size: 0.85em; font-weight: 700; color: var(--aas-text); }
+  .uil-say-a { font-size: 0.84em; line-height: 1.6; color: var(--aas-muted); }
+
+  /* 테마가 .prose pre에 어두운 배경을 !important로 건다. 배경을 되돌리려
+     들지 말고 글자를 그 배경에 맞춰 밝게 둔다 (본문 코드 블록과 같은 모양). */
+  .uil-panel .uil-code {
+    margin: 0 0 0.6em;
+    font-size: 0.78em;
+    line-height: 1.6;
+    overflow-x: auto;
+  }
+  .uil-panel .uil-code code {
+    color: #c9d1d9;
+    background: none;
+    padding: 0;
+    white-space: pre;
+  }
+  .uil-note { margin: 0; font-size: 0.85em; line-height: 1.7; color: var(--aas-muted); }
+
+  @container (max-width: 30rem) {
+    .uil-rung { grid-template-columns: 2.2em 1fr; }
+    .uil-icon { display: none; }
+    .uil-facts div { grid-template-columns: 1fr; gap: 0.1em; }
+  }
+</style>

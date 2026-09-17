@@ -1,0 +1,316 @@
+---
+/**
+ * 한 줄을 치면 무엇이 도는가 (9주차 10장).
+ *
+ * 1주차 3장의 "요청 하나가 스택을 타고 내려갑니다"를 9주차 저장소로 다시 그린
+ * 것이다. 그때는 그림이었고 여기서는 층마다 파일 이름과 배운 주차가 붙는다.
+ *
+ * 층마다 **실패하면 무엇이 보이는가**를 함께 적었다. 레퍼런스 구현이 가르쳐야
+ * 할 것은 잘 도는 경로가 아니라 어디서 무엇이 끊기는지이기 때문이다.
+ *
+ * 링크는 여기서 base를 직접 붙인다. 본문 마크다운 링크는 remark 플러그인이
+ * 붙여 주지만(astro.config.mjs), 이 컴포넌트의 href는 런타임에 스크립트가
+ * 넣으므로 그 경로를 타지 않는다.
+ */
+const BASE = import.meta.env.BASE_URL.replace(/\/$/, '');
+
+const LAYERS = [
+  {
+    n: 1, icon: '🖥', name: '화면',
+    file: 'web/src/Report.tsx',
+    does: '사용자가 친 한 줄과 **지금 화면의 공유 상태를 함께** 보낸다. 무엇이 선택돼 있는지가 여기 실린다',
+    wire: 'POST /agent  { threadId, runId, messages, state, tools }',
+    week: '9주차', href: `${BASE}/course/session-09/`,
+    fail: '상태를 안 실어 보내면 그 순간 v1 챗 위젯으로 돌아간다. "이거"가 무엇인지 아무도 모른다',
+  },
+  {
+    n: 2, icon: '🚪', name: 'AG-UI 문',
+    file: 'api/agui.py',
+    does: '`RunAgentInput`으로 파싱한다. 모양이 어긋나면 **핸들러에 닿기 전에** 422로 끊긴다',
+    wire: 'RunAgentInput(thread_id=…, state=…, messages=[…])',
+    week: '8주차 · 3주차', href: `${BASE}/course/session-08/`,
+    fail: '계약이 없으면 이상한 요청이 그래프 안까지 들어가 거기서 터진다. 8주차 `/naive`가 그랬다',
+  },
+  {
+    n: 3, icon: '🧭', name: '라우터',
+    file: 'graph/router.py',
+    does: '한 스텝인가 ReAct인가 계획인가를 고른다. **확실한 것은 코드가 잡고** 애매한 것만 모델에게 넘긴다',
+    wire: 'route(state, text) -> "plan"',
+    week: '7주차', href: `${BASE}/course/session-07/`,
+    fail: '전부 모델에게 물으면 버튼 한 번에도 요금이 나가고, 전부 코드로 잡으면 말귀를 못 알아듣는다',
+  },
+  {
+    n: 4, icon: '🕸', name: '그래프',
+    file: 'graph/build.py',
+    does: '계획 노드가 섹션 목록을 만들고, 섹션마다 태스크를 던진다. 상태는 체크포인터로 DB에 앉는다',
+    wire: 'plan -> [section×N] -> verify -> narrate',
+    week: '7주차 · 6주차', href: `${BASE}/course/session-07/`,
+    fail: '그래프를 요청마다 compile하면 매번 연결과 스키마 준비를 다시 한다. 뜰 때 한 번이다',
+  },
+  {
+    n: 5, icon: '🛡', name: '하네스',
+    file: 'core/harness.py',
+    does: '위험한 질의를 막고, 누적 비용과 스텝 수를 센다. **부탁이 아니라 코드가 막는다**',
+    wire: 'gate(sql) · budget.check() · steps < max_steps',
+    week: '6주차', href: `${BASE}/course/session-06/`,
+    fail: '게이트를 프롬프트로만 두면 시놉시스에 심어 둔 한 줄에 뚫린다. 9장에서 실제로 뚫어 본다',
+  },
+  {
+    n: 6, icon: '🔧', name: '도구',
+    file: 'core/tools.py',
+    does: '`run_query`가 집계 테이블에 질의한다. 스키마는 pydantic 모델 하나에서 나온다',
+    wire: 'run_query(metric="audiCnt", groupBy="repNation")',
+    week: '5주차', href: `${BASE}/course/session-05/`,
+    fail: '설명이 부실하면 모델이 엉뚱한 도구를 고른다. docstring은 주석이 아니라 인터페이스다',
+  },
+  {
+    n: 7, icon: '📚', name: '검색',
+    file: 'core/metrics.py',
+    does: '"스크린당 관객수"가 무슨 뜻인지를 지표 정의 문서에서 찾아 온다. 컬럼 사전이 아니라 **업무 용어 사전**이다',
+    wire: 'lookup("스크린당 관객수") -> audiCnt / scrnCnt',
+    week: '4주차', href: `${BASE}/course/session-04/`,
+    fail: '정의가 없으면 모델이 지어낸다. 지어낸 지표로 만든 리포트는 틀렸다는 것조차 알기 어렵다',
+  },
+  {
+    n: 8, icon: '🔑', name: '모델',
+    file: 'core/llm.py → 게이트웨이',
+    does: '이 저장소에서 모델로 나가는 **단 한 자리**다. 주소와 가상키만 알고 진짜 키는 모른다',
+    wire: 'litellm.completion(api_base=GATEWAY_URL, api_key=GATEWAY_KEY)',
+    week: '5주차 · 8주차', href: `${BASE}/course/session-08/`,
+    fail: '상류가 죽으면 502다. 500이 아니다. 500은 우리 코드가 깨졌다는 뜻이다',
+  },
+  {
+    n: 9, icon: '📡', name: '이벤트',
+    file: 'api/agui.py (다시)',
+    does: '결과를 `STATE_DELTA`로 빚어 흘린다. 화면은 패치를 받아 그 자리만 다시 그린다',
+    wire: 'data: {"type":"STATE_DELTA","delta":[{"op":"add","path":"/sections/-",…}]}',
+    week: '9주차', href: `${BASE}/course/session-09/`,
+    fail: '스트림이 시작된 뒤의 실패는 상태 코드로 알릴 수 없다. `RUN_ERROR` 이벤트로 보낸다',
+  },
+];
+---
+
+<div class="stk" data-stk data-layers={JSON.stringify(LAYERS)}>
+  <div class="stk-head">
+    <strong>"8월 박스오피스를 국적별로 비교해줘" 한 줄이 지나가는 아홉 층</strong>
+    <span>
+      재생을 누르면 한 층씩 내려갑니다. 층을 직접 눌러도 됩니다.
+      <strong>배운 주차가 층마다 붙어 있습니다.</strong>
+      1주차 3장에서 그림으로 봤던 그 스택이고, 이번에는 파일 이름이 붙습니다.
+    </span>
+  </div>
+
+  <div class="stk-ctrl">
+    <button type="button" data-play>▶ 재생</button>
+    <button type="button" data-stepb>다음 층</button>
+    <button type="button" data-reset>처음으로</button>
+    <span data-progress></span>
+  </div>
+
+  <ol class="stk-list" data-list></ol>
+
+  <div class="stk-panel" data-panel hidden>
+    <div class="stk-panel-head">
+      <strong data-p-name></strong>
+      <code data-p-file></code>
+      <a data-p-week href="#"></a>
+    </div>
+    <p class="stk-does" data-p-does></p>
+    <pre class="stk-code"><code data-p-wire></code></pre>
+    <p class="stk-fail"><b>여기서 어긋나면</b> <span data-p-fail></span></p>
+  </div>
+</div>
+
+<script>
+  document.querySelectorAll<HTMLElement>('[data-stk]').forEach(init);
+
+  function init(root: HTMLElement) {
+    type Layer = {
+      n: number; icon: string; name: string; file: string; does: string;
+      wire: string; week: string; href: string; fail: string;
+    };
+    const LAYERS = JSON.parse(root.dataset.layers ?? '[]') as Layer[];
+    const list = root.querySelector<HTMLElement>('[data-list]')!;
+    const panel = root.querySelector<HTMLElement>('[data-panel]')!;
+    const prog = root.querySelector<HTMLElement>('[data-progress]')!;
+    const set = (sel: string, text: string) => {
+      root.querySelector<HTMLElement>(sel)!.textContent = text;
+    };
+    const strip = (s: string) => s.replace(/\*\*/g, '').replace(/`/g, '');
+
+    let at = -1;
+    let timer = 0;
+
+    LAYERS.forEach((l, i) => {
+      const li = document.createElement('li');
+      li.className = 'stk-layer';
+      li.dataset.i = String(i);
+      li.innerHTML = `
+        <span class="stk-icon">${l.icon}</span>
+        <span class="stk-name">${l.name}</span>
+        <span class="stk-file">${l.file}</span>
+        <span class="stk-week">${l.week}</span>`;
+      li.addEventListener('click', () => {
+        stop();
+        show(i);
+      });
+      list.appendChild(li);
+    });
+
+    function show(i: number) {
+      at = i;
+      const l = LAYERS[i];
+      list.querySelectorAll<HTMLElement>('.stk-layer').forEach((el, j) => {
+        el.classList.toggle('is-on', j === i);
+        el.classList.toggle('is-past', j < i);
+      });
+      set('[data-p-name]', `${l.icon} ${l.n}. ${l.name}`);
+      set('[data-p-file]', l.file);
+      const a = root.querySelector<HTMLAnchorElement>('[data-p-week]')!;
+      a.textContent = l.week;
+      a.href = l.href;
+      set('[data-p-does]', strip(l.does));
+      set('[data-p-wire]', l.wire);
+      set('[data-p-fail]', strip(l.fail));
+      panel.hidden = false;
+      prog.textContent = `${i + 1} / ${LAYERS.length}`;
+    }
+
+    function stop() {
+      if (timer) window.clearInterval(timer);
+      timer = 0;
+      root.querySelector<HTMLElement>('[data-play]')!.textContent = '▶ 재생';
+    }
+
+    root.querySelector<HTMLButtonElement>('[data-play]')!.addEventListener('click', (e) => {
+      const b = e.currentTarget as HTMLButtonElement;
+      if (timer) {
+        stop();
+        return;
+      }
+      if (at >= LAYERS.length - 1) at = -1;
+      b.textContent = '❚❚ 멈춤';
+      show(at + 1);
+      timer = window.setInterval(() => {
+        if (at >= LAYERS.length - 1) {
+          stop();
+          return;
+        }
+        show(at + 1);
+      }, 1500);
+    });
+
+    root.querySelector<HTMLButtonElement>('[data-stepb]')!.addEventListener('click', () => {
+      stop();
+      show(at >= LAYERS.length - 1 ? 0 : at + 1);
+    });
+
+    root.querySelector<HTMLButtonElement>('[data-reset]')!.addEventListener('click', () => {
+      stop();
+      at = -1;
+      panel.hidden = true;
+      prog.textContent = '';
+      list.querySelectorAll('.stk-layer').forEach((el) => el.classList.remove('is-on', 'is-past'));
+    });
+  }
+</script>
+
+<style>
+  .stk {
+    margin: 2rem 0;
+    padding: 1.1rem;
+    border: 1px solid var(--aas-border);
+    border-radius: 14px;
+    background: var(--aas-panel);
+    box-shadow: var(--aas-shadow);
+    font-family: var(--aas-sans);
+    container-type: inline-size;
+    font-size: clamp(0.85rem, 1.5cqw, 1.15rem);
+    --stk-accent: #0ea5e9;
+  }
+
+  .stk-head { display: flex; flex-direction: column; gap: 0.3em; margin-bottom: 0.8em; }
+  .stk-head strong { font-size: 1.08em; line-height: 1.5; color: var(--aas-text); }
+  .stk-head > span { font-size: 0.86em; line-height: 1.65; color: var(--aas-muted); }
+
+  .stk-ctrl { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4em; margin-bottom: 0.8em; }
+  .stk-ctrl button {
+    padding: 0.35em 0.8em; border: 1px solid var(--aas-border); border-radius: 8px;
+    background: var(--aas-bg); color: var(--aas-text); font-size: 0.8em; cursor: pointer;
+  }
+  .stk-ctrl button:hover { border-color: var(--stk-accent); }
+  .stk-ctrl span { font-size: 0.78em; color: var(--aas-muted); margin-left: auto; }
+
+  /* 층 목록은 스크립트가 만든다. Astro 스코프 속성이 안 붙으므로 :global()로
+     감싼다 (서버가 그린 .stk-list 안으로 한정한다). */
+  .stk-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.3em; }
+  .stk-list :global(.stk-layer) {
+    display: grid;
+    grid-template-columns: 1.8em minmax(4.5em, auto) 1fr auto;
+    align-items: center;
+    gap: 0.6em;
+    padding: 0.5em 0.7em;
+    border: 1px solid var(--aas-border);
+    border-left: 3px solid var(--aas-border);
+    border-radius: 10px;
+    background: var(--aas-bg);
+    cursor: pointer;
+    transition: border-color 0.15s, background 0.2s, opacity 0.2s;
+  }
+  .stk-list :global(.stk-layer:hover) { border-color: var(--stk-accent); }
+  .stk-list :global(.stk-layer.is-past) { opacity: 0.55; border-left-color: color-mix(in srgb, var(--stk-accent) 45%, transparent); }
+  .stk-list :global(.stk-layer.is-on) {
+    border-color: var(--stk-accent);
+    border-left-color: var(--stk-accent);
+    background: color-mix(in srgb, var(--stk-accent) 9%, var(--aas-bg));
+  }
+  .stk-list :global(.stk-icon) { font-size: 1.1em; text-align: center; }
+  .stk-list :global(.stk-name) { font-size: 0.87em; font-weight: 700; color: var(--aas-text); }
+  .stk-list :global(.stk-file) {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.72em; color: var(--aas-muted);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .stk-list :global(.stk-week) {
+    font-size: 0.7em; color: var(--aas-muted);
+    border: 1px solid var(--aas-border); border-radius: 999px; padding: 0.1em 0.5em;
+    white-space: nowrap;
+  }
+
+  .stk-panel {
+    margin-top: 0.9em;
+    padding: 0.9em 1em;
+    border: 1px solid var(--aas-border);
+    border-radius: 12px;
+    background: var(--aas-bg);
+  }
+  .stk-panel-head { display: flex; flex-wrap: wrap; gap: 0.6em; align-items: baseline; margin-bottom: 0.5em; }
+  .stk-panel-head strong { font-size: 1.04em; color: var(--aas-text); }
+  .stk-panel-head code { font-size: 0.78em; color: var(--aas-muted); }
+  .stk-panel-head a { font-size: 0.75em; margin-left: auto; }
+
+  .stk-does { margin: 0 0 0.6em; font-size: 0.86em; line-height: 1.75; color: var(--aas-text); }
+
+  /* 테마가 .prose pre에 어두운 배경을 !important로 건다. 배경을 되돌리려
+     들지 말고 글자를 그 배경에 맞춰 밝게 둔다 (본문 코드 블록과 같은 모양). */
+  .stk-panel .stk-code {
+    margin: 0 0 0.6em;
+    font-size: 0.74em;
+    line-height: 1.6;
+    overflow-x: auto;
+  }
+  .stk-panel .stk-code code {
+    color: #c9d1d9;
+    background: none;
+    padding: 0;
+    white-space: pre-wrap;
+    word-break: break-all;
+  }
+  .stk-fail { margin: 0; font-size: 0.82em; line-height: 1.7; color: var(--aas-muted); }
+  .stk-fail b { color: var(--aas-text); }
+
+  @container (max-width: 32rem) {
+    .stk-list :global(.stk-layer) { grid-template-columns: 1.6em 1fr auto; }
+    .stk-list :global(.stk-file) { display: none; }
+  }
+</style>
