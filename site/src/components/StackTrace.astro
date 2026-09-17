@@ -75,11 +75,11 @@ const LAYERS = [
   },
   {
     n: 8, icon: '🔑', name: '모델',
-    file: 'core/llm.py → 게이트웨이',
-    does: '이 저장소에서 모델로 나가는 **단 한 자리**다. 주소와 가상키만 알고 진짜 키는 모른다',
-    wire: 'litellm.completion(api_base=GATEWAY_URL, api_key=GATEWAY_KEY)',
-    week: '5주차 · 8주차', href: `${BASE}/course/session-08/`,
-    fail: '상류가 죽으면 502다. 500이 아니다. 500은 우리 코드가 깨졌다는 뜻이다',
+    file: 'core/llm.py',
+    does: '이 저장소에서 모델로 나가는 **단 한 자리**다. 게이트웨이를 거치지 않는다. 앱이 하나면 직접 호출이 맞다',
+    wire: 'litellm.completion(model="gemini/gemini-2.5-flash", messages=[…])',
+    week: '5주차', href: `${BASE}/course/session-05/`,
+    fail: '상류가 죽으면 502다. 500이 아니다. 실패 메시지에 모델 이름은 싣고 키는 싣지 않는다',
   },
   {
     n: 9, icon: '📡', name: '이벤트',
