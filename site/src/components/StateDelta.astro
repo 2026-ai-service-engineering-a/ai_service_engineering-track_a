@@ -1,0 +1,346 @@
+---
+/**
+ * 공유 상태와 JSON Patch (9주차 5장).
+ *
+ * 채팅 한 줄이 상태 문서를 어떻게 고치는지를 왼쪽(문서)과 오른쪽(패치)에
+ * 나란히 둔다. 패치는 화면에서 **실제로 적용된다**. 미리 만들어 둔 전후 그림을
+ * 번갈아 보여주는 것이 아니라, 아래 스크립트의 JSON Patch 구현이 왼쪽 문서를
+ * 그때그때 고친다. 그래서 순서를 바꿔 눌러도 결과가 맞는다.
+ *
+ * 스냅샷과 패치는 `week09-report-copilot` v1.1을 2026-09-17에 돌려 받아 적은
+ * 것이다. 숫자도 실제 박스오피스 집계다 (docs/week09-agui-capture.md)
+ */
+const BASE = {
+  title: '2026년 8월 박스오피스 리포트',
+  period: { from: '2026-08-01', to: '2026-08-31' },
+  filters: { nation: '전체', movieType: '전체' },
+  sections: [
+    { id: 's1', kind: 'chart', chart: 'line', metric: 'audiCnt', title: '일별 관객수' },
+    { id: 's2', kind: 'table', metric: 'audiAcc', title: '누적 관객 상위 10편' },
+  ],
+  conclusion: '',
+};
+
+const TURNS = [
+  {
+    say: '국적별로 나눠서 보여줘',
+    note: '실측입니다. 한 번의 패치가 필터·섹션·결론 세 곳을 함께 고칩니다. 결론의 85.3%는 도구가 함께 준 전체 합에서 나온 값입니다. 화면에 보이는 상위 몇 줄을 더해 나누면 조금씩 틀립니다.',
+    delta: [
+      { op: 'replace', path: '/filters/nation', value: '국적별' },
+      {
+        op: 'add',
+        path: '/sections/-',
+        value: { id: 's3', kind: 'chart', chart: 'bar', metric: 'audiCnt', groupBy: 'repNation', title: '국적별 관객수' },
+      },
+      { op: 'replace', path: '/conclusion', value: '미국이 16,590,261으로 가장 많고, 전체의 85.3%를 차지합니다.' },
+    ],
+  },
+  {
+    say: '첫 번째 차트를 막대로 바꿔줘',
+    note: '값 하나만 바뀝니다. 문서를 통째로 다시 보내지 않습니다.',
+    delta: [{ op: 'replace', path: '/sections/0/chart', value: 'bar' }],
+  },
+  {
+    say: '표를 맨 위로 올려줘',
+    note: 'move는 배열 안에서 자리를 옮깁니다. 화면에서 드래그한 것과 같은 결과이고, 패치도 같은 모양입니다.',
+    delta: [{ op: 'move', from: '/sections/1', path: '/sections/0' }],
+  },
+  {
+    say: '이거 빼줘 (표 섹션을 고른 채로)',
+    note: '지시대명사가 통합니다. 무엇이 선택돼 있는지가 상태 안에 있기 때문입니다. v1 챗 위젯이라면 여기서 되물었을 자리입니다.',
+    delta: [{ op: 'remove', path: '/sections/0' }],
+  },
+  {
+    say: '화면을 영어로 바꿔줘',
+    note: '거절합니다. 리포트 내용은 상태 안에 있지만 UI 레이블은 상태 밖이라, 에이전트가 손댈 수 있는 자리가 아닙니다. **스키마가 곧 권한의 경계**입니다.',
+    delta: [],
+    refuse: '요청하신 UI 언어 변경은 지원하지 않습니다. 리포트 본문은 영어로 다시 써 드릴 수 있습니다.',
+  },
+];
+---
+
+<div class="sdl" data-sdl data-base={JSON.stringify(BASE)} data-turns={JSON.stringify(TURNS)}>
+  <div class="sdl-head">
+    <strong>채팅 한 줄 → JSON Patch → 화면</strong>
+    <span>
+      말을 눌러 보세요. 오른쪽 <code>STATE_DELTA</code>가 왼쪽 문서에
+      <strong>실제로 적용</strong>됩니다. 바뀐 자리에 불이 들어옵니다.
+      마지막 하나는 일부러 거절당하는 요청입니다.
+    </span>
+  </div>
+
+  <div class="sdl-says" data-says></div>
+
+  <div class="sdl-board">
+    <section class="sdl-doc">
+      <header>리포트 문서 <em>공유 상태</em></header>
+      <div class="sdl-doc-body" data-doc></div>
+    </section>
+
+    <section class="sdl-patch">
+      <header>서버가 흘린 이벤트</header>
+      <pre class="sdl-code"><code data-patch>왼쪽 문서가 처음 상태입니다. 위에서 말을 하나 고르세요.</code></pre>
+      <p class="sdl-note" data-note></p>
+    </section>
+  </div>
+
+  <div class="sdl-foot">
+    <button type="button" data-reset>처음 상태로</button>
+    <span data-count></span>
+  </div>
+</div>
+
+<script>
+  document.querySelectorAll<HTMLElement>('[data-sdl]').forEach(init);
+
+  type Op = { op: string; path: string; from?: string; value?: unknown };
+  type Turn = { say: string; note: string; delta: Op[]; refuse?: string };
+
+  function init(root: HTMLElement) {
+    const BASE = JSON.parse(root.dataset.base ?? '{}');
+    const TURNS = JSON.parse(root.dataset.turns ?? '[]') as Turn[];
+    const docEl = root.querySelector<HTMLElement>('[data-doc]')!;
+    const patchEl = root.querySelector<HTMLElement>('[data-patch]')!;
+    const noteEl = root.querySelector<HTMLElement>('[data-note]')!;
+    const saysEl = root.querySelector<HTMLElement>('[data-says]')!;
+    const countEl = root.querySelector<HTMLElement>('[data-count]')!;
+
+    let state = structuredClone(BASE);
+    let touched: string[] = [];
+    let applied = 0;
+
+    TURNS.forEach((turn, i) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'sdl-say';
+      b.textContent = turn.say;
+      b.dataset.i = String(i);
+      b.addEventListener('click', () => run(i, b));
+      saysEl.appendChild(b);
+    });
+
+    root.querySelector<HTMLButtonElement>('[data-reset]')!.addEventListener('click', () => {
+      state = structuredClone(BASE);
+      touched = [];
+      applied = 0;
+      patchEl.textContent = '왼쪽 문서가 처음 상태입니다. 위에서 말을 하나 고르세요.';
+      noteEl.textContent = '';
+      saysEl.querySelectorAll('.sdl-say').forEach((x) => x.classList.remove('is-done'));
+      draw();
+    });
+
+    /** RFC 6902의 네 연산만 구현한다. 랩이 쓰는 것도 이 넷뿐이다. */
+    function seg(path: string): string[] {
+      return path.split('/').slice(1).map((s) => s.replace(/~1/g, '/').replace(/~0/g, '~'));
+    }
+    function parentOf(obj: any, parts: string[]): [any, string] {
+      let cur = obj;
+      for (let i = 0; i < parts.length - 1; i += 1) cur = cur[parts[i]];
+      return [cur, parts[parts.length - 1]];
+    }
+    function getAt(obj: any, path: string): unknown {
+      return seg(path).reduce((cur: any, k) => cur?.[k], obj);
+    }
+    function apply(obj: any, op: Op) {
+      const parts = seg(op.path);
+      const [parent, key] = parentOf(obj, parts);
+      if (op.op === 'add') {
+        if (Array.isArray(parent)) {
+          if (key === '-') parent.push(op.value);
+          else parent.splice(Number(key), 0, op.value);
+        } else parent[key] = op.value;
+      } else if (op.op === 'replace') {
+        parent[key] = op.value;
+      } else if (op.op === 'remove') {
+        if (Array.isArray(parent)) parent.splice(Number(key), 1);
+        else delete parent[key];
+      } else if (op.op === 'move') {
+        const v = getAt(obj, op.from ?? '');
+        apply(obj, { op: 'remove', path: op.from ?? '' });
+        apply(obj, { op: 'add', path: op.path, value: v });
+      }
+    }
+
+    function run(i: number, button: HTMLElement) {
+      const turn = TURNS[i];
+      const lines = [
+        turn.delta.length
+          ? `data: ${JSON.stringify({ type: 'STATE_DELTA', delta: turn.delta })}`
+          : `data: ${JSON.stringify({ type: 'TEXT_MESSAGE_CONTENT', delta: turn.refuse })}`,
+      ];
+      patchEl.textContent = lines.join('\n\n');
+      noteEl.textContent = turn.note.replace(/\*\*/g, '');
+      button.classList.add('is-done');
+
+      touched = [];
+      turn.delta.forEach((op) => {
+        try {
+          apply(state, op);
+          // `/sections/-`(끝에 붙이기)는 적용 뒤에야 실제 자리를 안다.
+          // 그 자리 하나만 불이 들어오게 인덱스로 바꿔 둔다.
+          let path = op.path;
+          if (op.op === 'add' && path.endsWith('/-')) {
+            const arrPath = path.slice(0, -2);
+            const arr = getAt(state, arrPath) as unknown[];
+            path = `${arrPath}/${arr.length - 1}`;
+          }
+          touched.push(path);
+        } catch {
+          /* 경로가 이미 사라진 경우는 조용히 넘어간다 */
+        }
+      });
+      if (turn.delta.length) applied += turn.delta.length;
+      draw();
+    }
+
+    function hot(path: string): string {
+      return touched.some(
+        (t) => t === path || t.startsWith(`${path}/`) || path.startsWith(`${t}/`),
+      )
+        ? ' is-hot'
+        : '';
+    }
+
+    function draw() {
+      const s = state;
+      const rows = s.sections
+        .map(
+          (sec: any, i: number) => `
+          <li class="sdl-sec${hot(`/sections/${i}`)}">
+            <span class="sdl-kind">${sec.kind === 'chart' ? `📈 ${sec.chart}` : '▦ table'}</span>
+            <span class="sdl-t">${sec.title}</span>
+            <code>${sec.metric}${sec.groupBy ? ` · ${sec.groupBy}` : ''}</code>
+          </li>`,
+        )
+        .join('');
+      docEl.innerHTML = `
+        <h4 class="sdl-title${hot('/title')}">${s.title}</h4>
+        <p class="sdl-meta">
+          <span class="${hot('/period')}">${s.period.from} ~ ${s.period.to}</span>
+          <span class="${hot('/filters/nation')}">국적 ${s.filters.nation}</span>
+          <span class="${hot('/filters/movieType')}">구분 ${s.filters.movieType}</span>
+        </p>
+        <ul class="sdl-secs">${rows || '<li class="sdl-empty">섹션이 없습니다</li>'}</ul>
+        <p class="sdl-concl${hot('/conclusion')}">${s.conclusion || '<em>결론이 아직 비어 있습니다</em>'}</p>`;
+      countEl.textContent = applied ? `적용된 패치 연산 ${applied}건` : '';
+    }
+
+    draw();
+  }
+</script>
+
+<style>
+  .sdl {
+    margin: 2rem 0;
+    padding: 1.1rem;
+    border: 1px solid var(--aas-border);
+    border-radius: 14px;
+    background: var(--aas-panel);
+    box-shadow: var(--aas-shadow);
+    font-family: var(--aas-sans);
+    container-type: inline-size;
+    font-size: clamp(0.85rem, 1.5cqw, 1.15rem);
+    --sdl-accent: #2f81f7;
+    --sdl-hot: #f59e0b;
+  }
+
+  .sdl-head { display: flex; flex-direction: column; gap: 0.3em; margin-bottom: 0.9em; }
+  .sdl-head strong { font-size: 1.15em; color: var(--aas-text); }
+  .sdl-head > span { font-size: 0.88em; line-height: 1.65; color: var(--aas-muted); }
+  .sdl-head code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.94em; padding: 0.08em 0.32em; border-radius: 5px;
+    background: color-mix(in srgb, var(--aas-muted) 14%, transparent);
+  }
+
+  /* 아래 요소들은 스크립트가 만든다. Astro의 스코프 속성이 안 붙으므로
+     :global()로 감싼다 (서버가 그린 부모 선택자 안으로 한정한다). */
+  .sdl-says { display: flex; flex-wrap: wrap; gap: 0.4em; margin-bottom: 0.9em; }
+  .sdl-says :global(.sdl-say) {
+    padding: 0.42em 0.75em;
+    border: 1px solid var(--aas-border);
+    border-radius: 999px;
+    background: var(--aas-bg);
+    color: var(--aas-text);
+    font-size: 0.82em;
+    cursor: pointer;
+    transition: border-color 0.15s, background 0.15s;
+  }
+  .sdl-says :global(.sdl-say::before) { content: '💬 '; opacity: 0.7; }
+  .sdl-says :global(.sdl-say:hover) { border-color: var(--sdl-accent); }
+  .sdl-says :global(.sdl-say.is-done) { border-color: var(--sdl-accent); background: color-mix(in srgb, var(--sdl-accent) 10%, transparent); }
+
+  .sdl-board { display: grid; grid-template-columns: 1fr 1fr; gap: 0.7em; align-items: start; }
+  .sdl-doc, .sdl-patch {
+    border: 1px solid var(--aas-border);
+    border-radius: 12px;
+    background: var(--aas-bg);
+    overflow: hidden;
+  }
+  .sdl-doc > header, .sdl-patch > header {
+    padding: 0.5em 0.8em;
+    font-size: 0.78em;
+    font-weight: 700;
+    color: var(--aas-muted);
+    border-bottom: 1px solid var(--aas-border);
+  }
+  .sdl-doc > header em { font-style: normal; font-weight: 400; margin-left: 0.4em; opacity: 0.8; }
+  .sdl-doc-body { padding: 0.8em; }
+
+  .sdl-doc-body :global(.sdl-title) { margin: 0 0 0.4em; font-size: 1em; color: var(--aas-text); border-radius: 5px; padding: 0.1em 0.2em; }
+  .sdl-doc-body :global(.sdl-meta) { display: flex; flex-wrap: wrap; gap: 0.45em; margin: 0 0 0.7em; }
+  .sdl-doc-body :global(.sdl-meta span) {
+    font-size: 0.74em; color: var(--aas-muted);
+    border: 1px solid var(--aas-border); border-radius: 999px; padding: 0.1em 0.55em;
+  }
+  .sdl-doc-body :global(.sdl-secs) { list-style: none; margin: 0 0 0.7em; padding: 0; display: grid; gap: 0.35em; }
+  .sdl-doc-body :global(.sdl-sec) {
+    display: grid; grid-template-columns: auto 1fr; gap: 0.15em 0.55em;
+    padding: 0.45em 0.6em; border: 1px solid var(--aas-border); border-radius: 9px;
+  }
+  .sdl-doc-body :global(.sdl-kind) { grid-row: 1 / 3; align-self: center; font-size: 0.74em; color: var(--aas-muted); }
+  .sdl-doc-body :global(.sdl-t) { font-size: 0.85em; color: var(--aas-text); }
+  .sdl-doc-body :global(.sdl-sec code) {
+    font-size: 0.7em; color: var(--aas-muted);
+    background: none !important; padding: 0; border: 0;
+  }
+  .sdl-doc-body :global(.sdl-empty) { font-size: 0.8em; color: var(--aas-muted); padding: 0.5em; }
+  .sdl-doc-body :global(.sdl-concl) { margin: 0; font-size: 0.82em; line-height: 1.6; color: var(--aas-text); border-radius: 5px; padding: 0.1em 0.2em; }
+  .sdl-doc-body :global(.sdl-concl em) { color: var(--aas-muted); }
+
+  .sdl-doc-body :global(.is-hot) {
+    background: color-mix(in srgb, var(--sdl-hot) 22%, transparent) !important;
+    border-color: var(--sdl-hot) !important;
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--sdl-hot) 45%, transparent);
+  }
+
+  /* 테마가 .prose pre에 어두운 배경을 !important로 건다. 배경을 되돌리려
+     들지 말고 글자를 그 배경에 맞춰 밝게 둔다 (본문 코드 블록과 같은 모양). */
+  .sdl-patch .sdl-code {
+    margin: 0;
+    padding: 0.7em 0.8em;
+    font-size: 0.7em;
+    line-height: 1.65;
+    overflow-x: auto;
+  }
+  .sdl-patch .sdl-code code {
+    color: #c9d1d9;
+    background: none;
+    padding: 0;
+    white-space: pre-wrap;
+    word-break: break-all;
+  }
+  .sdl-note { margin: 0; padding: 0.6em 0.8em; font-size: 0.79em; line-height: 1.65; color: var(--aas-muted); }
+
+  .sdl-foot { display: flex; align-items: center; gap: 0.7em; margin-top: 0.8em; }
+  .sdl-foot button {
+    padding: 0.35em 0.8em; border: 1px solid var(--aas-border); border-radius: 8px;
+    background: var(--aas-bg); color: var(--aas-muted); font-size: 0.78em; cursor: pointer;
+  }
+  .sdl-foot button:hover { border-color: var(--sdl-accent); color: var(--aas-text); }
+  .sdl-foot span { font-size: 0.76em; color: var(--aas-muted); }
+
+  @container (max-width: 36rem) {
+    .sdl-board { grid-template-columns: 1fr; }
+  }
+</style>

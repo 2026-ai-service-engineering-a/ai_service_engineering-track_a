@@ -29,6 +29,10 @@
   week08-service-lab을 `ast`로 파싱해 뽑은 심볼 61개와 관계 63건 (8주차 3장)
 - [week08-mcp-capture.md](week08-mcp-capture.md): `<McpTools />`.
   돌고 있는 MCP 서버에 붙어 받아 적은 JSON-RPC 왕복 (8주차 5장)
+- [week09-boxoffice-data.md](week09-boxoffice-data.md): 9주차 랩의 무대.
+  KOBIS 일별 박스오피스 1년치(46,452행)를 받아 전수조사한 기록 (9주차 2장)
+- [week09-agui-capture.md](week09-agui-capture.md): `<StateDelta />`.
+  `ag-ui-protocol`로 띄운 엔드포인트에 붙어 받아 적은 이벤트 스트림 (9주차 4장)
 
 ## 주차별 강의 문서
 
