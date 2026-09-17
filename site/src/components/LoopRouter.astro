@@ -36,6 +36,17 @@ const CASES = {
     rule: '**"이거 빼줘"도 여기 있다.** 무엇을 가리키는지는 선택이 알려 주고, 무엇을 할지는 정규식이 안다. 그래서 모델 호출이 0회다. v1 챗 위젯이라면 같은 말에 되물었을 자리다.',
     week: '6주차 (루프가 늘 답은 아니다)',
   },
+  refresh: {
+    say: '"3분기만" · "최근 3개월"',
+    kind: '다시 채우기',
+    tag: '언제만 바뀌었다',
+    path: ['router', '기간 패치', 'refresh', '섹션 전부 다시', 'collect'],
+    llm: 5,
+    steps: 4,
+    why: '무엇을 볼지는 그대로고 언제를 볼지만 바뀌었다. 계획을 다시 세울 이유가 없다.',
+    rule: '**기간을 읽는 것은 코드다.** 표현의 가짓수가 정해져 있고 뜻이 하나뿐이라 모델에게 물을 이유가 없고, 날짜를 틀리면 리포트 전체가 틀린다. 없는 구간은 잘라 주되 **잘랐다고 말한다.** 조용히 자르면 없는 구간이 0이라고 오해한다.',
+    week: '7주차 (확실한 것은 코드가) · 오늘',
+  },
   react: {
     say: '"8월 국적별 관객수 보여줘"',
     kind: 'ReAct',
@@ -96,6 +107,7 @@ const CASES = {
   <div class="lrt-cases">
     <button type="button" class="lrt-case" data-case="ui"><em>🖱 버튼</em><i>차트 종류를 바꾼다</i></button>
     <button type="button" class="lrt-case" data-case="one"><em>💬 한마디</em><i>"이거 빼줘"</i></button>
+    <button type="button" class="lrt-case" data-case="refresh"><em>📅 기간만</em><i>"3분기만"</i></button>
     <button type="button" class="lrt-case" data-case="react"><em>💬 조회</em><i>"국적별 관객수 보여줘"</i></button>
     <button type="button" class="lrt-case" data-case="plan"><em>💬 리포트</em><i>"8월 리포트 만들어줘"</i></button>
     <button type="button" class="lrt-case" data-case="fanout"><em>⇉ 섹션 넷</em><i>같은 요청, 더 넓게</i></button>
@@ -190,7 +202,7 @@ const CASES = {
   .lrt-head strong { font-size: 1.15em; color: var(--aas-text); }
   .lrt-head > span { font-size: 0.88em; line-height: 1.65; color: var(--aas-muted); }
 
-  .lrt-cases { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.45em; }
+  .lrt-cases { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.45em; }
   .lrt-case {
     display: flex; flex-direction: column; gap: 0.15em;
     padding: 0.6em 0.7em;
