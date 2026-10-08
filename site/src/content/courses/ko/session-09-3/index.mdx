@@ -4,6 +4,7 @@ description: "9주차 라이브 빌드 후속 교안: v0.5.0까지 자란 가계
 summary: "라이브 빌드의 두 번째 교안입니다. 지난 라이브 빌드에서 세운 가계부는 v0.5.0까지 왔고, AI 자리 넷 중 둘에 진짜 에이전트가 섰습니다. 그런데 그 에이전트는 아직 도구를 한 번도 고른 적이 없습니다. 오늘은 두 가지를 합니다. 앞 시간에는 tool calling을 짧게 복습하고 '저번 주에 카페 몇 번 갔어?'에 답하는 대화 통계를 세 회전으로 짓습니다. 모델은 마지막 회전에서만 들어옵니다. 뒤 시간에는 RAG를 복습하고 문서 Q&A를 v0.7.0까지 짓습니다. 자료는 가상 문서 대신 카드 소득공제·가맹점 의무·할부 철회를 다룬 실제 법령이고, 짓기 전에 열어 보고 계획부터 씁니다. 무엇을 정하고 무엇을 실험에 맡길지 가른 뒤, 모델 없는 키워드 검색에서 시작해 검색을 먼저 재고, 인용하는 답을 붙이고, 마지막에 그 검색을 채팅의 도구로 내놓아 두 기능을 잇습니다."
 date: 2026-10-08
 category: foundation
+slides: ["session-09-3"]
 tags: ["라이브 빌드", "tool calling", "ReAct", "도구 설계", "RAG", "청킹", "실제 데이터", "하이브리드 검색", "평가 설계", "기능 문서", "git flow"]
 level: 2
 order: "09-3"
@@ -912,7 +913,8 @@ curl -G "https://www.law.go.kr/DRF/lawSearch.do" \
   --data-urlencode "type=JSON" --data-urlencode "query=조세특례제한법"
 
 # 조문 하나. JO는 조 번호 4자리 + 가지 번호 2자리 (제126조의2 → 012602)
-curl "https://www.law.go.kr/DRF/lawService.do?OC=test&target=law&MST=284389&type=JSON&JO=012602"
+curl -G "https://www.law.go.kr/DRF/lawService.do" \
+  -d OC=test -d target=law -d type=JSON -d MST=284389 -d JO=012602
 ```
 
 - 결과 (줄임)
