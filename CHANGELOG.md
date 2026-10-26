@@ -8,6 +8,8 @@ git 태그(`vX.Y`)로, 사이트 버전은 `site/package.json`으로 관리한�
 
 ## [Unreleased]
 
+## [1.15.0] - 2026-10-26
+
 ### 추가
 
 - **11주차 교안** (`courses/ko/session-11/`): 14장 구성. 새로 배우는 것도
